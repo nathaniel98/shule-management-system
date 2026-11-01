@@ -1,27 +1,16 @@
-// Keep Lovable's built-in plugins. Do not add a second Nitro plugin.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-
-// Lovable preview uses its own sandbox target. Vercel builds must use
-// Nitro's Vercel preset and Vercel Build Output API directories.
-const isLovableSandbox =
-  process.env.LOVABLE_SANDBOX === "1" ||
-  !!process.env.DEV_SERVER__PROJECT_PATH;
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
-  tanstackStart: {
-    // Preserve the existing SSR server entry.
-    server: { entry: "server" },
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
   },
-  ...(isLovableSandbox
-    ? {}
-    : {
-        nitro: {
-          preset: "vercel",
-          output: {
-            dir: ".vercel/output",
-            serverDir: ".vercel/output/functions/__server.func",
-            publicDir: ".vercel/output/static",
-          },
-        },
-      }),
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+  },
 });
