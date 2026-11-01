@@ -1,0 +1,26 @@
+MAREKEBISHO YA VERCEL - SHULE MANAGEMENT SYSTEM
+
+ZIP hii ina mafaili mawili ya mipangilio:
+1. vite.config.ts
+2. vercel.json
+
+Kwa nini:
+Project yako inatumia TanStack Start na Lovable Vite config wrapper.
+Marekebisho haya yanaelekeza build ya Vercel kutumia Nitro Vercel preset,
+lakini yanaacha Lovable preview itumie sandbox yake ya kawaida.
+
+JINSI YA KUTUMIA:
+- Fungua GitHub repository: nathaniel98/shule-management-system
+- Weka mafaili haya kwenye ROOT ya repository (sehemu ileile ilipo package.json).
+- Badilisha vite.config.ts ya zamani kwa hii iliyo ndani ya ZIP.
+- Ongeza vercel.json kwenye ROOT.
+- Commit mabadiliko hayo kwenye branch ya main.
+
+MUHIMU:
+- Hii ni ZIP ya mafaili ya marekebisho tu, si source code yote ya website.
+- Usifute repository wala kuunda upya Vercel project.
+- Usibadilishe .env, Supabase keys, database tables au migrations.
+- Marekebisho haya hayafanyi mabadiliko yoyote kwenye database ya Supabase.
+
+Baada ya commit, Vercel inapaswa kuona mabadiliko ya main na kuanzisha deployment.
+Kama haitaanza, tutahitaji kukagua Git deployment settings za Vercel.
