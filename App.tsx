@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+https://github.com/nathaniel98/shule-management-system/edit/main/App.tsx?utm_source=chatgpt.com
 import { Activity, BookOpen, Building2, CalendarDays, ChartNoAxesCombined, ChevronDown, CircleHelp, ClipboardList, GraduationCap, LayoutDashboard, LogOut, Menu, School, Settings, ShieldCheck, Users, Wallet, X } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from './supabase';
 
