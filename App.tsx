@@ -375,10 +375,12 @@ function App() {
                 </section>
               </div>
             </>
-          ) : section === 'schools' ? (
+                      ) : section === 'schools' ? (
             <SchoolModule />
           ) : section === 'students' ? (
             <StudentsModule />
+          ) : section === 'teachers' ? (
+            <TeachersModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
