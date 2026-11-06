@@ -137,9 +137,9 @@ export default function TeachersModule() {
       } catch (e) {
         if (active) {
           setError(
-            e instanceof Error
-              ? e.message
-              : 'Imeshindikana kupakia walimu.'
+            setError(
+  getErrorMessage(e, 'Imeshindikana kupakia walimu.')
+);
           );
         }
       } finally {
@@ -167,9 +167,7 @@ export default function TeachersModule() {
       await loadTeachers(id);
     } catch (e) {
       setError(
-        e instanceof Error
-          ? e.message
-          : 'Imeshindikana kupakia walimu.'
+        getErrorMessage(e, 'Imeshindikana kupakia walimu.')
       );
     } finally {
       setLoading(false);
