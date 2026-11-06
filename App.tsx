@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
+import TeachersModule from './src/TeachersModule';
 import {
   Activity,
   BookOpen,
