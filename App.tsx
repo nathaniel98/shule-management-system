@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
-import { StudentsModule } from './src/StudentsModule';
+import StudentsModule from './src/StudentsModule';
 import {
   Activity,
   BookOpen,
