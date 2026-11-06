@@ -1,5 +1,11 @@
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type CSSProperties
+} from 'react';
 import { supabase } from './supabase';
 
 type School = {
@@ -24,14 +30,30 @@ type Teacher = {
   created_at?: string | null;
 };
 
-const emptyForm = {
-  function getErrorMessage(error: unknown, fallback: string) {
+type TeacherForm = {
+  employee_no: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  photo_url: string;
+  employment_date: string;
+  status: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'message' in error) {
     const message = (error as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
   }
   return fallback;
-  }
+}
+
+const emptyForm: TeacherForm = {
   employee_no: '',
   first_name: '',
   middle_name: '',
@@ -44,7 +66,7 @@ const emptyForm = {
   status: 'Active'
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   padding: '12px 14px',
@@ -55,7 +77,7 @@ const inputStyle: React.CSSProperties = {
   color: '#1e293b'
 };
 
-const labelStyle: React.CSSProperties = {
+const labelStyle: CSSProperties = {
   display: 'grid',
   gap: 7,
   fontWeight: 600,
@@ -63,7 +85,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: 14
 };
 
-const buttonStyle: React.CSSProperties = {
+const buttonStyle: CSSProperties = {
   border: 0,
   borderRadius: 9,
   padding: '10px 14px',
@@ -77,7 +99,7 @@ export default function TeachersModule() {
   const [schools, setSchools] = useState<School[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [schoolId, setSchoolId] = useState('');
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<TeacherForm>(emptyForm);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,7 +109,7 @@ export default function TeachersModule() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  async function loadTeachers(id = schoolId) {
+  async function loadTeachers(id: string) {
     if (!id) {
       setTeachers([]);
       return;
@@ -100,6 +122,7 @@ export default function TeachersModule() {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
     setTeachers((data || []) as Teacher[]);
   }
 
@@ -122,24 +145,26 @@ export default function TeachersModule() {
         const rows = (data || []) as School[];
         setSchools(rows);
 
-        if (rows.length) {
-          setSchoolId(rows[0].id);
+        if (rows.length > 0) {
+          const firstSchoolId = rows[0].id;
+          setSchoolId(firstSchoolId);
 
           const result = await supabase
             .from('teachers')
             .select('*')
-            .eq('school_id', rows[0].id)
+            .eq('school_id', firstSchoolId)
             .order('created_at', { ascending: false });
 
           if (result.error) throw result.error;
-          if (active) setTeachers((result.data || []) as Teacher[]);
+
+          if (active) {
+            setTeachers((result.data || []) as Teacher[]);
+          }
         }
       } catch (e) {
         if (active) {
           setError(
-            setError(
-  getErrorMessage(e, 'Imeshindikana kupakia walimu.')
-);
+            getErrorMessage(e, 'Imeshindikana kupakia walimu.')
           );
         }
       } finally {
@@ -260,14 +285,15 @@ export default function TeachersModule() {
 
       setEditingId(null);
       setForm(emptyForm);
+
       await loadTeachers(schoolId);
     } catch (e) {
-      const err = e as { message?: string; code?: string };
+      const err = e as { code?: string };
 
       setError(
         err.code === '23505'
           ? 'Namba hii ya ajira tayari imetumika.'
-          : err.message || 'Imeshindikana kuhifadhi taarifa.'
+          : getErrorMessage(e, 'Imeshindikana kuhifadhi taarifa.')
       );
     } finally {
       setSaving(false);
@@ -311,10 +337,8 @@ export default function TeachersModule() {
 
       setMessage(`${name} amefutwa kikamilifu.`);
     } catch (e) {
-      const err = e as { message?: string };
-
       setError(
-        err.message || 'Imeshindikana kufuta mwalimu.'
+        getErrorMessage(e, 'Imeshindikana kufuta mwalimu.')
       );
     } finally {
       setDeletingId(null);
@@ -352,9 +376,7 @@ export default function TeachersModule() {
       await loadTeachers(schoolId);
     } catch (e) {
       setError(
-        e instanceof Error
-          ? e.message
-          : 'Imeshindikana kuonyesha walimu.'
+        getErrorMessage(e, 'Imeshindikana kuonyesha walimu.')
       );
     }
   }
@@ -383,7 +405,8 @@ export default function TeachersModule() {
             color: '#b42318',
             padding: 12,
             borderRadius: 9,
-            marginBottom: 14
+            marginBottom: 14,
+            overflowWrap: 'anywhere'
           }}>
             {error}
           </div>
@@ -683,46 +706,28 @@ export default function TeachersModule() {
             <tbody>
               {visibleTeachers.map(t => (
                 <tr key={t.id}>
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {t.employee_no}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {[t.first_name, t.middle_name, t.last_name]
                       .filter(Boolean).join(' ')}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {t.phone || '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {t.email || '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {t.employment_date || '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {t.status || '—'}
                   </td>
 
