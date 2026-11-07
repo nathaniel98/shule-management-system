@@ -1,8 +1,10 @@
+
 import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
 import TeachersModule from './src/TeachersModule';
+import StreamsModule from './src/StreamsModule';
 import {
   Activity,
   BookOpen,
@@ -31,6 +33,7 @@ type Section =
   | 'students'
   | 'teachers'
   | 'classes'
+  | 'streams'
   | 'subjects'
   | 'exams'
   | 'results'
@@ -44,6 +47,7 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'students', label: 'Wanafunzi', icon: GraduationCap },
   { id: 'teachers', label: 'Walimu', icon: Users },
   { id: 'classes', label: 'Madarasa', icon: Building2 },
+  { id: 'streams', label: 'Mikondo', icon: Users },
   { id: 'subjects', label: 'Masomo', icon: BookOpen },
   { id: 'exams', label: 'Mitihani', icon: ClipboardList },
   { id: 'results', label: 'Matokeo', icon: ChartNoAxesCombined },
@@ -375,15 +379,17 @@ function App() {
                 </section>
               </div>
             </>
-                      ) : section === 'schools' ? (
+          ) : section === 'schools' ? (
             <SchoolModule />
           ) : section === 'students' ? (
             <StudentsModule />
           ) : section === 'teachers' ? (
-  <TeachersModule />
-) : section === 'classes' ? (
-  <ClassesModule />
-) : (
+            <TeachersModule />
+          ) : section === 'classes' ? (
+            <ClassesModule />
+          ) : section === 'streams' ? (
+            <StreamsModule />
+          ) : (
             <section className="panel module-panel">
               <div className="module-icon">
                 <current.icon size={25} />
