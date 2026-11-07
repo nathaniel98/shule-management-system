@@ -18,7 +18,7 @@ type SchoolClass = {
 
 const emptyForm = {
   class_name: '',
-  education_level: 'Tanzania',
+  education_level: 'Primary',
   sort_order: ''
 };
 
@@ -39,6 +39,12 @@ const button: React.CSSProperties = {
   color: 'white',
   fontWeight: 700
 };
+
+const educationLevels = [
+  'Primary',
+  'Ordinary Secondary',
+  'Advanced Secondary'
+];
 
 export default function ClassesModule() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -63,9 +69,13 @@ export default function ClassesModule() {
       .from('classes')
       .select('id,school_id,class_name,education_level,sort_order')
       .eq('school_id', id)
-      .order('sort_order', { ascending: true, nullsFirst: false });
+      .order('sort_order', {
+        ascending: true,
+        nullsFirst: false
+      });
 
     if (error) throw error;
+
     setClasses((data || []) as SchoolClass[]);
   }
 
@@ -83,28 +93,43 @@ export default function ClassesModule() {
         if (!active) return;
 
         const rows = (data || []) as School[];
+
         setSchools(rows);
 
-        if (rows.length) {
+        if (rows.length > 0) {
           setSchoolId(rows[0].id);
+
           const result = await supabase
             .from('classes')
             .select('id,school_id,class_name,education_level,sort_order')
             .eq('school_id', rows[0].id)
-            .order('sort_order', { ascending: true, nullsFirst: false });
+            .order('sort_order', {
+              ascending: true,
+              nullsFirst: false
+            });
 
           if (result.error) throw result.error;
-          if (active) setClasses((result.data || []) as SchoolClass[]);
+
+          if (active) {
+            setClasses((result.data || []) as SchoolClass[]);
+          }
         }
       } catch (e) {
-        if (active) setError((e as Error).message);
+        if (active) {
+          setError((e as Error).message);
+        }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     initialise();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function changeSchool(id: string) {
@@ -126,11 +151,16 @@ export default function ClassesModule() {
 
   function editClass(item: SchoolClass) {
     setEditingId(item.id);
+
     setForm({
       class_name: item.class_name,
       education_level: item.education_level,
-      sort_order: item.sort_order == null ? '' : String(item.sort_order)
+      sort_order:
+        item.sort_order == null
+          ? ''
+          : String(item.sort_order)
     });
+
     setError('');
     setNotice('');
   }
@@ -143,11 +173,20 @@ export default function ClassesModule() {
       return;
     }
 
-    const order = form.sort_order.trim() === ''
-      ? null
-      : Number(form.sort_order);
+    if (!educationLevels.includes(form.education_level)) {
+      setError('Chagua ngazi sahihi ya elimu.');
+      return;
+    }
 
-    if (order !== null && (!Number.isInteger(order) || order < 0)) {
+    const order =
+      form.sort_order.trim() === ''
+        ? null
+        : Number(form.sort_order);
+
+    if (
+      order !== null &&
+      (!Number.isInteger(order) || order < 0)
+    ) {
       setError('Mpangilio lazima uwe namba kamili isiyo hasi.');
       return;
     }
@@ -165,17 +204,26 @@ export default function ClassesModule() {
 
     try {
       const result = editingId
-        ? await supabase.from('classes')
+        ? await supabase
+            .from('classes')
             .update(payload)
             .eq('id', editingId)
             .eq('school_id', schoolId)
-        : await supabase.from('classes').insert(payload);
+        : await supabase
+            .from('classes')
+            .insert(payload);
 
       if (result.error) throw result.error;
 
-      setNotice(editingId ? 'Darasa limehaririwa.' : 'Darasa limeongezwa.');
+      setNotice(
+        editingId
+          ? 'Darasa limehaririwa.'
+          : 'Darasa limeongezwa.'
+      );
+
       setEditingId(null);
       setForm(emptyForm);
+
       await loadClasses(schoolId);
     } catch (e) {
       setError((e as Error).message);
@@ -185,10 +233,18 @@ export default function ClassesModule() {
   }
 
   async function deleteClass(item: SchoolClass) {
-    if (!window.confirm(`Una uhakika unataka kufuta ${item.class_name}?`)) return;
+    if (
+      !window.confirm(
+        `Una uhakika unataka kufuta ${item.class_name}?`
+      )
+    ) {
+      return;
+    }
 
     try {
       setError('');
+      setNotice('');
+
       const { error } = await supabase
         .from('classes')
         .delete()
@@ -197,8 +253,12 @@ export default function ClassesModule() {
 
       if (error) throw error;
 
-      setClasses(current => current.filter(row => row.id !== item.id));
+      setClasses(current =>
+        current.filter(row => row.id !== item.id)
+      );
+
       setNotice('Darasa limefutwa.');
+
       if (editingId === item.id) {
         setEditingId(null);
         setForm(emptyForm);
@@ -214,6 +274,7 @@ export default function ClassesModule() {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     return classes.filter(item =>
       (!q || item.class_name.toLowerCase().includes(q)) &&
       (level === 'All' || item.education_level === level)
@@ -221,15 +282,32 @@ export default function ClassesModule() {
   }, [classes, search, level]);
 
   return (
-    <div style={{ display: 'grid', gap: 22, color: '#243447' }}>
-      <section style={{
-        background: 'white', padding: 20,
-        border: '1px solid #e2e8f0', borderRadius: 18
-      }}>
-        <h2>{editingId ? 'Hariri Darasa' : 'Usajili wa Madarasa'}</h2>
+    <div
+      style={{
+        display: 'grid',
+        gap: 22,
+        color: '#243447'
+      }}
+    >
+      <section
+        style={{
+          background: 'white',
+          padding: 20,
+          border: '1px solid #e2e8f0',
+          borderRadius: 18
+        }}
+      >
+        <h2>
+          {editingId ? 'Hariri Darasa' : 'Usajili wa Madarasa'}
+        </h2>
 
-        {error && <p style={{ color: '#b42318' }}>{error}</p>}
-        {notice && <p style={{ color: '#16845b' }}>{notice}</p>}
+        {error && (
+          <p style={{ color: '#b42318' }}>{error}</p>
+        )}
+
+        {notice && (
+          <p style={{ color: '#16845b' }}>{notice}</p>
+        )}
 
         <label>
           Chagua shule
@@ -239,6 +317,8 @@ export default function ClassesModule() {
             disabled={!!editingId}
             onChange={e => changeSchool(e.target.value)}
           >
+            <option value="">Chagua shule</option>
+
             {schools.map(s => (
               <option key={s.id} value={s.id}>
                 {s.school_name}
@@ -247,12 +327,16 @@ export default function ClassesModule() {
           </select>
         </label>
 
-        <form onSubmit={saveClass} style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))',
-          gap: 14,
-          marginTop: 18
-        }}>
+        <form
+          onSubmit={saveClass}
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit,minmax(190px,1fr))',
+            gap: 14,
+            marginTop: 18
+          }}
+        >
           <label>
             Jina la darasa *
             <input
@@ -260,20 +344,35 @@ export default function ClassesModule() {
               required
               placeholder="Mfano: Darasa la I"
               value={form.class_name}
-              onChange={e => setForm({ ...form, class_name: e.target.value })}
+              onChange={e =>
+                setForm({
+                  ...form,
+                  class_name: e.target.value
+                })
+              }
             />
           </label>
 
           <label>
-            Mfumo wa elimu
+            Ngazi ya elimu *
             <select
               style={input}
+              required
               value={form.education_level}
-              onChange={e => setForm({ ...form, education_level: e.target.value })}
+              onChange={e =>
+                setForm({
+                  ...form,
+                  education_level: e.target.value
+                })
+              }
             >
-              <option value="Tanzania">Tanzania Bara</option>
-              <option value="Zanzibar">Zanzibar</option>
-              <option value="Other">Mwingine</option>
+              <option value="Primary">Primary</option>
+              <option value="Ordinary Secondary">
+                Ordinary Secondary
+              </option>
+              <option value="Advanced Secondary">
+                Advanced Secondary
+              </option>
             </select>
           </label>
 
@@ -285,21 +384,46 @@ export default function ClassesModule() {
               min="0"
               step="1"
               value={form.sort_order}
-              onChange={e => setForm({ ...form, sort_order: e.target.value })}
+              onChange={e =>
+                setForm({
+                  ...form,
+                  sort_order: e.target.value
+                })
+              }
             />
           </label>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
-            <button style={button} disabled={saving}>
-              {saving ? 'Inahifadhi...' : editingId ? 'Hifadhi Mabadiliko' : 'Sajili Darasa'}
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'end',
+              flexWrap: 'wrap'
+            }}
+          >
+            <button
+              style={button}
+              disabled={saving || !schoolId}
+            >
+              {saving
+                ? 'Inahifadhi...'
+                : editingId
+                  ? 'Hifadhi Mabadiliko'
+                  : 'Sajili Darasa'}
             </button>
+
             {editingId && (
               <button
                 type="button"
-                style={{ ...button, background: '#64748b' }}
+                style={{
+                  ...button,
+                  background: '#64748b'
+                }}
                 onClick={() => {
                   setEditingId(null);
                   setForm(emptyForm);
+                  setError('');
+                  setNotice('');
                 }}
               >
                 Ghairi
@@ -309,53 +433,112 @@ export default function ClassesModule() {
         </form>
       </section>
 
-      <section style={{
-        background: 'white', padding: 20,
-        border: '1px solid #e2e8f0', borderRadius: 18,
-        overflowX: 'auto'
-      }}>
+      <section
+        style={{
+          background: 'white',
+          padding: 20,
+          border: '1px solid #e2e8f0',
+          borderRadius: 18,
+          overflowX: 'auto'
+        }}
+      >
         <h2>Madarasa ({visible.length})</h2>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))',
-          gap: 10
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit,minmax(190px,1fr))',
+            gap: 10
+          }}
+        >
           <input
             style={input}
             placeholder="Tafuta darasa..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <select style={input} value={level} onChange={e => setLevel(e.target.value)}>
-            <option value="All">Mifumo yote</option>
-            {levels.map(x => <option key={x} value={x}>{x}</option>)}
+
+          <select
+            style={input}
+            value={level}
+            onChange={e => setLevel(e.target.value)}
+          >
+            <option value="All">Ngazi zote</option>
+
+            {levels.map(x => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
           </select>
         </div>
 
-        {loading ? <p>Inapakia...</p> : visible.length === 0 ? (
+        {loading ? (
+          <p>Inapakia...</p>
+        ) : visible.length === 0 ? (
           <p>Hakuna madarasa yaliyopatikana.</p>
         ) : (
-          <table style={{ width: '100%', minWidth: 500, borderCollapse: 'collapse', marginTop: 16 }}>
+          <table
+            style={{
+              width: '100%',
+              minWidth: 500,
+              borderCollapse: 'collapse',
+              marginTop: 16
+            }}
+          >
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: 10 }}>Mpangilio</th>
-                <th style={{ textAlign: 'left', padding: 10 }}>Darasa</th>
-                <th style={{ textAlign: 'left', padding: 10 }}>Mfumo</th>
-                <th style={{ textAlign: 'left', padding: 10 }}>Vitendo</th>
+                <th style={{ textAlign: 'left', padding: 10 }}>
+                  Mpangilio
+                </th>
+                <th style={{ textAlign: 'left', padding: 10 }}>
+                  Darasa
+                </th>
+                <th style={{ textAlign: 'left', padding: 10 }}>
+                  Ngazi ya elimu
+                </th>
+                <th style={{ textAlign: 'left', padding: 10 }}>
+                  Vitendo
+                </th>
               </tr>
             </thead>
+
             <tbody>
               {visible.map(item => (
                 <tr key={item.id}>
-                  <td style={{ padding: 10 }}>{item.sort_order ?? '—'}</td>
-                  <td style={{ padding: 10 }}>{item.class_name}</td>
-                  <td style={{ padding: 10 }}>{item.education_level}</td>
-                  <td style={{ padding: 10, whiteSpace: 'nowrap' }}>
-                    <button style={button} onClick={() => editClass(item)}>Edit</button>
-                    {' '}
+                  <td style={{ padding: 10 }}>
+                    {item.sort_order ?? '—'}
+                  </td>
+
+                  <td style={{ padding: 10 }}>
+                    {item.class_name}
+                  </td>
+
+                  <td style={{ padding: 10 }}>
+                    {item.education_level}
+                  </td>
+
+                  <td
+                    style={{
+                      padding: 10,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     <button
-                      style={{ ...button, background: '#b42318' }}
+                      style={button}
+                      onClick={() => editClass(item)}
+                    >
+                      Edit
+                    </button>
+
+                    {' '}
+
+                    <button
+                      style={{
+                        ...button,
+                        background: '#b42318'
+                      }}
                       onClick={() => deleteClass(item)}
                     >
                       Delete
