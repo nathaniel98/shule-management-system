@@ -1,4 +1,4 @@
-
+import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
@@ -380,8 +380,10 @@ function App() {
           ) : section === 'students' ? (
             <StudentsModule />
           ) : section === 'teachers' ? (
-            <TeachersModule />
-          ) : (
+  <TeachersModule />
+) : section === 'classes' ? (
+  <ClassesModule />
+) : (
             <section className="panel module-panel">
               <div className="module-icon">
                 <current.icon size={25} />
