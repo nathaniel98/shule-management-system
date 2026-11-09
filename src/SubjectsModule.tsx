@@ -150,6 +150,7 @@ export default function SubjectsModule() {
     });
     setError('');
     setNotice('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function saveSubject(e: FormEvent<HTMLFormElement>) {
@@ -254,13 +255,153 @@ export default function SubjectsModule() {
   }, [subjects, search, levelFilter]);
 
   return (
-    <div style={{ display: 'grid', gap: 20, color: '#243447' }}>
-      <section style={{
-        background: 'white',
-        padding: 20,
-        border: '1px solid #e2e8f0',
-        borderRadius: 18
-      }}>
+    <div className="subjects-module">
+      <style>{`
+        .subjects-module {
+          display: grid;
+          gap: 20px;
+          color: #243447;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .subjects-card {
+          background: white;
+          padding: 20px;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          min-width: 0;
+        }
+
+        .subjects-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 14px;
+          table-layout: auto;
+        }
+
+        .subjects-table th,
+        .subjects-table td {
+          padding: 12px;
+          text-align: left;
+          border-bottom: 1px solid #e2e8f0;
+          vertical-align: middle;
+        }
+
+        .subjects-table th {
+          background: #f8fafc;
+          font-weight: 700;
+        }
+
+        .subject-name-cell {
+          overflow-wrap: anywhere;
+          word-break: normal;
+        }
+
+        .subject-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .subject-action-btn {
+          padding: 9px 13px;
+          border: 0;
+          border-radius: 9px;
+          color: white;
+          font-weight: 700;
+          cursor: pointer;
+          min-height: 40px;
+        }
+
+        .subject-edit {
+          background: #173b5e;
+        }
+
+        .subject-delete {
+          background: #b42318;
+        }
+
+        @media (max-width: 600px) {
+          .subjects-card {
+            padding: 15px;
+            border-radius: 15px;
+          }
+
+          .subjects-card h2 {
+            font-size: 21px;
+            line-height: 1.35;
+          }
+
+          .subjects-table,
+          .subjects-table tbody {
+            display: block;
+            width: 100%;
+          }
+
+          .subjects-table thead {
+            display: none;
+          }
+
+          .subjects-table tr {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 12px 0;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+          }
+
+          .subjects-table td {
+            display: grid;
+            grid-template-columns: 105px minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf0f4;
+            overflow-wrap: anywhere;
+            white-space: normal;
+          }
+
+          .subjects-table td:last-child {
+            border-bottom: 0;
+          }
+
+          .subjects-table td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            color: #475569;
+          }
+
+          .subjects-table td.subject-actions-cell {
+            display: block;
+          }
+
+          .subjects-table td.subject-actions-cell::before {
+            display: block;
+            margin-bottom: 9px;
+          }
+
+          .subject-actions {
+            display: flex;
+            width: 100%;
+            gap: 10px;
+          }
+
+          .subject-action-btn {
+            flex: 1;
+            min-width: 0;
+            padding: 11px 8px;
+            font-size: 14px;
+          }
+        }
+      `}</style>
+
+      <section className="subjects-card">
         <h2>{editingId ? 'Hariri Somo' : 'Usajili wa Masomo'}</h2>
 
         {error && <p style={{ color: '#b42318' }}>{error}</p>}
@@ -358,18 +499,12 @@ export default function SubjectsModule() {
         </form>
       </section>
 
-      <section style={{
-        background: 'white',
-        padding: 20,
-        border: '1px solid #e2e8f0',
-        borderRadius: 18,
-        overflowX: 'auto'
-      }}>
+      <section className="subjects-card">
         <h2>Masomo Yaliyosajiliwa ({visible.length})</h2>
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))',
+          gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,190px),1fr))',
           gap: 10
         }}>
           <input
@@ -393,41 +528,40 @@ export default function SubjectsModule() {
 
         {loading ? <p>Inapakia...</p> :
           visible.length === 0 ? <p>Hakuna masomo yaliyopatikana.</p> : (
-          <table style={{
-            width: '100%',
-            minWidth: 560,
-            borderCollapse: 'collapse',
-            marginTop: 14
-          }}>
+          <table className="subjects-table">
             <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                <th style={{ padding: 11, textAlign: 'left' }}>Na.</th>
-                <th style={{ padding: 11, textAlign: 'left' }}>Code</th>
-                <th style={{ padding: 11, textAlign: 'left' }}>Jina la somo</th>
-                <th style={{ padding: 11, textAlign: 'left' }}>Ngazi</th>
-                <th style={{ padding: 11, textAlign: 'left' }}>Vitendo</th>
+              <tr>
+                <th>Na.</th>
+                <th>Code</th>
+                <th>Jina la somo</th>
+                <th>Ngazi</th>
+                <th>Vitendo</th>
               </tr>
             </thead>
             <tbody>
               {visible.map((item, index) => (
                 <tr key={item.id}>
-                  <td style={{ padding: 11 }}>{index + 1}</td>
-                  <td style={{ padding: 11 }}>{item.subject_code}</td>
-                  <td style={{ padding: 11 }}>{item.subject_name}</td>
-                  <td style={{ padding: 11 }}>{item.education_level}</td>
-                  <td style={{ padding: 11, whiteSpace: 'nowrap' }}>
-                    <button
-                      onClick={() => editSubject(item)}
-                      style={{ ...buttonStyle, padding: '8px 11px', marginRight: 6 }}
-                    >
-                      Hariri
-                    </button>
-                    <button
-                      onClick={() => deleteSubject(item)}
-                      style={{ ...buttonStyle, padding: '8px 11px', background: '#b42318' }}
-                    >
-                      Futa
-                    </button>
+                  <td data-label="Na.">{index + 1}</td>
+                  <td data-label="Code">{item.subject_code}</td>
+                  <td data-label="Jina la somo" className="subject-name-cell">
+                    {item.subject_name}
+                  </td>
+                  <td data-label="Ngazi">{item.education_level}</td>
+                  <td data-label="Vitendo" className="subject-actions-cell">
+                    <div className="subject-actions">
+                      <button
+                        onClick={() => editSubject(item)}
+                        className="subject-action-btn subject-edit"
+                      >
+                        Hariri
+                      </button>
+                      <button
+                        onClick={() => deleteSubject(item)}
+                        className="subject-action-btn subject-delete"
+                      >
+                        Futa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
