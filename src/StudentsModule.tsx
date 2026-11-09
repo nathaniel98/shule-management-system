@@ -1,10 +1,11 @@
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
 type School = {
   id: string;
   school_name: string;
-  school_code?: string | null;
+  school_code?: string;
 };
 
 type Student = {
@@ -12,40 +13,27 @@ type Student = {
   school_id: string;
   admission_no: string;
   first_name: string;
-  middle_name: string | null;
+  middle_name?: string | null;
   last_name: string;
-  gender: string | null;
-  date_of_birth: string | null;
-  photo_url: string | null;
-  phone: string | null;
-  address: string | null;
-  admission_date: string | null;
-  status: string | null;
-  created_at: string;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  photo_url?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  admission_date?: string | null;
+  status?: string | null;
+  photo_display?: string | null;
 };
 
-type StudentForm = {
-  admission_no: string;
-  first_name: string;
-  middle_name: string;
-  last_name: string;
-  gender: string;
-  date_of_birth: string;
-  photo_url: string;
-  phone: string;
-  address: string;
-  admission_date: string;
-  status: string;
-};
+const BUCKET = 'student-photos';
 
-const emptyForm: StudentForm = {
+const emptyForm = {
   admission_no: '',
   first_name: '',
   middle_name: '',
   last_name: '',
   gender: '',
   date_of_birth: '',
-  photo_url: '',
   phone: '',
   address: '',
   admission_date: '',
@@ -85,7 +73,9 @@ export default function StudentsModule() {
   const [schools, setSchools] = useState<School[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [schoolId, setSchoolId] = useState('');
-  const [form, setForm] = useState<StudentForm>(emptyForm);
+  const [form, setForm] = useState(emptyForm);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,7 +84,27 @@ export default function StudentsModule() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
 
-  async function loadStudents(id: string) {
+  async function getPhotoUrl(path?: string | null) {
+    if (!path) return null;
+
+    // Backward compatibility for previously saved full URLs.
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(path, 3600);
+
+    if (error) {
+      console.error('Photo URL error:', error.message);
+      return null;
+    }
+
+    return data.signedUrl;
+  }
+
+  async function loadStudents(id = schoolId) {
     if (!id) {
       setStudents([]);
       return;
@@ -102,28 +112,22 @@ export default function StudentsModule() {
 
     const { data, error } = await supabase
       .from('students')
-      .select(`
-        id,
-        school_id,
-        admission_no,
-        first_name,
-        middle_name,
-        last_name,
-        gender,
-        date_of_birth,
-        photo_url,
-        phone,
-        address,
-        admission_date,
-        status,
-        created_at
-      `)
+      .select('*')
       .eq('school_id', id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    setStudents((data || []) as Student[]);
+    const rows = (data || []) as Student[];
+
+    const withPhotos = await Promise.all(
+      rows.map(async student => ({
+        ...student,
+        photo_display: await getPhotoUrl(student.photo_url)
+      }))
+    );
+
+    setStudents(withPhotos);
   }
 
   useEffect(() => {
@@ -145,36 +149,28 @@ export default function StudentsModule() {
         const rows = (data || []) as School[];
         setSchools(rows);
 
-        if (rows.length > 0) {
+        if (rows.length) {
           setSchoolId(rows[0].id);
 
           const { data: studentData, error: studentError } =
             await supabase
               .from('students')
-              .select(`
-                id,
-                school_id,
-                admission_no,
-                first_name,
-                middle_name,
-                last_name,
-                gender,
-                date_of_birth,
-                photo_url,
-                phone,
-                address,
-                admission_date,
-                status,
-                created_at
-              `)
+              .select('*')
               .eq('school_id', rows[0].id)
               .order('created_at', { ascending: false });
 
           if (studentError) throw studentError;
 
-          if (active) {
-            setStudents((studentData || []) as Student[]);
-          }
+          const studentRows = (studentData || []) as Student[];
+
+          const withPhotos = await Promise.all(
+            studentRows.map(async student => ({
+              ...student,
+              photo_display: await getPhotoUrl(student.photo_url)
+            }))
+          );
+
+          if (active) setStudents(withPhotos);
         }
       } catch (e) {
         if (active) {
@@ -200,6 +196,8 @@ export default function StudentsModule() {
     setSchoolId(id);
     setEditingId(null);
     setForm(emptyForm);
+    setPhotoFile(null);
+    setPhotoPreview('');
     setError('');
     setMessage('');
 
@@ -217,6 +215,24 @@ export default function StudentsModule() {
     }
   }
 
+  function choosePhoto(file?: File) {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Chagua picha yenye mfumo wa JPG, PNG au picha nyingine.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Picha isiwe kubwa kuliko MB 5.');
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setError('');
+  }
+
   function startEdit(student: Student) {
     setEditingId(student.id);
 
@@ -227,13 +243,14 @@ export default function StudentsModule() {
       last_name: student.last_name || '',
       gender: student.gender || '',
       date_of_birth: student.date_of_birth || '',
-      photo_url: student.photo_url || '',
       phone: student.phone || '',
       address: student.address || '',
       admission_date: student.admission_date || '',
       status: student.status || 'Active'
     });
 
+    setPhotoFile(null);
+    setPhotoPreview(student.photo_display || '');
     setError('');
     setMessage('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -242,8 +259,32 @@ export default function StudentsModule() {
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm);
+    setPhotoFile(null);
+    setPhotoPreview('');
     setError('');
     setMessage('');
+  }
+
+  async function uploadPhoto(): Promise<string | null> {
+    if (!photoFile) return null;
+
+    const extension =
+      photoFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+
+    const filePath =
+      `${schoolId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, photoFile, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: photoFile.type
+      });
+
+    if (error) throw error;
+
+    return filePath;
   }
 
   async function saveStudent(event: FormEvent<HTMLFormElement>) {
@@ -269,37 +310,39 @@ export default function StudentsModule() {
     setError('');
     setMessage('');
 
-    const payload: Record<string, string | null> = {
-      school_id: schoolId,
-      admission_no: form.admission_no.trim(),
-      first_name: form.first_name.trim(),
-      middle_name: form.middle_name.trim() || null,
-      last_name: form.last_name.trim(),
-      date_of_birth: form.date_of_birth || null,
-      phone: form.phone.trim() || null,
-      address: form.address.trim() || null,
-      admission_date: form.admission_date || null,
-      status: form.status
-    };
-
-    // Hifadhi taarifa hizi pale tu zinapojazwa.
-    if (form.gender.trim()) {
-      payload.gender = form.gender;
-    }
-
-    if (form.photo_url.trim()) {
-      payload.photo_url = form.photo_url.trim();
-    }
+    let uploadedPath: string | null = null;
 
     try {
+      if (photoFile) {
+        uploadedPath = await uploadPhoto();
+      }
+
+      const payload: Record<string, unknown> = {
+        school_id: schoolId,
+        admission_no: form.admission_no.trim(),
+        first_name: form.first_name.trim(),
+        middle_name: form.middle_name.trim() || null,
+        last_name: form.last_name.trim(),
+        gender: form.gender || null,
+        date_of_birth: form.date_of_birth || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        admission_date: form.admission_date || null,
+        status: form.status
+      };
+
+      if (uploadedPath) {
+        payload.photo_url = uploadedPath;
+      } else if (!editingId) {
+        payload.photo_url = null;
+      }
+
       let result;
 
       if (editingId) {
-        const { school_id: _schoolId, ...updatePayload } = payload;
-
         result = await supabase
           .from('students')
-          .update(updatePayload)
+          .update(payload)
           .eq('id', editingId)
           .eq('school_id', schoolId);
       } else {
@@ -318,10 +361,19 @@ export default function StudentsModule() {
 
       setEditingId(null);
       setForm(emptyForm);
+      setPhotoFile(null);
+      setPhotoPreview('');
 
       await loadStudents(schoolId);
     } catch (e) {
       const err = e as { message?: string; code?: string };
+
+      // Remove newly uploaded file if the database save failed.
+      if (uploadedPath) {
+        await supabase.storage
+          .from(BUCKET)
+          .remove([uploadedPath]);
+      }
 
       setError(
         err.code === '23505'
@@ -341,7 +393,7 @@ export default function StudentsModule() {
     ].filter(Boolean).join(' ');
 
     const confirmed = window.confirm(
-      `Una uhakika unataka kumfuta ${fullName} (${student.admission_no})?`
+      `Una uhakika unataka kumfuta ${fullName} (${student.admission_no})? Kitendo hiki hakiwezi kurejeshwa.`
     );
 
     if (!confirmed) return;
@@ -359,22 +411,33 @@ export default function StudentsModule() {
 
       if (error) throw error;
 
+      // Remove the student's stored photo after deleting the record.
+      if (
+        student.photo_url &&
+        !student.photo_url.startsWith('http://') &&
+        !student.photo_url.startsWith('https://')
+      ) {
+        const { error: photoError } = await supabase.storage
+          .from(BUCKET)
+          .remove([student.photo_url]);
+
+        if (photoError) {
+          console.error('Photo deletion error:', photoError.message);
+        }
+      }
+
       setStudents(current =>
         current.filter(item => item.id !== student.id)
       );
 
       if (editingId === student.id) {
-        setEditingId(null);
-        setForm(emptyForm);
+        cancelEdit();
       }
 
       setMessage(`${fullName} amefutwa kikamilifu.`);
     } catch (e) {
       const err = e as { message?: string };
-
-      setError(
-        err.message || 'Imeshindikana kufuta mwanafunzi.'
-      );
+      setError(err.message || 'Imeshindikana kufuta mwanafunzi.');
     } finally {
       setDeletingId(null);
     }
@@ -394,19 +457,15 @@ export default function StudentsModule() {
   }
 
   const filteredStudents = students.filter(student => {
-    const fullName = [
+    const name = [
       student.first_name,
       student.middle_name,
-      student.last_name
-    ].filter(Boolean).join(' ');
+      student.last_name,
+      student.admission_no,
+      student.phone
+    ].filter(Boolean).join(' ').toLowerCase();
 
-    const value = search.toLowerCase();
-
-    return (
-      fullName.toLowerCase().includes(value) ||
-      student.admission_no.toLowerCase().includes(value) ||
-      (student.phone || '').toLowerCase().includes(value)
-    );
+    return name.includes(search.toLowerCase());
   });
 
   return (
@@ -425,7 +484,7 @@ export default function StudentsModule() {
         </h2>
 
         <p style={{ color: '#64748b' }}>
-          Sajili na simamia taarifa za wanafunzi.
+          Sajili wanafunzi na uhifadhi taarifa pamoja na picha zao.
         </p>
 
         {error && (
@@ -573,7 +632,6 @@ export default function StudentsModule() {
                 Namba ya simu
                 <input
                   style={inputStyle}
-                  type="tel"
                   value={form.phone}
                   onChange={e =>
                     setForm({ ...form, phone: e.target.value })
@@ -593,17 +651,54 @@ export default function StudentsModule() {
               </label>
 
               <label style={labelStyle}>
-                Kiungo cha picha (Photo URL)
+                Picha ya mwanafunzi
                 <input
                   style={inputStyle}
-                  type="url"
-                  placeholder="https://..."
-                  value={form.photo_url}
-                  onChange={e =>
-                    setForm({ ...form, photo_url: e.target.value })
-                  }
+                  type="file"
+                  accept="image/*"
+                  onChange={e => choosePhoto(e.target.files?.[0])}
                 />
+                <span style={{
+                  color: '#64748b',
+                  fontSize: 12,
+                  fontWeight: 400
+                }}>
+                  Ruhusa: JPG, PNG na picha nyingine. Upeo MB 5.
+                </span>
               </label>
+
+              {photoPreview && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12
+                }}>
+                  <img
+                    src={photoPreview}
+                    alt="Picha ya mwanafunzi"
+                    style={{
+                      width: 90,
+                      height: 90,
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      border: '1px solid #cbd5e1'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview('');
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: '#64748b'
+                    }}
+                  >
+                    Ondoa picha
+                  </button>
+                </div>
+              )}
 
               <label style={labelStyle}>
                 Hali ya mwanafunzi
@@ -732,26 +827,35 @@ export default function StudentsModule() {
             <tbody>
               {filteredStudents.map(student => (
                 <tr key={student.id}>
-                  <td style={{ padding: 10 }}>
-                    {student.photo_url ? (
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
+                    {student.photo_display ? (
                       <img
-                        src={student.photo_url}
-                        alt="Picha ya mwanafunzi"
+                        src={student.photo_display}
+                        alt="Picha"
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: '50%',
+                          width: 48,
+                          height: 48,
+                          borderRadius: 8,
                           objectFit: 'cover'
                         }}
                       />
                     ) : '—'}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {student.admission_no}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {[
                       student.first_name,
                       student.middle_name,
@@ -759,7 +863,10 @@ export default function StudentsModule() {
                     ].filter(Boolean).join(' ')}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {student.gender === 'Male'
                       ? 'Mwanaume'
                       : student.gender === 'Female'
@@ -767,20 +874,30 @@ export default function StudentsModule() {
                         : '—'}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {student.phone || '—'}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {student.admission_date || '—'}
                   </td>
 
-                  <td style={{ padding: 10 }}>
+                  <td style={{
+                    padding: 10,
+                    borderBottom: '1px solid #e2e8f0'
+                  }}>
                     {student.status || '—'}
                   </td>
 
                   <td style={{
                     padding: 10,
+                    borderBottom: '1px solid #e2e8f0',
                     whiteSpace: 'nowrap'
                   }}>
                     <button
@@ -818,4 +935,4 @@ export default function StudentsModule() {
       </section>
     </div>
   );
-          }
+}
