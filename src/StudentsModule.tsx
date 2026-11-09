@@ -83,11 +83,11 @@ export default function StudentsModule() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<Student | null>(null);
 
   async function getPhotoUrl(path?: string | null) {
     if (!path) return null;
 
-    // Backward compatibility for previously saved full URLs.
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return path;
     }
@@ -192,6 +192,15 @@ export default function StudentsModule() {
     };
   }, []);
 
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectedPhoto(null);
+    }
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
+
   async function changeSchool(id: string) {
     setSchoolId(id);
     setEditingId(null);
@@ -219,7 +228,7 @@ export default function StudentsModule() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setError('Chagua picha yenye mfumo wa JPG, PNG au picha nyingine.');
+      setError('Chagua faili la picha.');
       return;
     }
 
@@ -300,9 +309,7 @@ export default function StudentsModule() {
       !form.first_name.trim() ||
       !form.last_name.trim()
     ) {
-      setError(
-        'Jaza namba ya usajili, jina la kwanza na jina la mwisho.'
-      );
+      setError('Jaza namba ya usajili, jina la kwanza na jina la mwisho.');
       return;
     }
 
@@ -313,9 +320,7 @@ export default function StudentsModule() {
     let uploadedPath: string | null = null;
 
     try {
-      if (photoFile) {
-        uploadedPath = await uploadPhoto();
-      }
+      if (photoFile) uploadedPath = await uploadPhoto();
 
       const payload: Record<string, unknown> = {
         school_id: schoolId,
@@ -337,19 +342,15 @@ export default function StudentsModule() {
         payload.photo_url = null;
       }
 
-      let result;
-
-      if (editingId) {
-        result = await supabase
-          .from('students')
-          .update(payload)
-          .eq('id', editingId)
-          .eq('school_id', schoolId);
-      } else {
-        result = await supabase
-          .from('students')
-          .insert(payload);
-      }
+      const result = editingId
+        ? await supabase
+            .from('students')
+            .update(payload)
+            .eq('id', editingId)
+            .eq('school_id', schoolId)
+        : await supabase
+            .from('students')
+            .insert(payload);
 
       if (result.error) throw result.error;
 
@@ -368,11 +369,8 @@ export default function StudentsModule() {
     } catch (e) {
       const err = e as { message?: string; code?: string };
 
-      // Remove newly uploaded file if the database save failed.
       if (uploadedPath) {
-        await supabase.storage
-          .from(BUCKET)
-          .remove([uploadedPath]);
+        await supabase.storage.from(BUCKET).remove([uploadedPath]);
       }
 
       setError(
@@ -411,7 +409,6 @@ export default function StudentsModule() {
 
       if (error) throw error;
 
-      // Remove the student's stored photo after deleting the record.
       if (
         student.photo_url &&
         !student.photo_url.startsWith('http://') &&
@@ -430,9 +427,11 @@ export default function StudentsModule() {
         current.filter(item => item.id !== student.id)
       );
 
-      if (editingId === student.id) {
-        cancelEdit();
+      if (selectedPhoto?.id === student.id) {
+        setSelectedPhoto(null);
       }
+
+      if (editingId === student.id) cancelEdit();
 
       setMessage(`${fullName} amefutwa kikamilifu.`);
     } catch (e) {
@@ -470,7 +469,6 @@ export default function StudentsModule() {
 
   return (
     <div style={{ display: 'grid', gap: 22, color: '#243447' }}>
-
       <section style={{
         background: '#fff',
         border: '1px solid #e2e8f0',
@@ -526,9 +524,7 @@ export default function StudentsModule() {
                 {schools.map(school => (
                   <option key={school.id} value={school.id}>
                     {school.school_name}
-                    {school.school_code
-                      ? ` (${school.school_code})`
-                      : ''}
+                    {school.school_code ? ` (${school.school_code})` : ''}
                   </option>
                 ))}
               </select>
@@ -548,9 +544,7 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.admission_no}
-                  onChange={e =>
-                    setForm({ ...form, admission_no: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, admission_no: e.target.value })}
                 />
               </label>
 
@@ -560,9 +554,7 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.first_name}
-                  onChange={e =>
-                    setForm({ ...form, first_name: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, first_name: e.target.value })}
                 />
               </label>
 
@@ -571,9 +563,7 @@ export default function StudentsModule() {
                 <input
                   style={inputStyle}
                   value={form.middle_name}
-                  onChange={e =>
-                    setForm({ ...form, middle_name: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, middle_name: e.target.value })}
                 />
               </label>
 
@@ -583,9 +573,7 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.last_name}
-                  onChange={e =>
-                    setForm({ ...form, last_name: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, last_name: e.target.value })}
                 />
               </label>
 
@@ -594,9 +582,7 @@ export default function StudentsModule() {
                 <select
                   style={inputStyle}
                   value={form.gender}
-                  onChange={e =>
-                    setForm({ ...form, gender: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, gender: e.target.value })}
                 >
                   <option value="">Chagua jinsia</option>
                   <option value="Male">Mwanaume</option>
@@ -610,9 +596,7 @@ export default function StudentsModule() {
                   style={inputStyle}
                   type="date"
                   value={form.date_of_birth}
-                  onChange={e =>
-                    setForm({ ...form, date_of_birth: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, date_of_birth: e.target.value })}
                 />
               </label>
 
@@ -622,9 +606,7 @@ export default function StudentsModule() {
                   style={inputStyle}
                   type="date"
                   value={form.admission_date}
-                  onChange={e =>
-                    setForm({ ...form, admission_date: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, admission_date: e.target.value })}
                 />
               </label>
 
@@ -633,9 +615,7 @@ export default function StudentsModule() {
                 <input
                   style={inputStyle}
                   value={form.phone}
-                  onChange={e =>
-                    setForm({ ...form, phone: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, phone: e.target.value })}
                 />
               </label>
 
@@ -644,9 +624,7 @@ export default function StudentsModule() {
                 <input
                   style={inputStyle}
                   value={form.address}
-                  onChange={e =>
-                    setForm({ ...form, address: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, address: e.target.value })}
                 />
               </label>
 
@@ -663,7 +641,7 @@ export default function StudentsModule() {
                   fontSize: 12,
                   fontWeight: 400
                 }}>
-                  Ruhusa: JPG, PNG na picha nyingine. Upeo MB 5.
+                  JPG, PNG au picha nyingine. Upeo MB 5.
                 </span>
               </label>
 
@@ -690,10 +668,7 @@ export default function StudentsModule() {
                       setPhotoFile(null);
                       setPhotoPreview('');
                     }}
-                    style={{
-                      ...buttonStyle,
-                      background: '#64748b'
-                    }}
+                    style={{ ...buttonStyle, background: '#64748b' }}
                   >
                     Ondoa picha
                   </button>
@@ -705,9 +680,7 @@ export default function StudentsModule() {
                 <select
                   style={inputStyle}
                   value={form.status}
-                  onChange={e =>
-                    setForm({ ...form, status: e.target.value })
-                  }
+                  onChange={e => setForm({ ...form, status: e.target.value })}
                 >
                   <option value="Active">Anaendelea</option>
                   <option value="Inactive">Hajasoma kwa sasa</option>
@@ -738,10 +711,7 @@ export default function StudentsModule() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    style={{
-                      ...buttonStyle,
-                      background: '#64748b'
-                    }}
+                    style={{ ...buttonStyle, background: '#64748b' }}
                   >
                     Ghairi
                   </button>
@@ -832,41 +802,42 @@ export default function StudentsModule() {
                     borderBottom: '1px solid #e2e8f0'
                   }}>
                     {student.photo_display ? (
-                      <img
-                        src={student.photo_display}
-                        alt="Picha"
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPhoto(student)}
+                        aria-label="Fungua picha kwa ukubwa mkubwa"
                         style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 8,
-                          objectFit: 'cover'
+                          border: 0,
+                          padding: 0,
+                          background: 'transparent',
+                          cursor: 'zoom-in'
                         }}
-                      />
+                      >
+                        <img
+                          src={student.photo_display}
+                          alt={`Picha ya ${student.first_name} ${student.last_name}`}
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 8,
+                            objectFit: 'cover',
+                            display: 'block'
+                          }}
+                        />
+                      </button>
                     ) : '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.admission_no}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
-                    {[
-                      student.first_name,
-                      student.middle_name,
-                      student.last_name
-                    ].filter(Boolean).join(' ')}
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+                    {[student.first_name, student.middle_name, student.last_name]
+                      .filter(Boolean).join(' ')}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.gender === 'Male'
                       ? 'Mwanaume'
                       : student.gender === 'Female'
@@ -874,24 +845,15 @@ export default function StudentsModule() {
                         : '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.phone || '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.admission_date || '—'}
                   </td>
 
-                  <td style={{
-                    padding: 10,
-                    borderBottom: '1px solid #e2e8f0'
-                  }}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.status || '—'}
                   </td>
 
@@ -922,9 +884,7 @@ export default function StudentsModule() {
                         background: '#b42318'
                       }}
                     >
-                      {deletingId === student.id
-                        ? 'Inafuta...'
-                        : 'Delete'}
+                      {deletingId === student.id ? 'Inafuta...' : 'Delete'}
                     </button>
                   </td>
                 </tr>
@@ -933,6 +893,84 @@ export default function StudentsModule() {
           </table>
         )}
       </section>
+
+      {selectedPhoto?.photo_display && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Picha ya mwanafunzi"
+          onClick={() => setSelectedPhoto(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.88)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedPhoto(null)}
+            aria-label="Funga picha"
+            style={{
+              position: 'absolute',
+              top: 18,
+              right: 18,
+              border: 0,
+              borderRadius: 999,
+              width: 44,
+              height: 44,
+              background: '#fff',
+              color: '#173b5e',
+              fontSize: 26,
+              cursor: 'pointer'
+            }}
+          >
+            ×
+          </button>
+
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 'min(900px, 100%)',
+              maxHeight: '90vh',
+              display: 'grid',
+              justifyItems: 'center',
+              gap: 12
+            }}
+          >
+            <img
+              src={selectedPhoto.photo_display}
+              alt={`Picha ya ${selectedPhoto.first_name} ${selectedPhoto.last_name}`}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '78vh',
+                objectFit: 'contain',
+                borderRadius: 12,
+                background: '#fff'
+              }}
+            />
+
+            <div style={{
+              color: '#fff',
+              textAlign: 'center',
+              fontWeight: 700
+            }}>
+              {[
+                selectedPhoto.first_name,
+                selectedPhoto.middle_name,
+                selectedPhoto.last_name
+              ].filter(Boolean).join(' ')}
+              {' — '}
+              {selectedPhoto.admission_no}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
