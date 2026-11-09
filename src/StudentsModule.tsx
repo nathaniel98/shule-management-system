@@ -1,29 +1,51 @@
-
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
-type School = { id: string; school_name: string; school_code?: string };
+type School = {
+  id: string;
+  school_name: string;
+  school_code?: string | null;
+};
 
 type Student = {
   id: string;
   school_id: string;
   admission_no: string;
   first_name: string;
-  middle_name?: string | null;
+  middle_name: string | null;
   last_name: string;
-  date_of_birth?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  admission_date?: string | null;
-  status?: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  photo_url: string | null;
+  phone: string | null;
+  address: string | null;
+  admission_date: string | null;
+  status: string | null;
+  created_at: string;
 };
 
-const emptyForm = {
+type StudentForm = {
+  admission_no: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  gender: string;
+  date_of_birth: string;
+  photo_url: string;
+  phone: string;
+  address: string;
+  admission_date: string;
+  status: string;
+};
+
+const emptyForm: StudentForm = {
   admission_no: '',
   first_name: '',
   middle_name: '',
   last_name: '',
+  gender: '',
   date_of_birth: '',
+  photo_url: '',
   phone: '',
   address: '',
   admission_date: '',
@@ -63,15 +85,16 @@ export default function StudentsModule() {
   const [schools, setSchools] = useState<School[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [schoolId, setSchoolId] = useState('');
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<StudentForm>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('');
 
-  async function loadStudents(id = schoolId) {
+  async function loadStudents(id: string) {
     if (!id) {
       setStudents([]);
       return;
@@ -79,11 +102,27 @@ export default function StudentsModule() {
 
     const { data, error } = await supabase
       .from('students')
-      .select('*')
+      .select(`
+        id,
+        school_id,
+        admission_no,
+        first_name,
+        middle_name,
+        last_name,
+        gender,
+        date_of_birth,
+        photo_url,
+        phone,
+        address,
+        admission_date,
+        status,
+        created_at
+      `)
       .eq('school_id', id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
     setStudents((data || []) as Student[]);
   }
 
@@ -106,21 +145,44 @@ export default function StudentsModule() {
         const rows = (data || []) as School[];
         setSchools(rows);
 
-        if (rows.length) {
+        if (rows.length > 0) {
           setSchoolId(rows[0].id);
 
-          const result = await supabase
-            .from('students')
-            .select('*')
-            .eq('school_id', rows[0].id)
-            .order('created_at', { ascending: false });
+          const { data: studentData, error: studentError } =
+            await supabase
+              .from('students')
+              .select(`
+                id,
+                school_id,
+                admission_no,
+                first_name,
+                middle_name,
+                last_name,
+                gender,
+                date_of_birth,
+                photo_url,
+                phone,
+                address,
+                admission_date,
+                status,
+                created_at
+              `)
+              .eq('school_id', rows[0].id)
+              .order('created_at', { ascending: false });
 
-          if (result.error) throw result.error;
-          if (active) setStudents((result.data || []) as Student[]);
+          if (studentError) throw studentError;
+
+          if (active) {
+            setStudents((studentData || []) as Student[]);
+          }
         }
       } catch (e) {
         if (active) {
-          setError(e instanceof Error ? e.message : 'Imeshindikana kupakia taarifa.');
+          setError(
+            e instanceof Error
+              ? e.message
+              : 'Imeshindikana kupakia taarifa.'
+          );
         }
       } finally {
         if (active) setLoading(false);
@@ -145,7 +207,11 @@ export default function StudentsModule() {
       setLoading(true);
       await loadStudents(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Imeshindikana kupakia wanafunzi.');
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Imeshindikana kupakia wanafunzi.'
+      );
     } finally {
       setLoading(false);
     }
@@ -153,12 +219,15 @@ export default function StudentsModule() {
 
   function startEdit(student: Student) {
     setEditingId(student.id);
+
     setForm({
       admission_no: student.admission_no || '',
       first_name: student.first_name || '',
       middle_name: student.middle_name || '',
       last_name: student.last_name || '',
+      gender: student.gender || '',
       date_of_birth: student.date_of_birth || '',
+      photo_url: student.photo_url || '',
       phone: student.phone || '',
       address: student.address || '',
       admission_date: student.admission_date || '',
@@ -190,7 +259,9 @@ export default function StudentsModule() {
       !form.first_name.trim() ||
       !form.last_name.trim()
     ) {
-      setError('Jaza namba ya usajili, jina la kwanza na jina la mwisho.');
+      setError(
+        'Jaza namba ya usajili, jina la kwanza na jina la mwisho.'
+      );
       return;
     }
 
@@ -198,7 +269,7 @@ export default function StudentsModule() {
     setError('');
     setMessage('');
 
-    const payload = {
+    const payload: Record<string, string | null> = {
       school_id: schoolId,
       admission_no: form.admission_no.trim(),
       first_name: form.first_name.trim(),
@@ -211,13 +282,24 @@ export default function StudentsModule() {
       status: form.status
     };
 
+    // Hifadhi taarifa hizi pale tu zinapojazwa.
+    if (form.gender.trim()) {
+      payload.gender = form.gender;
+    }
+
+    if (form.photo_url.trim()) {
+      payload.photo_url = form.photo_url.trim();
+    }
+
     try {
       let result;
 
       if (editingId) {
+        const { school_id: _schoolId, ...updatePayload } = payload;
+
         result = await supabase
           .from('students')
-          .update(payload)
+          .update(updatePayload)
           .eq('id', editingId)
           .eq('school_id', schoolId);
       } else {
@@ -236,14 +318,15 @@ export default function StudentsModule() {
 
       setEditingId(null);
       setForm(emptyForm);
+
       await loadStudents(schoolId);
     } catch (e) {
-      const error = e as { message?: string; code?: string };
+      const err = e as { message?: string; code?: string };
 
       setError(
-        error.code === '23505'
+        err.code === '23505'
           ? 'Namba hii ya usajili tayari imetumika.'
-          : error.message || 'Imeshindikana kuhifadhi taarifa.'
+          : err.message || 'Imeshindikana kuhifadhi taarifa.'
       );
     } finally {
       setSaving(false);
@@ -258,7 +341,7 @@ export default function StudentsModule() {
     ].filter(Boolean).join(' ');
 
     const confirmed = window.confirm(
-      `Una uhakika unataka kumfuta ${fullName} (${student.admission_no})? Kitendo hiki hakiwezi kurejeshwa.`
+      `Una uhakika unataka kumfuta ${fullName} (${student.admission_no})?`
     );
 
     if (!confirmed) return;
@@ -288,7 +371,10 @@ export default function StudentsModule() {
       setMessage(`${fullName} amefutwa kikamilifu.`);
     } catch (e) {
       const err = e as { message?: string };
-      setError(err.message || 'Imeshindikana kufuta mwanafunzi.');
+
+      setError(
+        err.message || 'Imeshindikana kufuta mwanafunzi.'
+      );
     } finally {
       setDeletingId(null);
     }
@@ -299,9 +385,29 @@ export default function StudentsModule() {
       setError('');
       await loadStudents(schoolId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Imeshindikana kuonyesha wanafunzi.');
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Imeshindikana kuonyesha wanafunzi.'
+      );
     }
   }
+
+  const filteredStudents = students.filter(student => {
+    const fullName = [
+      student.first_name,
+      student.middle_name,
+      student.last_name
+    ].filter(Boolean).join(' ');
+
+    const value = search.toLowerCase();
+
+    return (
+      fullName.toLowerCase().includes(value) ||
+      student.admission_no.toLowerCase().includes(value) ||
+      (student.phone || '').toLowerCase().includes(value)
+    );
+  });
 
   return (
     <div style={{ display: 'grid', gap: 22, color: '#243447' }}>
@@ -313,11 +419,13 @@ export default function StudentsModule() {
         padding: 20
       }}>
         <h2 style={{ marginTop: 0 }}>
-          {editingId ? 'Hariri Taarifa za Mwanafunzi' : 'Usajili wa Wanafunzi'}
+          {editingId
+            ? 'Hariri Taarifa za Mwanafunzi'
+            : 'Usajili wa Wanafunzi'}
         </h2>
 
         <p style={{ color: '#64748b' }}>
-          Sajili wanafunzi na uhifadhi taarifa kwenye Supabase.
+          Sajili na simamia taarifa za wanafunzi.
         </p>
 
         {error && (
@@ -356,9 +464,12 @@ export default function StudentsModule() {
                 onChange={e => changeSchool(e.target.value)}
                 disabled={!!editingId}
               >
-                {schools.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.school_name} {s.school_code ? `(${s.school_code})` : ''}
+                {schools.map(school => (
+                  <option key={school.id} value={school.id}>
+                    {school.school_name}
+                    {school.school_code
+                      ? ` (${school.school_code})`
+                      : ''}
                   </option>
                 ))}
               </select>
@@ -378,7 +489,9 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.admission_no}
-                  onChange={e => setForm({ ...form, admission_no: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, admission_no: e.target.value })
+                  }
                 />
               </label>
 
@@ -388,7 +501,9 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.first_name}
-                  onChange={e => setForm({ ...form, first_name: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, first_name: e.target.value })
+                  }
                 />
               </label>
 
@@ -397,7 +512,9 @@ export default function StudentsModule() {
                 <input
                   style={inputStyle}
                   value={form.middle_name}
-                  onChange={e => setForm({ ...form, middle_name: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, middle_name: e.target.value })
+                  }
                 />
               </label>
 
@@ -407,8 +524,25 @@ export default function StudentsModule() {
                   style={inputStyle}
                   required
                   value={form.last_name}
-                  onChange={e => setForm({ ...form, last_name: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, last_name: e.target.value })
+                  }
                 />
+              </label>
+
+              <label style={labelStyle}>
+                Jinsia
+                <select
+                  style={inputStyle}
+                  value={form.gender}
+                  onChange={e =>
+                    setForm({ ...form, gender: e.target.value })
+                  }
+                >
+                  <option value="">Chagua jinsia</option>
+                  <option value="Male">Mwanaume</option>
+                  <option value="Female">Mwanamke</option>
+                </select>
               </label>
 
               <label style={labelStyle}>
@@ -417,7 +551,9 @@ export default function StudentsModule() {
                   style={inputStyle}
                   type="date"
                   value={form.date_of_birth}
-                  onChange={e => setForm({ ...form, date_of_birth: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, date_of_birth: e.target.value })
+                  }
                 />
               </label>
 
@@ -427,7 +563,9 @@ export default function StudentsModule() {
                   style={inputStyle}
                   type="date"
                   value={form.admission_date}
-                  onChange={e => setForm({ ...form, admission_date: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, admission_date: e.target.value })
+                  }
                 />
               </label>
 
@@ -435,8 +573,11 @@ export default function StudentsModule() {
                 Namba ya simu
                 <input
                   style={inputStyle}
+                  type="tel"
                   value={form.phone}
-                  onChange={e => setForm({ ...form, phone: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, phone: e.target.value })
+                  }
                 />
               </label>
 
@@ -445,7 +586,22 @@ export default function StudentsModule() {
                 <input
                   style={inputStyle}
                   value={form.address}
-                  onChange={e => setForm({ ...form, address: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, address: e.target.value })
+                  }
+                />
+              </label>
+
+              <label style={labelStyle}>
+                Kiungo cha picha (Photo URL)
+                <input
+                  style={inputStyle}
+                  type="url"
+                  placeholder="https://..."
+                  value={form.photo_url}
+                  onChange={e =>
+                    setForm({ ...form, photo_url: e.target.value })
+                  }
                 />
               </label>
 
@@ -454,7 +610,9 @@ export default function StudentsModule() {
                 <select
                   style={inputStyle}
                   value={form.status}
-                  onChange={e => setForm({ ...form, status: e.target.value })}
+                  onChange={e =>
+                    setForm({ ...form, status: e.target.value })
+                  }
                 >
                   <option value="Active">Anaendelea</option>
                   <option value="Inactive">Hajasoma kwa sasa</option>
@@ -485,7 +643,10 @@ export default function StudentsModule() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    style={{ ...buttonStyle, background: '#64748b' }}
+                    style={{
+                      ...buttonStyle,
+                      background: '#64748b'
+                    }}
                   >
                     Ghairi
                   </button>
@@ -507,85 +668,124 @@ export default function StudentsModule() {
           display: 'flex',
           justifyContent: 'space-between',
           gap: 12,
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: 'wrap'
         }}>
-          <h2>Wanafunzi ({students.length})</h2>
+          <h2>Wanafunzi ({filteredStudents.length})</h2>
 
           <button
             type="button"
-            style={{ ...buttonStyle, background: '#eaf1f7', color: '#173b5e' }}
+            style={{
+              ...buttonStyle,
+              background: '#eaf1f7',
+              color: '#173b5e'
+            }}
             onClick={refreshStudents}
           >
             Onyesha upya
           </button>
         </div>
 
+        <input
+          style={{ ...inputStyle, marginBottom: 16 }}
+          placeholder="Tafuta kwa jina, namba ya usajili au simu..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+
         {loading ? (
           <p>Inapakia...</p>
-        ) : students.length === 0 ? (
-          <p>Hakuna wanafunzi waliosajiliwa katika shule hii.</p>
+        ) : filteredStudents.length === 0 ? (
+          <p>Hakuna wanafunzi waliopatikana.</p>
         ) : (
           <table style={{
             width: '100%',
             borderCollapse: 'collapse',
-            minWidth: 760
+            minWidth: 850
           }}>
             <thead>
               <tr>
                 {[
+                  'Picha',
                   'Namba',
                   'Jina kamili',
+                  'Jinsia',
                   'Simu',
                   'Tarehe ya kujiunga',
                   'Hali',
                   'Vitendo'
-                ].map(x => (
+                ].map(item => (
                   <th
-                    key={x}
+                    key={item}
                     style={{
                       textAlign: 'left',
                       padding: 10,
                       borderBottom: '1px solid #e2e8f0'
                     }}
                   >
-                    {x}
+                    {item}
                   </th>
                 ))}
               </tr>
             </thead>
 
             <tbody>
-              {students.map(s => (
-                <tr key={s.id}>
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    {s.admission_no}
+              {filteredStudents.map(student => (
+                <tr key={student.id}>
+                  <td style={{ padding: 10 }}>
+                    {student.photo_url ? (
+                      <img
+                        src={student.photo_url}
+                        alt="Picha ya mwanafunzi"
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: '50%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : '—'}
                   </td>
 
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    {[s.first_name, s.middle_name, s.last_name]
-                      .filter(Boolean).join(' ')}
+                  <td style={{ padding: 10 }}>
+                    {student.admission_no}
                   </td>
 
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    {s.phone || '—'}
+                  <td style={{ padding: 10 }}>
+                    {[
+                      student.first_name,
+                      student.middle_name,
+                      student.last_name
+                    ].filter(Boolean).join(' ')}
                   </td>
 
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    {s.admission_date || '—'}
+                  <td style={{ padding: 10 }}>
+                    {student.gender === 'Male'
+                      ? 'Mwanaume'
+                      : student.gender === 'Female'
+                        ? 'Mwanamke'
+                        : '—'}
                   </td>
 
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    {s.status || '—'}
+                  <td style={{ padding: 10 }}>
+                    {student.phone || '—'}
+                  </td>
+
+                  <td style={{ padding: 10 }}>
+                    {student.admission_date || '—'}
+                  </td>
+
+                  <td style={{ padding: 10 }}>
+                    {student.status || '—'}
                   </td>
 
                   <td style={{
                     padding: 10,
-                    borderBottom: '1px solid #e2e8f0',
                     whiteSpace: 'nowrap'
                   }}>
                     <button
                       type="button"
-                      onClick={() => startEdit(s)}
+                      onClick={() => startEdit(student)}
                       style={{
                         ...buttonStyle,
                         padding: '8px 12px',
@@ -597,15 +797,17 @@ export default function StudentsModule() {
 
                     <button
                       type="button"
-                      onClick={() => deleteStudent(s)}
-                      disabled={deletingId === s.id}
+                      onClick={() => deleteStudent(student)}
+                      disabled={deletingId === student.id}
                       style={{
                         ...buttonStyle,
                         padding: '8px 12px',
                         background: '#b42318'
                       }}
                     >
-                      {deletingId === s.id ? 'Inafuta...' : 'Delete'}
+                      {deletingId === student.id
+                        ? 'Inafuta...'
+                        : 'Delete'}
                     </button>
                   </td>
                 </tr>
@@ -616,4 +818,4 @@ export default function StudentsModule() {
       </section>
     </div>
   );
-}
+          }
