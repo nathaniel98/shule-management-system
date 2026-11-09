@@ -1,4 +1,3 @@
-
 import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
@@ -6,6 +5,7 @@ import StudentsModule from './src/StudentsModule';
 import TeachersModule from './src/TeachersModule';
 import StreamsModule from './src/StreamsModule';
 import SubjectsModule from './src/SubjectsModule';
+import ExamsModule from './src/ExamsModule';
 
 import {
   Activity,
@@ -408,6 +408,8 @@ function App() {
             <StreamsModule />
           ) : section === 'subjects' ? (
             <SubjectsModule />
+          ) : section === 'exams' ? (
+            <ExamsModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
