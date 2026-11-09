@@ -5,6 +5,8 @@ import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
 import TeachersModule from './src/TeachersModule';
 import StreamsModule from './src/StreamsModule';
+import SubjectsModule from './src/SubjectsModule';
+
 import {
   Activity,
   BookOpen,
@@ -25,6 +27,7 @@ import {
   Wallet,
   X
 } from 'lucide-react';
+
 import { isSupabaseConfigured, supabase } from './supabase';
 
 type Section =
@@ -149,12 +152,14 @@ function App() {
 
           <p className="eyebrow">SHULE MANAGEMENT SUITE</p>
           <h1>Karibu kwenye mfumo</h1>
+
           <p className="muted">
             Ingia kusimamia shughuli za shule yako.
           </p>
 
           <form onSubmit={signIn}>
             <label>Barua pepe</label>
+
             <input
               type="email"
               value={email}
@@ -164,6 +169,7 @@ function App() {
             />
 
             <label>Nenosiri</label>
+
             <input
               type="password"
               value={password}
@@ -212,10 +218,12 @@ function App() {
 
         <div className="school-switch">
           <div className="school-avatar">S</div>
+
           <div>
             <b>Shule yangu</b>
             <span>Usimamizi wa shule</span>
           </div>
+
           <ChevronDown size={16} />
         </div>
 
@@ -292,9 +300,11 @@ function App() {
           <div className="welcome">
             <div>
               <p className="eyebrow">MUHTASARI WA SHULE</p>
+
               <h1>
                 {section === 'dashboard' ? 'Dashboard' : current.label}
               </h1>
+
               <p className="muted">
                 Karibu tena. Huu ni muhtasari wa usimamizi wa shule yako.
               </p>
@@ -314,10 +324,12 @@ function App() {
                   <div className="stat-card" key={s.label}>
                     <div className="stat-top">
                       <span>{s.label}</span>
+
                       <div className="stat-icon">
                         <s.icon size={19} />
                       </div>
                     </div>
+
                     <strong>{s.value}</strong>
                     <small>{s.sub}</small>
                   </div>
@@ -331,6 +343,7 @@ function App() {
                       <h2>Muhtasari wa shughuli</h2>
                       <p>Shughuli muhimu za shule</p>
                     </div>
+
                     <span className="pill">Leo</span>
                   </div>
 
@@ -338,7 +351,9 @@ function App() {
                     <div className="empty-icon">
                       <ClipboardList size={25} />
                     </div>
+
                     <b>Hakuna taarifa za kuonyesha bado</b>
+
                     <span>
                       Baada ya kuunganisha ruhusa za database,
                       takwimu zitaonekana hapa.
@@ -352,11 +367,13 @@ function App() {
                       <h2>Hali ya mfumo</h2>
                       <p>Muunganisho na usalama</p>
                     </div>
+
                     <ShieldCheck size={20} color="#16845b" />
                   </div>
 
                   <div className="check-row">
                     <span>Supabase project</span>
+
                     <b className="good">
                       {isSupabaseConfigured ? 'Imewekwa' : 'Inasubiri'}
                     </b>
@@ -389,6 +406,8 @@ function App() {
             <ClassesModule />
           ) : section === 'streams' ? (
             <StreamsModule />
+          ) : section === 'subjects' ? (
+            <SubjectsModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
@@ -405,6 +424,7 @@ function App() {
 
               <div className="module-meta">
                 <span className="pill">Inasubiri kuunganishwa</span>
+
                 <span>
                   Hakuna data itakayobadilishwa bila uthibitisho.
                 </span>
