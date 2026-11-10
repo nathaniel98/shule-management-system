@@ -65,14 +65,13 @@ const levels: Level[] = [
 ];
 
 const examTypes = [
-  'Monthly Test',
-  'Midterm Examination',
-  'Terminal Examination',
-  'Annual Examination',
-  'Mock Examination',
-  'Pre-National Examination',
-  'National Examination',
-  'Other',
+  'Monthly',
+  'Midterm',
+  'Terminal',
+  'Annual',
+  'Mock',
+  'NECTA',
+  'Zanzibar',
 ];
 
 const terms = [
