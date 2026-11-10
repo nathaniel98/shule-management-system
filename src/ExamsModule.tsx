@@ -328,11 +328,19 @@ const styles = `
   font-size:12px;
 }
 .exam-status {
-  background:#eff6ff;
-  color:#1d4ed8;
-  padding:5px 9px;
-  border-radius:20px;
-  font-size:12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  width: fit-content;
+  height: auto;
+  white-space: nowrap;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
 }
 @media(max-width:700px) {
   .exam-grid {grid-template-columns:1fr}
