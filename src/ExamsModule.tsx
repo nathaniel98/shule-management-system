@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
@@ -74,11 +75,7 @@ const examTypes = [
   'Zanzibar',
 ];
 
-const terms = [
-  'Term 1',
-  'Term 2',
-  'Term 3',
-];
+const terms = ['Term 1', 'Term 2', 'Term 3'];
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -86,7 +83,7 @@ const initialForm = {
   school_id: '',
   academic_year_id: '',
   exam_name: '',
-  exam_type: 'Monthly Test',
+  exam_type: 'Monthly',
   term: 'Term 1',
   education_level: 'Primary' as Level,
   class_id: '',
@@ -536,6 +533,8 @@ export default function ExamsModule() {
     setForm(initialForm);
     setSelectedSubjects([]);
     setEditingId(null);
+    setError('');
+    setMessage('');
   }
 
   async function saveExam(event: FormEvent<HTMLFormElement>) {
@@ -551,6 +550,11 @@ export default function ExamsModule() {
       return;
     }
 
+    if (!form.exam_name.trim()) {
+      setError('Weka jina la mtihani.');
+      return;
+    }
+
     if (!selectedSubjects.length) {
       setError('Chagua angalau somo moja.');
       return;
@@ -562,7 +566,7 @@ export default function ExamsModule() {
     }
 
     if (selectedSubjects.some(s =>
-      !s.maximum_marks || s.maximum_marks <= 0
+      !Number.isFinite(s.maximum_marks) || s.maximum_marks <= 0
     )) {
       setError('Alama za juu lazima ziwe zaidi ya sifuri.');
       return;
@@ -1146,4 +1150,4 @@ export default function ExamsModule() {
       </section>
     </div>
   );
-  }
+}
