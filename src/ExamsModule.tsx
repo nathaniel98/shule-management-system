@@ -1,23 +1,33 @@
-
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
 type Level = 'Primary' | 'Ordinary Secondary' | 'Advanced Secondary';
 
-type School = { id: string; school_name: string };
+type School = {
+  id: string;
+  school_name: string;
+};
+
 type AcademicYear = {
   id: string;
   school_id: string;
   year_name: string;
   is_current: boolean;
 };
+
 type SchoolClass = {
   id: string;
   school_id: string;
   class_name: string;
   education_level: Level;
 };
-type Stream = { id: string; class_id: string; stream_name: string };
+
+type Stream = {
+  id: string;
+  class_id: string;
+  stream_name: string;
+};
+
 type Subject = {
   id: string;
   school_id: string;
@@ -25,22 +35,24 @@ type Subject = {
   subject_name: string;
   education_level: Level;
 };
+
 type ExamSubject = {
   subject_id: string;
   maximum_marks: number;
 };
+
 type Exam = {
   id: string;
   school_id: string;
-  academic_year_id: string | null;
-  academic_year: string;
+  academic_year_id: string;
   class_id: string;
   stream_id: string | null;
   exam_name: string;
   exam_type: string;
   term: string | null;
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
+  academic_year: string | null;
   status: string;
   created_at: string;
   exam_subjects: ExamSubject[];
@@ -63,12 +75,17 @@ const examTypes = [
   'Other',
 ];
 
+const terms = [
+  'Term 1',
+  'Term 2',
+  'Term 3',
+];
+
 const today = new Date().toISOString().slice(0, 10);
 
 const initialForm = {
   school_id: '',
   academic_year_id: '',
-  academic_year: new Date().getFullYear().toString(),
   exam_name: '',
   exam_type: 'Monthly Test',
   term: 'Term 1',
@@ -80,62 +97,267 @@ const initialForm = {
 };
 
 const styles = `
-.exam-page{width:100%;max-width:1200px;margin:0 auto;color:#1e293b;font-family:inherit;font-size:14px}
-.exam-page *{box-sizing:border-box}
-.exam-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:22px}
-.exam-heading h2{font-size:24px;font-weight:750;margin:0}
-.exam-heading p{color:#64748b;margin:6px 0 0}
-.exam-count{background:#eff6ff;color:#1d4ed8;padding:9px 15px;border-radius:9px;font-weight:700}
-.exam-panel{background:white;border:1px solid #e2e8f0;border-radius:13px;padding:20px;margin-bottom:24px;box-shadow:0 2px 8px rgba(15,23,42,.04)}
-.exam-panel h3{font-size:19px;font-weight:750;margin:0 0 18px}
-.exam-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
-.exam-field{display:flex;flex-direction:column;gap:7px;min-width:0}
-.exam-field label{font-weight:650;color:#334155;font-size:13px}
-.exam-input{display:block;width:100%;min-width:0;height:43px;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;background:white;color:#0f172a;font:inherit;outline:none}
-.exam-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
-.exam-input:disabled{background:#f1f5f9;color:#94a3b8}
-.exam-subject-list{display:grid;grid-template-columns:1fr;gap:10px}
-.exam-subject{border:1px solid #e2e8f0;border-radius:10px;padding:13px;background:white}
-.exam-subject.selected{border-color:#93c5fd;background:#f8fbff}
-.exam-subject-check{display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer}
-.exam-subject-check input{width:18px;height:18px;accent-color:#2563eb}
-.exam-subject-code{color:#64748b;font-size:12px;font-weight:400}
-.exam-subject-fields{display:grid;grid-template-columns:1fr 170px;gap:12px;margin-top:12px;align-items:end}
-.exam-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
-.exam-btn{border:0;border-radius:8px;padding:11px 17px;font:inherit;font-weight:700;cursor:pointer}
-.exam-btn:disabled{opacity:.6;cursor:not-allowed}
-.exam-primary{background:#1d4ed8;color:white}
-.exam-secondary{background:#f1f5f9;color:#334155}
-.exam-danger{background:#fff1f2;color:#be123c}
-.exam-edit{background:#eff6ff;color:#1d4ed8}
-.exam-alert{border-radius:9px;padding:12px 14px;margin-bottom:15px;overflow-wrap:anywhere;white-space:pre-wrap}
-.exam-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
-.exam-success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
-.exam-muted{background:#f8fafc;color:#64748b;border:1px dashed #cbd5e1;border-radius:9px;padding:16px}
-.exam-search{width:100%;max-width:360px}
-.exam-list-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
-.exam-list-head h3{font-size:19px;font-weight:750;margin:0}
-.exam-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.exam-card{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:16px;min-width:0}
-.exam-card h4{font-size:16px;font-weight:750;margin:0;overflow-wrap:anywhere}
-.exam-card p{color:#64748b;margin:6px 0}
-.exam-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fafc;padding:12px;border-radius:8px;margin-top:12px}
-.exam-card-meta small{display:block;color:#64748b;margin-bottom:4px}
-.exam-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.exam-tag{background:#f1f5f9;border-radius:6px;padding:5px 8px;font-size:12px}
-.exam-status{background:#eff6ff;color:#1d4ed8;padding:5px 9px;border-radius:20px;font-size:12px}
-.exam-divider{border:0;border-top:1px solid #e2e8f0;margin:22px 0}
-@media(max-width:700px){.exam-grid,.exam-cards{grid-template-columns:1fr}.exam-panel{padding:15px}.exam-heading h2{font-size:21px}}
-@media(max-width:380px){.exam-subject-fields,.exam-card-meta{grid-template-columns:1fr}}
+.exam-page {
+  width:100%;
+  max-width:1200px;
+  margin:0 auto;
+  color:#1e293b;
+  font-family:inherit;
+  font-size:14px;
+}
+.exam-page * {box-sizing:border-box}
+.exam-heading {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:22px;
+}
+.exam-heading h2 {
+  font-size:24px;
+  font-weight:750;
+  margin:0;
+}
+.exam-heading p {
+  color:#64748b;
+  margin:6px 0 0;
+}
+.exam-count {
+  background:#eff6ff;
+  color:#1d4ed8;
+  padding:9px 15px;
+  border-radius:9px;
+  font-weight:700;
+}
+.exam-panel {
+  background:white;
+  border:1px solid #e2e8f0;
+  border-radius:13px;
+  padding:20px;
+  margin-bottom:24px;
+  box-shadow:0 2px 8px rgba(15,23,42,.04);
+}
+.exam-panel h3 {
+  font-size:19px;
+  font-weight:750;
+  margin:0 0 18px;
+}
+.exam-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:17px;
+}
+.exam-field {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  min-width:0;
+}
+.exam-field label {
+  font-weight:650;
+  color:#334155;
+  font-size:13px;
+}
+.exam-input {
+  display:block;
+  width:100%;
+  min-width:0;
+  height:43px;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+  padding:9px 11px;
+  background:white;
+  color:#0f172a;
+  font:inherit;
+  outline:none;
+}
+.exam-input:focus {
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px #dbeafe;
+}
+.exam-input:disabled {
+  background:#f1f5f9;
+  color:#94a3b8;
+}
+.exam-divider {
+  border:0;
+  border-top:1px solid #e2e8f0;
+  margin:23px 0;
+}
+.exam-subject-list {
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+}
+.exam-subject {
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  padding:14px;
+  background:#fff;
+}
+.exam-subject.selected {
+  border-color:#93c5fd;
+  background:#f8fbff;
+}
+.exam-subject-check {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:700;
+  cursor:pointer;
+  color:#1e293b;
+}
+.exam-subject-check input {
+  width:18px;
+  height:18px;
+  accent-color:#2563eb;
+}
+.exam-subject-code {
+  color:#64748b;
+  font-size:12px;
+  font-weight:400;
+}
+.exam-subject-fields {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin-top:15px;
+}
+.exam-actions {
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:20px;
+}
+.exam-btn {
+  border:0;
+  border-radius:8px;
+  padding:11px 17px;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+.exam-btn:disabled {
+  opacity:.6;
+  cursor:not-allowed;
+}
+.exam-primary {background:#1d4ed8;color:white}
+.exam-secondary {background:#f1f5f9;color:#334155}
+.exam-danger {background:#fff1f2;color:#be123c}
+.exam-edit {background:#eff6ff;color:#1d4ed8}
+.exam-alert {
+  border-radius:9px;
+  padding:12px 14px;
+  margin-bottom:15px;
+  overflow-wrap:anywhere;
+}
+.exam-error {
+  background:#fef2f2;
+  color:#b91c1c;
+  border:1px solid #fecaca;
+}
+.exam-success {
+  background:#f0fdf4;
+  color:#166534;
+  border:1px solid #bbf7d0;
+}
+.exam-muted {
+  background:#f8fafc;
+  color:#64748b;
+  border:1px dashed #cbd5e1;
+  border-radius:9px;
+  padding:16px;
+}
+.exam-search {width:100%;max-width:360px}
+.exam-list-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:14px;
+}
+.exam-list-head h3 {
+  font-size:19px;
+  font-weight:750;
+  margin:0;
+}
+.exam-cards {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.exam-card {
+  background:white;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  padding:16px;
+  min-width:0;
+}
+.exam-card h4 {
+  font-size:16px;
+  font-weight:750;
+  margin:0;
+  overflow-wrap:anywhere;
+}
+.exam-card p {
+  color:#64748b;
+  margin:6px 0;
+}
+.exam-card-meta {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  background:#f8fafc;
+  padding:12px;
+  border-radius:8px;
+  margin-top:12px;
+}
+.exam-card-meta small {
+  display:block;
+  color:#64748b;
+  margin-bottom:4px;
+}
+.exam-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.exam-tag {
+  background:#f1f5f9;
+  border-radius:6px;
+  padding:5px 8px;
+  font-size:12px;
+}
+.exam-status {
+  background:#eff6ff;
+  color:#1d4ed8;
+  padding:5px 9px;
+  border-radius:20px;
+  font-size:12px;
+}
+@media(max-width:700px) {
+  .exam-grid {grid-template-columns:1fr}
+  .exam-cards {grid-template-columns:1fr}
+  .exam-panel {padding:15px}
+  .exam-heading h2 {font-size:21px}
+}
+@media(max-width:380px) {
+  .exam-subject-fields {grid-template-columns:1fr}
+  .exam-card-meta {grid-template-columns:1fr}
+}
 `;
 
 export default function ExamsModule() {
   const [schools, setSchools] = useState<School[]>([]);
-  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [years, setYears] = useState<AcademicYear[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
+
   const [form, setForm] = useState(initialForm);
   const [selectedSubjects, setSelectedSubjects] = useState<ExamSubject[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -146,8 +368,8 @@ export default function ExamsModule() {
   const [message, setMessage] = useState('');
 
   const availableYears = useMemo(
-    () => academicYears.filter(y => y.school_id === form.school_id),
-    [academicYears, form.school_id]
+    () => years.filter(y => y.school_id === form.school_id),
+    [years, form.school_id]
   );
 
   const availableClasses = useMemo(
@@ -173,13 +395,15 @@ export default function ExamsModule() {
 
   const filteredExams = useMemo(() => {
     const term = search.toLowerCase().trim();
+
     return exams.filter(e => {
-      const className = classes.find(c => c.id === e.class_id)?.class_name || '';
+      const className =
+        classes.find(c => c.id === e.class_id)?.class_name || '';
+
       return !term ||
         e.exam_name.toLowerCase().includes(term) ||
         (e.academic_year || '').toLowerCase().includes(term) ||
-        className.toLowerCase().includes(term) ||
-        (e.exam_type || '').toLowerCase().includes(term);
+        className.toLowerCase().includes(term);
     });
   }, [exams, search, classes]);
 
@@ -211,18 +435,28 @@ export default function ExamsModule() {
 
     try {
       const results = await Promise.all([
-        supabase.from('schools').select('id,school_name').order('school_name'),
+        supabase.from('schools')
+          .select('id,school_name')
+          .order('school_name'),
+
         supabase.from('academic_years')
           .select('id,school_id,year_name,is_current')
           .order('year_name', { ascending: false }),
+
         supabase.from('classes')
           .select('id,school_id,class_name,education_level')
           .order('sort_order'),
-        supabase.from('streams').select('id,class_id,stream_name'),
+
+        supabase.from('streams')
+          .select('id,class_id,stream_name'),
+
         supabase.from('subjects')
           .select('id,school_id,subject_code,subject_name,education_level')
           .order('subject_name'),
-        supabase.from('exams').select('*').order('created_at', { ascending: false }),
+
+        supabase.from('exams')
+          .select('*')
+          .order('created_at', { ascending: false }),
       ]);
 
       for (const result of results) {
@@ -230,12 +464,15 @@ export default function ExamsModule() {
       }
 
       setSchools((results[0].data || []) as School[]);
-      setAcademicYears((results[1].data || []) as AcademicYear[]);
+      setYears((results[1].data || []) as AcademicYear[]);
       setClasses((results[2].data || []) as SchoolClass[]);
       setStreams((results[3].data || []) as Stream[]);
       setSubjects((results[4].data || []) as Subject[]);
 
-      const examRows = (results[5].data || []) as Omit<Exam, 'exam_subjects'>[];
+      const examRows = (results[5].data || []) as Omit<
+        Exam,
+        'exam_subjects'
+      >[];
 
       if (examRows.length) {
         const { data, error: detailError } = await supabase
@@ -268,31 +505,6 @@ export default function ExamsModule() {
     void loadData();
   }, []);
 
-  function changeSchool(schoolId: string) {
-    const currentYear = academicYears.find(
-      y => y.school_id === schoolId && y.is_current
-    );
-
-    setForm(p => ({
-      ...p,
-      school_id: schoolId,
-      academic_year_id: currentYear?.id || '',
-      academic_year: currentYear?.year_name || new Date().getFullYear().toString(),
-      class_id: '',
-      stream_id: '',
-    }));
-    setSelectedSubjects([]);
-  }
-
-  function changeAcademicYear(yearId: string) {
-    const year = academicYears.find(y => y.id === yearId);
-    setForm(p => ({
-      ...p,
-      academic_year_id: yearId,
-      academic_year: year?.year_name || p.academic_year,
-    }));
-  }
-
   function changeLevel(value: Level) {
     setForm(p => ({
       ...p,
@@ -313,9 +525,11 @@ export default function ExamsModule() {
     );
   }
 
-  function updateMaximumMarks(id: string, value: number) {
+  function updateSubject(id: string, value: number) {
     setSelectedSubjects(previous => previous.map(s =>
-      s.subject_id === id ? { ...s, maximum_marks: value } : s
+      s.subject_id === id
+        ? { ...s, maximum_marks: value }
+        : s
     ));
   }
 
@@ -323,23 +537,18 @@ export default function ExamsModule() {
     setForm(initialForm);
     setSelectedSubjects([]);
     setEditingId(null);
-    setError('');
   }
 
   async function saveExam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     if (!supabase) return;
 
     setError('');
     setMessage('');
 
-    if (!form.school_id || !form.class_id) {
-      setError('Chagua shule na darasa.');
-      return;
-    }
-
-    if (!form.academic_year_id) {
-      setError('Chagua mwaka wa masomo.');
+    if (!form.school_id || !form.academic_year_id || !form.class_id) {
+      setError('Chagua shule, mwaka wa masomo na darasa.');
       return;
     }
 
@@ -353,38 +562,35 @@ export default function ExamsModule() {
       return;
     }
 
-    if (!form.exam_name.trim()) {
-      setError('Weka jina la mtihani.');
-      return;
-    }
-
-    if (!form.academic_year.trim()) {
-      setError('Weka mwaka wa masomo.');
-      return;
-    }
-
     if (selectedSubjects.some(s =>
-      !Number.isFinite(s.maximum_marks) || s.maximum_marks <= 0
+      !s.maximum_marks || s.maximum_marks <= 0
     )) {
-      setError('Alama za juu za kila somo lazima ziwe zaidi ya sifuri.');
+      setError('Alama za juu lazima ziwe zaidi ya sifuri.');
       return;
     }
 
     setSaving(true);
 
     try {
+      const selectedYear = years.find(
+        y => y.id === form.academic_year_id
+      );
+
+      if (!selectedYear) {
+        throw new Error('Mwaka wa masomo uliochagua haujapatikana.');
+      }
+
       const payload = {
         school_id: form.school_id,
         academic_year_id: form.academic_year_id,
-        academic_year: form.academic_year.trim(),
         class_id: form.class_id,
         stream_id: form.stream_id || null,
         exam_name: form.exam_name.trim(),
         exam_type: form.exam_type,
-        term: form.term,
-        start_date: form.start_date,
-        end_date: form.end_date,
-        status: 'Planned',
+        term: form.term || null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        academic_year: selectedYear.year_name,
       };
 
       let examId = editingId;
@@ -404,10 +610,13 @@ export default function ExamsModule() {
           .single();
 
         if (insertError) throw insertError;
+
         examId = data.id;
       }
 
-      if (!examId) throw new Error('ID ya mtihani haikupatikana.');
+      if (!examId) {
+        throw new Error('ID ya mtihani haikupatikana.');
+      }
 
       if (editingId) {
         const { error: deleteError } = await supabase
@@ -430,9 +639,10 @@ export default function ExamsModule() {
 
       if (detailError) throw detailError;
 
-      setMessage(editingId
-        ? 'Mtihani umehaririwa kikamilifu.'
-        : 'Mtihani umehifadhiwa kikamilifu.'
+      setMessage(
+        editingId
+          ? 'Mtihani umehaririwa kikamilifu.'
+          : 'Mtihani umehifadhiwa kikamilifu.'
       );
 
       resetForm();
@@ -448,30 +658,33 @@ export default function ExamsModule() {
     const cls = classes.find(c => c.id === exam.class_id);
 
     setEditingId(exam.id);
+
     setForm({
       school_id: exam.school_id,
-      academic_year_id: exam.academic_year_id || '',
-      academic_year: exam.academic_year || '',
+      academic_year_id: exam.academic_year_id,
       exam_name: exam.exam_name,
       exam_type: exam.exam_type,
       term: exam.term || 'Term 1',
       education_level: cls?.education_level || 'Primary',
       class_id: exam.class_id,
       stream_id: exam.stream_id || '',
-      start_date: exam.start_date,
-      end_date: exam.end_date,
+      start_date: exam.start_date || today,
+      end_date: exam.end_date || today,
     });
 
     setSelectedSubjects(exam.exam_subjects || []);
     setError('');
     setMessage('');
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function deleteExam(exam: Exam) {
     if (!supabase) return;
 
-    if (!window.confirm(`Una uhakika unataka kufuta mtihani "${exam.exam_name}"?`)) {
+    if (!window.confirm(
+      `Una uhakika unataka kufuta mtihani "${exam.exam_name}"?`
+    )) {
       return;
     }
 
@@ -505,11 +718,17 @@ export default function ExamsModule() {
   }
 
   function streamName(id: string | null) {
-    return id ? streams.find(s => s.id === id)?.stream_name || '' : '';
+    return id
+      ? streams.find(s => s.id === id)?.stream_name || ''
+      : '';
   }
 
   function subjectName(id: string) {
     return subjects.find(s => s.id === id)?.subject_name || 'Somo';
+  }
+
+  function yearName(id: string) {
+    return years.find(y => y.id === id)?.year_name || '';
   }
 
   return (
@@ -519,16 +738,32 @@ export default function ExamsModule() {
       <div className="exam-heading">
         <div>
           <h2>Usimamizi wa Mitihani</h2>
-          <p>Sajili na simamia mitihani ya shule.</p>
+          <p>Sajili na simamia mitihani na masomo ya shule.</p>
         </div>
-        <div className="exam-count">Mitihani: {exams.length}</div>
+        <div className="exam-count">
+          Mitihani: {exams.length}
+        </div>
       </div>
 
-      {error && <div className="exam-alert exam-error">{error}</div>}
-      {message && <div className="exam-alert exam-success">{message}</div>}
+      {error && (
+        <div
+          className="exam-alert exam-error"
+          style={{ whiteSpace: 'pre-wrap' }}
+        >
+          {error}
+        </div>
+      )}
+
+      {message && (
+        <div className="exam-alert exam-success">
+          {message}
+        </div>
+      )}
 
       <form className="exam-panel" onSubmit={saveExam}>
-        <h3>{editingId ? 'Hariri Mtihani' : 'Sajili Mtihani Mpya'}</h3>
+        <h3>
+          {editingId ? 'Hariri Mtihani' : 'Sajili Mtihani Mpya'}
+        </h3>
 
         <div className="exam-grid">
           <div className="exam-field">
@@ -537,11 +772,22 @@ export default function ExamsModule() {
               className="exam-input"
               required
               value={form.school_id}
-              onChange={e => changeSchool(e.target.value)}
+              onChange={e => {
+                setForm(p => ({
+                  ...p,
+                  school_id: e.target.value,
+                  academic_year_id: '',
+                  class_id: '',
+                  stream_id: '',
+                }));
+                setSelectedSubjects([]);
+              }}
             >
               <option value="">Chagua shule</option>
               {schools.map(s => (
-                <option key={s.id} value={s.id}>{s.school_name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.school_name}
+                </option>
               ))}
             </select>
           </div>
@@ -551,9 +797,12 @@ export default function ExamsModule() {
             <select
               className="exam-input"
               required
-              value={form.academic_year_id}
-              onChange={e => changeAcademicYear(e.target.value)}
               disabled={!form.school_id}
+              value={form.academic_year_id}
+              onChange={e => setForm(p => ({
+                ...p,
+                academic_year_id: e.target.value,
+              }))}
             >
               <option value="">Chagua mwaka wa masomo</option>
               {availableYears.map(y => (
@@ -570,7 +819,10 @@ export default function ExamsModule() {
               className="exam-input"
               required
               value={form.exam_name}
-              onChange={e => setForm(p => ({ ...p, exam_name: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                exam_name: e.target.value,
+              }))}
               placeholder="Mfano: Mtihani wa Muhula wa Kwanza"
             />
           </div>
@@ -580,9 +832,14 @@ export default function ExamsModule() {
             <select
               className="exam-input"
               value={form.exam_type}
-              onChange={e => setForm(p => ({ ...p, exam_type: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                exam_type: e.target.value,
+              }))}
             >
-              {examTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {examTypes.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </div>
 
@@ -591,12 +848,14 @@ export default function ExamsModule() {
             <select
               className="exam-input"
               value={form.term}
-              onChange={e => setForm(p => ({ ...p, term: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                term: e.target.value,
+              }))}
             >
-              <option value="Term 1">Term 1</option>
-              <option value="Term 2">Term 2</option>
-              <option value="Term 3">Term 3</option>
-              <option value="Other">Other</option>
+              {terms.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </div>
 
@@ -607,7 +866,9 @@ export default function ExamsModule() {
               value={form.education_level}
               onChange={e => changeLevel(e.target.value as Level)}
             >
-              {levels.map(l => <option key={l} value={l}>{l}</option>)}
+              {levels.map(l => (
+                <option key={l} value={l}>{l}</option>
+              ))}
             </select>
           </div>
 
@@ -617,15 +878,19 @@ export default function ExamsModule() {
               className="exam-input"
               required
               value={form.class_id}
-              onChange={e => setForm(p => ({
-                ...p,
-                class_id: e.target.value,
-                stream_id: '',
-              }))}
+              onChange={e => {
+                setForm(p => ({
+                  ...p,
+                  class_id: e.target.value,
+                  stream_id: '',
+                }));
+              }}
             >
               <option value="">Chagua darasa</option>
               {availableClasses.map(c => (
-                <option key={c.id} value={c.id}>{c.class_name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.class_name}
+                </option>
               ))}
             </select>
           </div>
@@ -636,11 +901,16 @@ export default function ExamsModule() {
               className="exam-input"
               disabled={!form.class_id}
               value={form.stream_id}
-              onChange={e => setForm(p => ({ ...p, stream_id: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                stream_id: e.target.value,
+              }))}
             >
-              <option value="">Mikondo yote / bila mkondo</option>
+              <option value="">Madarasa yote / bila mkondo</option>
               {availableStreams.map(s => (
-                <option key={s.id} value={s.id}>{s.stream_name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.stream_name}
+                </option>
               ))}
             </select>
           </div>
@@ -650,9 +920,11 @@ export default function ExamsModule() {
             <input
               className="exam-input"
               type="date"
-              required
               value={form.start_date}
-              onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                start_date: e.target.value,
+              }))}
             />
           </div>
 
@@ -661,10 +933,12 @@ export default function ExamsModule() {
             <input
               className="exam-input"
               type="date"
-              required
               min={form.start_date}
               value={form.end_date}
-              onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))}
+              onChange={e => setForm(p => ({
+                ...p,
+                end_date: e.target.value,
+              }))}
             />
           </div>
         </div>
@@ -672,8 +946,13 @@ export default function ExamsModule() {
         <hr className="exam-divider" />
 
         <h3>Masomo ya mtihani</h3>
-        <p style={{ color: '#64748b', marginTop: -10, marginBottom: 15 }}>
-          Chagua masomo na weka alama za juu kwa kila somo.
+
+        <p style={{
+          color: '#64748b',
+          marginTop: -10,
+          marginBottom: 15,
+        }}>
+          Chagua masomo yatakayofanyiwa mtihani na weka alama za juu.
         </p>
 
         {!form.school_id || !form.class_id ? (
@@ -700,8 +979,12 @@ export default function ExamsModule() {
                     <input
                       type="checkbox"
                       checked={Boolean(detail)}
-                      onChange={e => toggleSubject(subject, e.target.checked)}
+                      onChange={e => toggleSubject(
+                        subject,
+                        e.target.checked
+                      )}
                     />
+
                     <span>
                       {subject.subject_name}
                       {subject.subject_code && (
@@ -722,17 +1005,11 @@ export default function ExamsModule() {
                           min="1"
                           required
                           value={detail.maximum_marks}
-                          onChange={e => updateMaximumMarks(
+                          onChange={e => updateSubject(
                             subject.id,
                             Number(e.target.value)
                           )}
                         />
-                      </div>
-                      <div className="exam-field">
-                        <label> </label>
-                        <span style={{ color: '#64748b', padding: '10px 0' }}>
-                          Alama za somo
-                        </span>
                       </div>
                     </div>
                   )}
@@ -743,7 +1020,11 @@ export default function ExamsModule() {
         )}
 
         <div className="exam-actions">
-          <button className="exam-btn exam-primary" type="submit" disabled={saving}>
+          <button
+            className="exam-btn exam-primary"
+            type="submit"
+            disabled={saving}
+          >
             {saving
               ? 'Inahifadhi...'
               : editingId
@@ -756,14 +1037,25 @@ export default function ExamsModule() {
             type="button"
             onClick={resetForm}
           >
-            {editingId ? 'Ghairi Kuhariri' : 'Futa Fomu'}
+            Futa Fomu
           </button>
+
+          {editingId && (
+            <button
+              className="exam-btn exam-secondary"
+              type="button"
+              onClick={resetForm}
+            >
+              Ghairi Kuhariri
+            </button>
+          )}
         </div>
       </form>
 
       <section>
         <div className="exam-list-head">
           <h3>Orodha ya Mitihani</h3>
+
           <input
             className="exam-input exam-search"
             placeholder="Tafuta mtihani au darasa..."
@@ -775,7 +1067,9 @@ export default function ExamsModule() {
         {loading ? (
           <div className="exam-muted">Inapakia taarifa...</div>
         ) : filteredExams.length === 0 ? (
-          <div className="exam-muted">Hakuna mitihani iliyosajiliwa.</div>
+          <div className="exam-muted">
+            Hakuna mitihani iliyosajiliwa.
+          </div>
         ) : (
           <div className="exam-cards">
             {filteredExams.map(exam => (
@@ -788,24 +1082,32 @@ export default function ExamsModule() {
                 }}>
                   <div>
                     <h4>{exam.exam_name}</h4>
-                    <p>{exam.exam_type} • {exam.academic_year}</p>
-                    <p>{exam.term || ''}</p>
+                    <p>{exam.exam_type} • {exam.term || 'Bila muhula'}</p>
+                    <p>
+                      {yearName(exam.academic_year_id) ||
+                        exam.academic_year || ''}
+                    </p>
                     <p>
                       {className(exam.class_id)}
-                      {exam.stream_id ? ` • ${streamName(exam.stream_id)}` : ''}
+                      {exam.stream_id
+                        ? ` • ${streamName(exam.stream_id)}`
+                        : ''}
                     </p>
                   </div>
-                  <span className="exam-status">{exam.status}</span>
+
+                  <span className="exam-status">
+                    {exam.status}
+                  </span>
                 </div>
 
                 <div className="exam-card-meta">
                   <div>
                     <small>Tarehe ya kuanza</small>
-                    <strong>{exam.start_date}</strong>
+                    <strong>{exam.start_date || 'Haijawekwa'}</strong>
                   </div>
                   <div>
                     <small>Tarehe ya mwisho</small>
-                    <strong>{exam.end_date}</strong>
+                    <strong>{exam.end_date || 'Haijawekwa'}</strong>
                   </div>
                 </div>
 
@@ -816,7 +1118,7 @@ export default function ExamsModule() {
                 <div className="exam-tags">
                   {exam.exam_subjects.map(s => (
                     <span className="exam-tag" key={s.subject_id}>
-                      {subjectName(s.subject_id)} — {s.maximum_marks} marks
+                      {subjectName(s.subject_id)}: {s.maximum_marks} marks
                     </span>
                   ))}
                 </div>
@@ -829,6 +1131,7 @@ export default function ExamsModule() {
                   >
                     Hariri
                   </button>
+
                   <button
                     className="exam-btn exam-danger"
                     type="button"
@@ -844,4 +1147,4 @@ export default function ExamsModule() {
       </section>
     </div>
   );
-}
+  }
