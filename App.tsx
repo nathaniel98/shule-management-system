@@ -1,3 +1,4 @@
+import ResultsModule from './src/ResultsModule';
 import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
@@ -409,8 +410,10 @@ function App() {
           ) : section === 'subjects' ? (
             <SubjectsModule />
           ) : section === 'exams' ? (
-            <ExamsModule />
-          ) : (
+  <ExamsModule />
+) : section === 'results' ? (
+  <ResultsModule />
+) : (
             <section className="panel module-panel">
               <div className="module-icon">
                 <current.icon size={25} />
