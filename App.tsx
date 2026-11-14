@@ -1,3 +1,4 @@
+
 import ResultsModule from './src/ResultsModule';
 import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
@@ -7,6 +8,7 @@ import TeachersModule from './src/TeachersModule';
 import StreamsModule from './src/StreamsModule';
 import SubjectsModule from './src/SubjectsModule';
 import ExamsModule from './src/ExamsModule';
+import AcademicYearsModule from './src/AcademicYearsModule';
 
 import {
   Activity,
@@ -39,6 +41,7 @@ type Section =
   | 'classes'
   | 'streams'
   | 'subjects'
+  | 'academic-years'
   | 'exams'
   | 'results'
   | 'fees'
@@ -53,6 +56,7 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'classes', label: 'Madarasa', icon: Building2 },
   { id: 'streams', label: 'Mikondo', icon: Users },
   { id: 'subjects', label: 'Masomo', icon: BookOpen },
+  { id: 'academic-years', label: 'Miaka ya Masomo', icon: CalendarDays },
   { id: 'exams', label: 'Mitihani', icon: ClipboardList },
   { id: 'results', label: 'Matokeo', icon: ChartNoAxesCombined },
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
@@ -409,11 +413,13 @@ function App() {
             <StreamsModule />
           ) : section === 'subjects' ? (
             <SubjectsModule />
+          ) : section === 'academic-years' ? (
+            <AcademicYearsModule />
           ) : section === 'exams' ? (
-  <ExamsModule />
-) : section === 'results' ? (
-  <ResultsModule />
-) : (
+            <ExamsModule />
+          ) : section === 'results' ? (
+            <ResultsModule />
+          ) : (
             <section className="panel module-panel">
               <div className="module-icon">
                 <current.icon size={25} />
