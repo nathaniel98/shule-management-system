@@ -206,8 +206,17 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-        <div className="brand">
+      <aside
+        className={`sidebar ${mobileOpen ? 'open' : ''}`}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100dvh',
+          maxHeight: '100dvh',
+          overflow: 'hidden'
+        }}
+      >
+        <div className="brand" style={{ flexShrink: 0 }}>
           <div className="brand-mark small">
             <School size={23} />
           </div>
@@ -225,7 +234,7 @@ function App() {
           </button>
         </div>
 
-        <div className="school-switch">
+        <div className="school-switch" style={{ flexShrink: 0 }}>
           <div className="school-avatar">S</div>
 
           <div>
@@ -236,9 +245,21 @@ function App() {
           <ChevronDown size={16} />
         </div>
 
-        <p className="nav-caption">MENU KUU</p>
+        <p className="nav-caption" style={{ flexShrink: 0 }}>
+          MENU KUU
+        </p>
 
-        <nav>
+        <nav
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehaviorY: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            paddingBottom: '16px'
+          }}
+        >
           {nav.map(n => (
             <button
               key={n.id}
@@ -254,7 +275,13 @@ function App() {
           ))}
         </nav>
 
-        <div className="sidebar-bottom">
+        <div
+          className="sidebar-bottom"
+          style={{
+            flexShrink: 0,
+            background: '#fff'
+          }}
+        >
           <div className="help">
             <CircleHelp size={18} />
             <span>Kituo cha msaada</span>
