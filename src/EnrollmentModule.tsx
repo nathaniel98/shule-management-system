@@ -2,24 +2,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 
-type School = {
-  id: string;
-  school_name: string;
-};
-
+type School = { id: string; school_name: string };
 type SchoolClass = {
   id: string;
   school_id: string;
   class_name: string;
   education_level: string;
 };
-
-type Stream = {
+type Stream = { id: string; class_id: string; stream_name: string };
+type AcademicYear = {
   id: string;
-  class_id: string;
-  stream_name: string;
+  school_id: string;
+  year_name: string;
+  is_current: boolean;
 };
-
 type Student = {
   id: string;
   school_id: string;
@@ -29,12 +25,12 @@ type Student = {
   last_name: string;
   status: string | null;
 };
-
 type Enrollment = {
   id: string;
   student_id: string;
   class_id: string;
   stream_id: string | null;
+  academic_year_id: string;
   status: string | null;
 };
 
@@ -62,6 +58,7 @@ export default function EnrollmentModule() {
   const [schools, setSchools] = useState<School[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
+  const [years, setYears] = useState<AcademicYear[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
 
@@ -75,6 +72,10 @@ export default function EnrollmentModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+
+  const currentYear =
+    years.find(y => y.school_id === schoolId && y.is_current) ||
+    years.find(y => y.school_id === schoolId);
 
   const availableClasses = useMemo(
     () => classes.filter(c => c.school_id === schoolId),
@@ -103,16 +104,14 @@ export default function EnrollmentModule() {
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return availableStudents.filter(s => {
-      const name = [
+    return availableStudents.filter(s =>
+      [
         s.first_name,
         s.middle_name,
         s.last_name,
         s.admission_no,
-      ].filter(Boolean).join(' ').toLowerCase();
-
-      return !q || name.includes(q);
-    });
+      ].filter(Boolean).join(' ').toLowerCase().includes(q)
+    );
   }, [availableStudents, search]);
 
   const enrolledStudents = useMemo(
@@ -131,7 +130,12 @@ export default function EnrollmentModule() {
     setError('');
 
     try {
-      const [schoolResult, classResult, streamResult] = await Promise.all([
+      const [
+        schoolResult,
+        classResult,
+        streamResult,
+        yearResult,
+      ] = await Promise.all([
         supabase.from('schools')
           .select('id,school_name')
           .order('school_name'),
@@ -143,17 +147,23 @@ export default function EnrollmentModule() {
         supabase.from('streams')
           .select('id,class_id,stream_name')
           .order('stream_name'),
+
+        supabase.from('academic_years')
+          .select('id,school_id,year_name,is_current')
+          .order('year_name', { ascending: false }),
       ]);
 
       if (schoolResult.error) throw schoolResult.error;
       if (classResult.error) throw classResult.error;
       if (streamResult.error) throw streamResult.error;
+      if (yearResult.error) throw yearResult.error;
 
       const schoolRows = (schoolResult.data || []) as School[];
 
       setSchools(schoolRows);
       setClasses((classResult.data || []) as SchoolClass[]);
       setStreams((streamResult.data || []) as Stream[]);
+      setYears((yearResult.data || []) as AcademicYear[]);
 
       if (schoolRows.length) {
         setSchoolId(schoolRows[0].id);
@@ -184,15 +194,35 @@ export default function EnrollmentModule() {
     setSelectedIds([]);
 
     try {
-      const [studentResult, enrollmentResult] = await Promise.all([
+      const selectedYear =
+        years.find(y =>
+          y.school_id === selectedSchoolId && y.is_current
+        ) ||
+        years.find(y => y.school_id === selectedSchoolId);
+
+      if (!selectedYear) {
+        throw new Error(
+          'Shule hii haina mwaka wa masomo. Sajili mwaka kwanza kwenye Miaka ya Masomo.'
+        );
+      }
+
+      const [
+        studentResult,
+        enrollmentResult,
+      ] = await Promise.all([
         supabase.from('students')
-          .select('id,school_id,admission_no,first_name,middle_name,last_name,status')
+          .select(
+            'id,school_id,admission_no,first_name,middle_name,last_name,status'
+          )
           .eq('school_id', selectedSchoolId)
           .order('first_name'),
 
         supabase.from('student_enrollments')
-          .select('id,student_id,class_id,stream_id,status')
-          .eq('class_id', selectedClassId),
+          .select(
+            'id,student_id,class_id,stream_id,academic_year_id,status'
+          )
+          .eq('class_id', selectedClassId)
+          .eq('academic_year_id', selectedYear.id),
       ]);
 
       if (studentResult.error) throw studentResult.error;
@@ -229,30 +259,31 @@ export default function EnrollmentModule() {
   function toggleStudent(id: string, checked: boolean) {
     setSelectedIds(previous =>
       checked
-        ? [...previous, id]
-        : previous.filter(item => item !== id)
+        ? [...new Set([...previous, id])]
+        : previous.filter(x => x !== id)
     );
   }
 
   function selectAllVisible(checked: boolean) {
-    if (checked) {
-      setSelectedIds(previous => [
-        ...new Set([
-          ...previous,
-          ...filteredStudents.map(s => s.id),
-        ]),
-      ]);
-    } else {
-      const visibleIds = new Set(filteredStudents.map(s => s.id));
-      setSelectedIds(previous =>
-        previous.filter(id => !visibleIds.has(id))
-      );
-    }
+    const visible = filteredStudents.map(s => s.id);
+
+    setSelectedIds(previous =>
+      checked
+        ? [...new Set([...previous, ...visible])]
+        : previous.filter(id => !visible.includes(id))
+    );
   }
 
   async function enrollStudents() {
     if (!supabase || !schoolId || !classId) {
       setError('Chagua shule na darasa kwanza.');
+      return;
+    }
+
+    if (!currentYear) {
+      setError(
+        'Shule hii haina mwaka wa masomo. Nenda Miaka ya Masomo usajili mwaka kwanza.'
+      );
       return;
     }
 
@@ -266,12 +297,36 @@ export default function EnrollmentModule() {
     setMessage('');
 
     try {
-      // Hakikisha wanafunzi hawajaunganishwa tayari na darasa hili.
-      const { data: existing, error: checkError } = await supabase
-        .from('student_enrollments')
-        .select('student_id')
-        .eq('class_id', classId)
-        .in('student_id', selectedIds);
+      const { data: selectedStudents, error: studentCheckError } =
+        await supabase.from('students')
+          .select('id,school_id')
+          .in('id', selectedIds);
+
+      if (studentCheckError) throw studentCheckError;
+
+      if (
+        (selectedStudents || []).length !== selectedIds.length ||
+        (selectedStudents || []).some(s => s.school_id !== schoolId)
+      ) {
+        throw new Error(
+          'Mwanafunzi na darasa lazima viwe vya shule moja. Kagua shule ya mwanafunzi kwenye Usajili wa Wanafunzi.'
+        );
+      }
+
+      const selectedClass = classes.find(c => c.id === classId);
+
+      if (!selectedClass || selectedClass.school_id !== schoolId) {
+        throw new Error(
+          'Darasa ulilochagua si la shule hii. Chagua darasa sahihi.'
+        );
+      }
+
+      const { data: existing, error: checkError } =
+        await supabase.from('student_enrollments')
+          .select('student_id')
+          .eq('class_id', classId)
+          .eq('academic_year_id', currentYear.id)
+          .in('student_id', selectedIds);
 
       if (checkError) throw checkError;
 
@@ -279,10 +334,14 @@ export default function EnrollmentModule() {
         (existing || []).map(row => row.student_id)
       );
 
-      const newIds = selectedIds.filter(id => !existingIds.has(id));
+      const newIds = selectedIds.filter(
+        id => !existingIds.has(id)
+      );
 
       if (!newIds.length) {
-        setMessage('Wanafunzi wote uliochagua tayari wapo kwenye darasa hili.');
+        setMessage(
+          'Wanafunzi wote uliochagua tayari wamesajiliwa kwenye darasa hili kwa mwaka huu.'
+        );
         setSelectedIds([]);
         await loadClassData();
         return;
@@ -292,6 +351,7 @@ export default function EnrollmentModule() {
         student_id: studentId,
         class_id: classId,
         stream_id: streamId || null,
+        academic_year_id: currentYear.id,
         status: 'Active',
       }));
 
@@ -302,7 +362,7 @@ export default function EnrollmentModule() {
       if (insertError) throw insertError;
 
       setMessage(
-        `${newIds.length} mwanafunzi wameunganishwa na darasa kikamilifu.`
+        `${newIds.length} mwanafunzi wameunganishwa na darasa kwa mwaka wa masomo ${currentYear.year_name}.`
       );
 
       setSelectedIds([]);
@@ -348,11 +408,11 @@ export default function EnrollmentModule() {
     await loadClassData();
   }
 
-  function studentName(student: Student) {
+  function studentName(s: Student) {
     return [
-      student.first_name,
-      student.middle_name,
-      student.last_name,
+      s.first_name,
+      s.middle_name,
+      s.last_name,
     ].filter(Boolean).join(' ');
   }
 
@@ -459,6 +519,13 @@ export default function EnrollmentModule() {
             </select>
           </label>
         </div>
+
+        {schoolId && (
+          <p style={{ color: '#475569', marginBottom: 0 }}>
+            Mwaka wa masomo:{' '}
+            <strong>{currentYear?.year_name || 'Haujapatikana'}</strong>
+          </p>
+        )}
       </section>
 
       {classId && (
@@ -519,9 +586,13 @@ export default function EnrollmentModule() {
                     type="checkbox"
                     checked={
                       filteredStudents.length > 0 &&
-                      filteredStudents.every(s => selectedIds.includes(s.id))
+                      filteredStudents.every(s =>
+                        selectedIds.includes(s.id)
+                      )
                     }
-                    onChange={e => selectAllVisible(e.target.checked)}
+                    onChange={e =>
+                      selectAllVisible(e.target.checked)
+                    }
                   />
                   Chagua wote wanaoonekana
                 </label>
@@ -550,10 +621,9 @@ export default function EnrollmentModule() {
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(student.id)}
-                        onChange={e => toggleStudent(
-                          student.id,
-                          e.target.checked
-                        )}
+                        onChange={e =>
+                          toggleStudent(student.id, e.target.checked)
+                        }
                       />
                       <span style={{ minWidth: 0 }}>
                         <strong>{studentName(student)}</strong>
@@ -572,7 +642,9 @@ export default function EnrollmentModule() {
                 <button
                   type="button"
                   style={{ ...buttonStyle, marginTop: 17 }}
-                  disabled={saving || selectedIds.length === 0}
+                  disabled={
+                    saving || selectedIds.length === 0 || !currentYear
+                  }
                   onClick={() => void enrollStudents()}
                 >
                   {saving
@@ -598,10 +670,7 @@ export default function EnrollmentModule() {
                 Hakuna mwanafunzi aliyeunganishwa na darasa hili bado.
               </p>
             ) : (
-              <div style={{
-                display: 'grid',
-                gap: 10,
-              }}>
+              <div style={{ display: 'grid', gap: 10 }}>
                 {enrollments
                   .filter(e =>
                     !e.status || e.status.toLowerCase() === 'active'
@@ -639,7 +708,9 @@ export default function EnrollmentModule() {
 
                         <button
                           type="button"
-                          onClick={() => void removeEnrollment(enrollment)}
+                          onClick={() =>
+                            void removeEnrollment(enrollment)
+                          }
                           style={{
                             ...buttonStyle,
                             background: '#fee2e2',
