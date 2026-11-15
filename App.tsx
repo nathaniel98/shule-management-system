@@ -1,5 +1,6 @@
 
 import ResultsModule from './src/ResultsModule';
+import ReportsModule from './src/ReportsModule';
 import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
@@ -424,6 +425,8 @@ function App() {
             <ExamsModule />
           ) : section === 'results' ? (
             <ResultsModule />
+          ) : section === 'reports' ? (
+            <ReportsModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
