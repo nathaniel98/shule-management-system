@@ -4,6 +4,7 @@ import ClassesModule from './src/ClassesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
+import EnrollmentModule from './src/EnrollmentModule';
 import TeachersModule from './src/TeachersModule';
 import StreamsModule from './src/StreamsModule';
 import SubjectsModule from './src/SubjectsModule';
@@ -37,6 +38,7 @@ type Section =
   | 'dashboard'
   | 'schools'
   | 'students'
+  | 'enrollment'
   | 'teachers'
   | 'classes'
   | 'streams'
@@ -52,6 +54,7 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'schools', label: 'Shule', icon: School },
   { id: 'students', label: 'Wanafunzi', icon: GraduationCap },
+  { id: 'enrollment', label: 'Usajili wa Madarasa', icon: Users },
   { id: 'teachers', label: 'Walimu', icon: Users },
   { id: 'classes', label: 'Madarasa', icon: Building2 },
   { id: 'streams', label: 'Mikondo', icon: Users },
@@ -405,6 +408,8 @@ function App() {
             <SchoolModule />
           ) : section === 'students' ? (
             <StudentsModule />
+          ) : section === 'enrollment' ? (
+            <EnrollmentModule />
           ) : section === 'teachers' ? (
             <TeachersModule />
           ) : section === 'classes' ? (
