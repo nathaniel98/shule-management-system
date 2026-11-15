@@ -2,6 +2,7 @@
 import ResultsModule from './src/ResultsModule';
 import ReportsModule from './src/ReportsModule';
 import ClassesModule from './src/ClassesModule';
+import FeesModule from './src/FeesModule';
 import { useEffect, useState } from 'react';
 import { SchoolModule } from './SchoolModule';
 import StudentsModule from './src/StudentsModule';
@@ -452,6 +453,8 @@ function App() {
             <ExamsModule />
           ) : section === 'results' ? (
             <ResultsModule />
+          ) : section === 'fees' ? (
+            <FeesModule />
           ) : section === 'reports' ? (
             <ReportsModule />
           ) : (
