@@ -31,6 +31,8 @@ type Enrollment = {
   class_id: string;
   stream_id: string | null;
   academic_year_id: string;
+  accommodation_type: string;
+  enrollment_date: string | null;
   status: string | null;
 };
 
@@ -54,6 +56,13 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+const cardStyle: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 15,
+  padding: 20,
+};
+
 export default function EnrollmentModule() {
   const [schools, setSchools] = useState<School[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -65,8 +74,15 @@ export default function EnrollmentModule() {
   const [schoolId, setSchoolId] = useState('');
   const [classId, setClassId] = useState('');
   const [streamId, setStreamId] = useState('');
+  const [accommodationType, setAccommodationType] = useState('Day');
+
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [editing, setEditing] = useState<Enrollment | null>(null);
+  const [editClassId, setEditClassId] = useState('');
+  const [editStreamId, setEditStreamId] = useState('');
+  const [editAccommodation, setEditAccommodation] = useState('Day');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,10 +103,15 @@ export default function EnrollmentModule() {
     [streams, classId]
   );
 
+  const editStreams = useMemo(
+    () => streams.filter(s => s.class_id === editClassId),
+    [streams, editClassId]
+  );
+
   const enrolledIds = useMemo(
     () => new Set(
       enrollments
-        .filter(e => !e.status || e.status.toLowerCase() === 'active')
+        .filter(e => !e.status || e.status === 'Active')
         .map(e => e.student_id)
     ),
     [enrollments]
@@ -120,38 +141,28 @@ export default function EnrollmentModule() {
   );
 
   async function loadInitial() {
-    if (!supabase) {
-      setError('Supabase haijaunganishwa.');
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
-      const [
-        schoolResult,
-        classResult,
-        streamResult,
-        yearResult,
-      ] = await Promise.all([
-        supabase.from('schools')
-          .select('id,school_name')
-          .order('school_name'),
+      const [schoolResult, classResult, streamResult, yearResult] =
+        await Promise.all([
+          supabase.from('schools')
+            .select('id,school_name')
+            .order('school_name'),
 
-        supabase.from('classes')
-          .select('id,school_id,class_name,education_level')
-          .order('sort_order'),
+          supabase.from('classes')
+            .select('id,school_id,class_name,education_level')
+            .order('sort_order'),
 
-        supabase.from('streams')
-          .select('id,class_id,stream_name')
-          .order('stream_name'),
+          supabase.from('streams')
+            .select('id,class_id,stream_name')
+            .order('stream_name'),
 
-        supabase.from('academic_years')
-          .select('id,school_id,year_name,is_current')
-          .order('year_name', { ascending: false }),
-      ]);
+          supabase.from('academic_years')
+            .select('id,school_id,year_name,is_current')
+            .order('year_name', { ascending: false }),
+        ]);
 
       if (schoolResult.error) throw schoolResult.error;
       if (classResult.error) throw classResult.error;
@@ -165,9 +176,7 @@ export default function EnrollmentModule() {
       setStreams((streamResult.data || []) as Stream[]);
       setYears((yearResult.data || []) as AcademicYear[]);
 
-      if (schoolRows.length) {
-        setSchoolId(schoolRows[0].id);
-      }
+      if (schoolRows.length) setSchoolId(schoolRows[0].id);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -183,9 +192,20 @@ export default function EnrollmentModule() {
     selectedSchoolId = schoolId,
     selectedClassId = classId
   ) {
-    if (!supabase || !selectedSchoolId || !selectedClassId) {
+    if (!selectedSchoolId || !selectedClassId) {
       setStudents([]);
       setEnrollments([]);
+      return;
+    }
+
+    const selectedYear =
+      years.find(y =>
+        y.school_id === selectedSchoolId && y.is_current
+      ) ||
+      years.find(y => y.school_id === selectedSchoolId);
+
+    if (!selectedYear) {
+      setError('Shule hii haina mwaka wa masomo uliosajiliwa.');
       return;
     }
 
@@ -194,22 +214,7 @@ export default function EnrollmentModule() {
     setSelectedIds([]);
 
     try {
-      const selectedYear =
-        years.find(y =>
-          y.school_id === selectedSchoolId && y.is_current
-        ) ||
-        years.find(y => y.school_id === selectedSchoolId);
-
-      if (!selectedYear) {
-        throw new Error(
-          'Shule hii haina mwaka wa masomo. Sajili mwaka kwanza kwenye Miaka ya Masomo.'
-        );
-      }
-
-      const [
-        studentResult,
-        enrollmentResult,
-      ] = await Promise.all([
+      const [studentResult, enrollmentResult] = await Promise.all([
         supabase.from('students')
           .select(
             'id,school_id,admission_no,first_name,middle_name,last_name,status'
@@ -219,7 +224,7 @@ export default function EnrollmentModule() {
 
         supabase.from('student_enrollments')
           .select(
-            'id,student_id,class_id,stream_id,academic_year_id,status'
+            'id,student_id,class_id,stream_id,academic_year_id,accommodation_type,enrollment_date,status'
           )
           .eq('class_id', selectedClassId)
           .eq('academic_year_id', selectedYear.id),
@@ -244,6 +249,7 @@ export default function EnrollmentModule() {
     setStudents([]);
     setEnrollments([]);
     setSelectedIds([]);
+    setEditing(null);
     setError('');
     setMessage('');
   }
@@ -252,6 +258,7 @@ export default function EnrollmentModule() {
     setClassId(id);
     setStreamId('');
     setSelectedIds([]);
+    setEditing(null);
     setMessage('');
     void loadClassData(schoolId, id);
   }
@@ -275,15 +282,8 @@ export default function EnrollmentModule() {
   }
 
   async function enrollStudents() {
-    if (!supabase || !schoolId || !classId) {
-      setError('Chagua shule na darasa kwanza.');
-      return;
-    }
-
-    if (!currentYear) {
-      setError(
-        'Shule hii haina mwaka wa masomo. Nenda Miaka ya Masomo usajili mwaka kwanza.'
-      );
+    if (!schoolId || !classId || !currentYear) {
+      setError('Chagua shule, darasa na mwaka wa masomo.');
       return;
     }
 
@@ -292,32 +292,35 @@ export default function EnrollmentModule() {
       return;
     }
 
+    if (!['Day', 'Boarding'].includes(accommodationType)) {
+      setError('Chagua aina sahihi ya malazi.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     setMessage('');
 
     try {
-      const { data: selectedStudents, error: studentCheckError } =
+      const selectedClass = classes.find(c => c.id === classId);
+
+      if (!selectedClass || selectedClass.school_id !== schoolId) {
+        throw new Error('Darasa ulilochagua si la shule hii.');
+      }
+
+      const { data: selectedStudents, error: studentError } =
         await supabase.from('students')
           .select('id,school_id')
           .in('id', selectedIds);
 
-      if (studentCheckError) throw studentCheckError;
+      if (studentError) throw studentError;
 
       if (
         (selectedStudents || []).length !== selectedIds.length ||
         (selectedStudents || []).some(s => s.school_id !== schoolId)
       ) {
         throw new Error(
-          'Mwanafunzi na darasa lazima viwe vya shule moja. Kagua shule ya mwanafunzi kwenye Usajili wa Wanafunzi.'
-        );
-      }
-
-      const selectedClass = classes.find(c => c.id === classId);
-
-      if (!selectedClass || selectedClass.school_id !== schoolId) {
-        throw new Error(
-          'Darasa ulilochagua si la shule hii. Chagua darasa sahihi.'
+          'Mwanafunzi na darasa lazima viwe vya shule moja.'
         );
       }
 
@@ -334,14 +337,10 @@ export default function EnrollmentModule() {
         (existing || []).map(row => row.student_id)
       );
 
-      const newIds = selectedIds.filter(
-        id => !existingIds.has(id)
-      );
+      const newIds = selectedIds.filter(id => !existingIds.has(id));
 
       if (!newIds.length) {
-        setMessage(
-          'Wanafunzi wote uliochagua tayari wamesajiliwa kwenye darasa hili kwa mwaka huu.'
-        );
+        setMessage('Wanafunzi wote tayari wamesajiliwa kwenye darasa hili.');
         setSelectedIds([]);
         await loadClassData();
         return;
@@ -352,6 +351,8 @@ export default function EnrollmentModule() {
         class_id: classId,
         stream_id: streamId || null,
         academic_year_id: currentYear.id,
+        accommodation_type: accommodationType,
+        enrollment_date: new Date().toISOString().slice(0, 10),
         status: 'Active',
       }));
 
@@ -362,27 +363,90 @@ export default function EnrollmentModule() {
       if (insertError) throw insertError;
 
       setMessage(
-        `${newIds.length} mwanafunzi wameunganishwa na darasa kwa mwaka wa masomo ${currentYear.year_name}.`
+        `${newIds.length} mwanafunzi wameunganishwa na darasa.`
       );
-
       setSelectedIds([]);
       await loadClassData();
     } catch (e) {
-      setError(
-        `Imeshindikana kusajili wanafunzi: ${(e as Error).message}`
-      );
+      setError(`Imeshindikana: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(enrollment: Enrollment) {
+    setEditing(enrollment);
+    setEditClassId(enrollment.class_id);
+    setEditStreamId(enrollment.stream_id || '');
+    setEditAccommodation(enrollment.accommodation_type || 'Day');
+    setError('');
+    setMessage('');
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+
+    if (!editClassId) {
+      setError('Chagua darasa.');
+      return;
+    }
+
+    if (!['Day', 'Boarding'].includes(editAccommodation)) {
+      setError('Chagua aina sahihi ya malazi.');
+      return;
+    }
+
+    const targetClass = classes.find(c => c.id === editClassId);
+
+    if (!targetClass || targetClass.school_id !== schoolId) {
+      setError('Darasa ulilochagua si la shule hii.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const { data: duplicate, error: duplicateError } =
+        await supabase.from('student_enrollments')
+          .select('id')
+          .eq('student_id', editing.student_id)
+          .eq('class_id', editClassId)
+          .eq('academic_year_id', editing.academic_year_id)
+          .neq('id', editing.id);
+
+      if (duplicateError) throw duplicateError;
+
+      if (duplicate && duplicate.length > 0) {
+        throw new Error(
+          'Mwanafunzi huyu tayari amesajiliwa kwenye darasa hilo kwa mwaka huu.'
+        );
+      }
+
+      const { error: updateError } = await supabase
+        .from('student_enrollments')
+        .update({
+          class_id: editClassId,
+          stream_id: editStreamId || null,
+          accommodation_type: editAccommodation,
+        })
+        .eq('id', editing.id);
+
+      if (updateError) throw updateError;
+
+      setEditing(null);
+      setMessage('Taarifa za usajili zimehaririwa kikamilifu.');
+      await loadClassData();
+    } catch (e) {
+      setError(`Imeshindikana kuhariri: ${(e as Error).message}`);
     } finally {
       setSaving(false);
     }
   }
 
   async function removeEnrollment(enrollment: Enrollment) {
-    if (!supabase) return;
-
-    const student = students.find(
-      s => s.id === enrollment.student_id
-    );
-
+    const student = students.find(s => s.id === enrollment.student_id);
     const name = student
       ? `${student.first_name} ${student.last_name}`
       : 'mwanafunzi huyu';
@@ -424,12 +488,7 @@ export default function EnrollmentModule() {
       width: '100%',
       minWidth: 0,
     }}>
-      <section style={{
-        background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 15,
-        padding: 20,
-      }}>
+      <section style={cardStyle}>
         <h2 style={{ marginTop: 0, color: '#173b5e' }}>
           Usajili wa Wanafunzi Madarasani
         </h2>
@@ -518,6 +577,18 @@ export default function EnrollmentModule() {
               ))}
             </select>
           </label>
+
+          <label>
+            <strong>Aina ya Malazi</strong>
+            <select
+              style={inputStyle}
+              value={accommodationType}
+              onChange={e => setAccommodationType(e.target.value)}
+            >
+              <option value="Day">Kutwa (Day)</option>
+              <option value="Boarding">Bweni (Boarding)</option>
+            </select>
+          </label>
         </div>
 
         {schoolId && (
@@ -530,12 +601,7 @@ export default function EnrollmentModule() {
 
       {classId && (
         <>
-          <section style={{
-            background: '#fff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 15,
-            padding: 20,
-          }}>
+          <section style={cardStyle}>
             <h3 style={{ marginTop: 0 }}>
               Ongeza Wanafunzi Darasani
             </h3>
@@ -586,13 +652,9 @@ export default function EnrollmentModule() {
                     type="checkbox"
                     checked={
                       filteredStudents.length > 0 &&
-                      filteredStudents.every(s =>
-                        selectedIds.includes(s.id)
-                      )
+                      filteredStudents.every(s => selectedIds.includes(s.id))
                     }
-                    onChange={e =>
-                      selectAllVisible(e.target.checked)
-                    }
+                    onChange={e => selectAllVisible(e.target.checked)}
                   />
                   Chagua wote wanaoonekana
                 </label>
@@ -655,12 +717,7 @@ export default function EnrollmentModule() {
             )}
           </section>
 
-          <section style={{
-            background: '#fff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 15,
-            padding: 20,
-          }}>
+          <section style={cardStyle}>
             <h3 style={{ marginTop: 0 }}>
               Wanafunzi Waliopo Darasani ({enrolledStudents.length})
             </h3>
@@ -672,9 +729,7 @@ export default function EnrollmentModule() {
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 {enrollments
-                  .filter(e =>
-                    !e.status || e.status.toLowerCase() === 'active'
-                  )
+                  .filter(e => !e.status || e.status === 'Active')
                   .map(enrollment => {
                     const student = students.find(
                       s => s.id === enrollment.student_id
@@ -686,11 +741,8 @@ export default function EnrollmentModule() {
                       <div
                         key={enrollment.id}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: 12,
-                          flexWrap: 'wrap',
+                          display: 'grid',
+                          gap: 10,
                           border: '1px solid #e2e8f0',
                           borderRadius: 9,
                           padding: 12,
@@ -704,21 +756,125 @@ export default function EnrollmentModule() {
                           }}>
                             {student.admission_no}
                           </div>
+                          <div style={{
+                            color: '#64748b',
+                            fontSize: 13,
+                          }}>
+                            Malazi: {enrollment.accommodation_type === 'Boarding'
+                              ? 'Bweni'
+                              : 'Kutwa'}
+                          </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void removeEnrollment(enrollment)
-                          }
-                          style={{
-                            ...buttonStyle,
-                            background: '#fee2e2',
-                            color: '#b91c1c',
-                          }}
-                        >
-                          Ondoa Darasani
-                        </button>
+                        {editing?.id === enrollment.id ? (
+                          <div style={{
+                            display: 'grid',
+                            gap: 10,
+                            background: '#f8fafc',
+                            padding: 12,
+                            borderRadius: 8,
+                          }}>
+                            <label>
+                              <strong>Darasa</strong>
+                              <select
+                                style={inputStyle}
+                                value={editClassId}
+                                onChange={e => {
+                                  setEditClassId(e.target.value);
+                                  setEditStreamId('');
+                                }}
+                              >
+                                {availableClasses.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.class_name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label>
+                              <strong>Mkondo</strong>
+                              <select
+                                style={inputStyle}
+                                value={editStreamId}
+                                onChange={e => setEditStreamId(e.target.value)}
+                              >
+                                <option value="">Bila mkondo</option>
+                                {editStreams.map(s => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.stream_name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label>
+                              <strong>Aina ya Malazi</strong>
+                              <select
+                                style={inputStyle}
+                                value={editAccommodation}
+                                onChange={e =>
+                                  setEditAccommodation(e.target.value)
+                                }
+                              >
+                                <option value="Day">Kutwa (Day)</option>
+                                <option value="Boarding">Bweni (Boarding)</option>
+                              </select>
+                            </label>
+
+                            <div style={{
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                            }}>
+                              <button
+                                type="button"
+                                style={buttonStyle}
+                                disabled={saving}
+                                onClick={() => void saveEdit()}
+                              >
+                                {saving ? 'Inahifadhi...' : 'Hifadhi Mabadiliko'}
+                              </button>
+
+                              <button
+                                type="button"
+                                style={{
+                                  ...buttonStyle,
+                                  background: '#64748b',
+                                }}
+                                onClick={() => setEditing(null)}
+                              >
+                                Ghairi
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            display: 'flex',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}>
+                            <button
+                              type="button"
+                              style={buttonStyle}
+                              onClick={() => startEdit(enrollment)}
+                            >
+                              Hariri
+                            </button>
+
+                            <button
+                              type="button"
+                              style={{
+                                ...buttonStyle,
+                                background: '#fee2e2',
+                                color: '#b91c1c',
+                              }}
+                              onClick={() => void removeEnrollment(enrollment)}
+                            >
+                              Ondoa Darasani
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
