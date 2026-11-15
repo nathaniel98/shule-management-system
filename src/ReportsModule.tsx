@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 
@@ -51,6 +50,7 @@ type ReportRow = {
   entered: number;
   absent: number;
   position: number | null;
+  classPosition: number | null;
   marks: Record<string, number | null>;
 };
 
@@ -252,24 +252,20 @@ export default function ReportsModule() {
 
       setSubjects(subjectList);
 
-      let query = supabase
+      // Pata wanafunzi wa darasa zima, si mkondo mmoja tu.
+      const { data: enrollmentData, error: enrollmentError } = await supabase
         .from('student_enrollments')
         .select('id,student_id,class_id,stream_id,academic_year_id')
         .eq('class_id', exam.class_id)
         .eq('academic_year_id', exam.academic_year_id)
         .eq('status', 'Active');
 
-      if (exam.stream_id) {
-        query = query.eq('stream_id', exam.stream_id);
-      }
-
-      const { data: enrollmentData, error: enrollmentError } = await query;
       if (enrollmentError) throw enrollmentError;
 
       const enrollments = (enrollmentData || []) as Enrollment[];
 
       if (!enrollments.length) {
-        setNotice('Hakuna wanafunzi waliosajiliwa kwenye darasa la mtihani huu.');
+        setNotice('Hakuna wanafunzi waliosajiliwa kwenye darasa hili.');
         return;
       }
 
@@ -353,24 +349,46 @@ export default function ReportsModule() {
             entered,
             absent,
             position: null,
+            classPosition: null,
             marks,
           } as ReportRow;
         })
         .filter((r): r is ReportRow => r !== null);
 
-      const ranked = [...reportRows]
-        .filter(r => r.entered === subjectList.length)
+      const completedRows = reportRows.filter(
+        r => r.entered === subjectList.length
+      );
+
+      // Nafasi ya darasa lote: mikondo yote A, B, C.
+      const classRanked = [...completedRows].sort(
+        (a, b) => b.average - a.average || b.total - a.total
+      );
+
+      let previousClass: number | null = null;
+      let classPosition = 0;
+
+      classRanked.forEach((r, index) => {
+        if (previousClass === null || r.average !== previousClass) {
+          classPosition = index + 1;
+        }
+        r.classPosition = classPosition;
+        previousClass = r.average;
+      });
+
+      // Nafasi ya mkondo wa mwanafunzi.
+      const streamRanked = [...completedRows]
+        .filter(r => r.enrollment.stream_id === exam.stream_id)
         .sort((a, b) => b.average - a.average || b.total - a.total);
 
-      let previous: number | null = null;
-      let position = 0;
+      let previousStream: number | null = null;
+      let streamPosition = 0;
 
-      ranked.forEach((r, index) => {
-        if (previous === null || r.average !== previous) {
-          position = index + 1;
+      streamRanked.forEach((r, index) => {
+        if (previousStream === null || r.average !== previousStream) {
+          streamPosition = index + 1;
         }
-        r.position = position;
-        previous = r.average;
+        r.position = streamPosition;
+        previousStream = r.average;
       });
 
       setRows(reportRows);
@@ -384,12 +402,12 @@ export default function ReportsModule() {
 
   function printAllReports() {
     setPrintingId(null);
-    window.setTimeout(() => window.print(), 150);
+    window.setTimeout(() => window.print(), 300);
   }
 
   function printOneReport(enrollmentId: string) {
     setPrintingId(enrollmentId);
-    window.setTimeout(() => window.print(), 150);
+    window.setTimeout(() => window.print(), 300);
   }
 
   const tableWrap: React.CSSProperties = {
@@ -508,7 +526,7 @@ export default function ReportsModule() {
         @media print {
           @page {
             size: A4;
-            margin: 12mm;
+            margin: 10mm;
           }
 
           body * {
@@ -533,7 +551,9 @@ export default function ReportsModule() {
           .student-print-page {
             display: block;
             width: 100%;
-            min-height: 250mm;
+            min-height: 0;
+            break-inside: avoid;
+            page-break-inside: avoid;
             break-after: page;
             page-break-after: always;
           }
@@ -546,20 +566,21 @@ export default function ReportsModule() {
           .student-print-heading {
             text-align: center;
             border-bottom: 2px solid #173b5e;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
           }
 
           .student-print-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 14px;
+            margin-top: 12px;
+            font-size: 12px;
           }
 
           .student-print-table th,
           .student-print-table td {
             border: 1px solid #94a3b8;
-            padding: 9px;
+            padding: 7px;
             text-align: left;
           }
 
@@ -572,21 +593,27 @@ export default function ReportsModule() {
           .student-print-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 18px;
+            gap: 8px;
+            margin-top: 14px;
           }
 
           .student-print-box {
             border: 1px solid #cbd5e1;
             border-radius: 5px;
-            padding: 12px;
+            padding: 9px;
+          }
+
+          .student-print-box h2 {
+            margin: 6px 0 0;
+            font-size: 19px;
           }
 
           .student-print-signatures {
             display: flex;
             justify-content: space-between;
-            gap: 15px;
-            margin-top: 45px;
+            gap: 10px;
+            margin-top: 20px;
+            font-size: 11px;
           }
 
           .no-print {
@@ -739,7 +766,8 @@ export default function ReportsModule() {
                       'Jumla',
                       'Wastani %',
                       'Grade',
-                      'Nafasi',
+                      'Nafasi Mkondo',
+                      'Nafasi Darasa',
                       'Hali',
                     ].map(h => (
                       <th key={h} style={cell}>{h}</th>
@@ -749,9 +777,9 @@ export default function ReportsModule() {
                 <tbody>
                   {[...rows]
                     .sort((a, b) => {
-                      if (a.position === null) return 1;
-                      if (b.position === null) return -1;
-                      return a.position - b.position;
+                      if (a.classPosition === null) return 1;
+                      if (b.classPosition === null) return -1;
+                      return a.classPosition - b.classPosition;
                     })
                     .map((r, i) => (
                       <tr key={r.enrollment.id}>
@@ -762,6 +790,7 @@ export default function ReportsModule() {
                         <td style={cell}>{r.average.toFixed(2)}</td>
                         <td style={cell}>{r.grade}</td>
                         <td style={cell}>{r.position ?? '-'}</td>
+                        <td style={cell}>{r.classPosition ?? '-'}</td>
                         <td style={cell}>
                           {r.entered === subjects.length
                             ? 'Imekamilika'
@@ -798,6 +827,13 @@ export default function ReportsModule() {
                             {' '} / {s.maximum_marks}
                           </span>
                         </strong>
+                        <div style={{ marginTop: 4 }}>
+                          Grade: <strong>
+                            {r.marks[s.id] === null
+                              ? '—'
+                              : grade((Number(r.marks[s.id]) / s.maximum_marks) * 100)}
+                          </strong>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -805,8 +841,9 @@ export default function ReportsModule() {
                   <div style={{ marginTop: 12, lineHeight: 1.8 }}>
                     Jumla: <strong>{r.total}/{r.maximum}</strong>
                     {' | '}Wastani: <strong>{r.average.toFixed(2)}%</strong>
-                    {' | '}Daraja: <strong>{r.grade}</strong>
-                    {' | '}Nafasi: <strong>{r.position ?? '-'}</strong>
+                    {' | '}Grade: <strong>{r.grade}</strong>
+                    {' | '}Nafasi mkondo: <strong>{r.position ?? '-'}</strong>
+                    {' | '}Nafasi darasa: <strong>{r.classPosition ?? '-'}</strong>
                   </div>
 
                   <button
@@ -837,7 +874,7 @@ export default function ReportsModule() {
                     <h1 style={{ margin: 0, color: '#173b5e' }}>
                       {selectedSchool?.school_name || 'SHULE'}
                     </h1>
-                    <h2 style={{ margin: '12px 0 5px' }}>
+                    <h2 style={{ margin: '10px 0 5px' }}>
                       RIPOTI YA MATOKEO YA MWANAFUNZI
                     </h2>
                     <p style={{ margin: 4 }}>
@@ -865,6 +902,7 @@ export default function ReportsModule() {
                         <th>Somo</th>
                         <th>Alama</th>
                         <th>Alama za Juu</th>
+                        <th>Grade</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -876,6 +914,11 @@ export default function ReportsModule() {
                             {r.marks[s.id] === null ? '—' : r.marks[s.id]}
                           </td>
                           <td>{s.maximum_marks}</td>
+                          <td>
+                            {r.marks[s.id] === null
+                              ? '—'
+                              : grade((Number(r.marks[s.id]) / s.maximum_marks) * 100)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -891,21 +934,25 @@ export default function ReportsModule() {
                       <h2>{r.average.toFixed(2)}%</h2>
                     </div>
                     <div className="student-print-box">
-                      <strong>Daraja</strong>
+                      <strong>Grade ya Jumla</strong>
                       <h2>{r.grade}</h2>
                     </div>
                     <div className="student-print-box">
-                      <strong>Nafasi</strong>
-                      <h2>{r.position ?? 'Haijapatikana'}</h2>
+                      <strong>Nafasi kwenye Mkondo</strong>
+                      <h2>{r.position ?? '—'}</h2>
+                    </div>
+                    <div className="student-print-box">
+                      <strong>Nafasi kwenye Darasa Zima</strong>
+                      <h2>{r.classPosition ?? '—'}</h2>
                     </div>
                   </div>
 
-                  <p style={{ marginTop: 16 }}>
+                  <p style={{ marginTop: 12 }}>
                     <strong>Masomo yaliyokamilika:</strong> {r.entered} / {subjects.length}
                   </p>
 
-                  <div style={{ marginTop: 30 }}>
-                    <strong>Maoni ya Mwalimu:</strong>
+                  <div style={{ marginTop: 16 }}>
+                    <strong>Maoni ya Mwalimu wa Darasa:</strong>
                     <p>________________________________________________________</p>
                     <p>________________________________________________________</p>
                   </div>
@@ -913,7 +960,7 @@ export default function ReportsModule() {
                   <div className="student-print-signatures">
                     <div>
                       ______________________
-                      <br />Saini ya Mwalimu
+                      <br />Saini ya Mwalimu wa Darasa
                     </div>
                     <div>
                       ______________________
