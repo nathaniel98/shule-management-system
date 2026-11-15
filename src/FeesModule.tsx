@@ -310,3 +310,1120 @@ export default function FeesModule() {
 
     await loadAccounts(structureRows);
 }
+  async function refresh() {
+    if (!schoolId) return;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const { data, error } = await supabase
+        .from('fee_structures')
+        .select('*')
+        .eq('school_id', schoolId);
+
+      if (error) throw error;
+
+      const all = (data || []) as Structure[];
+      setStructures(all);
+      await loadAccounts(all);
+
+      const found = all.find(
+        x => x.academic_year_id === yearId && x.class_id === classId
+      );
+
+      setFeeValues(found);
+      if (found) await loadCharges(found.id);
+      else setCharges([]);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    async function init() {
+      try {
+        const { data, error } = await supabase
+          .from('schools')
+          .select('id, school_name')
+          .order('school_name');
+
+        if (error) throw error;
+        if (!active) return;
+
+        const list = (data || []) as School[];
+        setSchools(list);
+
+        if (list.length) {
+          setSchoolId(list[0].id);
+          await loadSchoolData(list[0].id);
+        }
+      } catch (e) {
+        if (active) reportError(e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    init();
+    return () => { active = false; };
+  }, []);
+
+  async function changeSchool(id: string) {
+    setSchoolId(id);
+    setYearId('');
+    setClassId('');
+    setStructures([]);
+    setCharges([]);
+    setError('');
+    setMessage('');
+
+    try {
+      setLoading(true);
+      await loadSchoolData(id);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function changeYear(id: string) {
+    setYearId(id);
+    const found = structures.find(
+      x => x.academic_year_id === id && x.class_id === classId
+    );
+    setFeeValues(found);
+
+    try {
+      if (found) await loadCharges(found.id);
+      else setCharges([]);
+    } catch (e) {
+      reportError(e);
+    }
+  }
+
+  async function changeClass(id: string) {
+    setClassId(id);
+    const found = structures.find(
+      x => x.academic_year_id === yearId && x.class_id === id
+    );
+    setFeeValues(found);
+
+    try {
+      if (found) await loadCharges(found.id);
+      else setCharges([]);
+    } catch (e) {
+      reportError(e);
+    }
+  }
+
+  async function saveFee(e: FormEvent) {
+    e.preventDefault();
+
+    if (!schoolId || !yearId || !classId) {
+      setError('Chagua shule, mwaka wa masomo na darasa.');
+      return;
+    }
+
+    if ([fee.school_fee, fee.accommodation_fee, fee.transport_fee]
+      .some(x => x.trim() === '' || !Number.isFinite(Number(x)) || Number(x) < 0)) {
+      setError('Weka kiasi sahihi cha ada. Kiasi hakiwezi kuwa hasi.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const payload = {
+        school_id: schoolId,
+        academic_year_id: yearId,
+        class_id: classId,
+        school_fee: Number(fee.school_fee),
+        accommodation_fee: Number(fee.accommodation_fee),
+        transport_fee: Number(fee.transport_fee)
+      };
+
+      if (structure) {
+        const { error } = await supabase
+          .from('fee_structures')
+          .update(payload)
+          .eq('id', structure.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('fee_structures')
+          .insert(payload);
+
+        if (error) throw error;
+      }
+
+      const { data, error } = await supabase
+        .from('fee_structures')
+        .select('*')
+        .eq('school_id', schoolId);
+
+      if (error) throw error;
+
+      const all = (data || []) as Structure[];
+      setStructures(all);
+
+      const updated = all.find(
+        x => x.academic_year_id === yearId && x.class_id === classId
+      );
+
+      setFeeValues(updated);
+      if (updated) await loadCharges(updated.id);
+      setMessage('Ada za darasa zimehifadhiwa.');
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function resetCharge() {
+    setEditingCharge(null);
+    setCharge({
+      charge_name: '', amount: '', applies_to: 'All', is_mandatory: true
+    });
+  }
+
+  function editCharge(x: Charge) {
+    setEditingCharge(x.id);
+    setCharge({
+      charge_name: x.charge_name,
+      amount: String(x.amount),
+      applies_to: x.applies_to,
+      is_mandatory: x.is_mandatory
+    });
+  }
+
+  async function saveCharge(e: FormEvent) {
+    e.preventDefault();
+
+    if (!structure) {
+      setError('Hifadhi ada za darasa kwanza.');
+      return;
+    }
+
+    if (!charge.charge_name.trim() || Number(charge.amount) <= 0) {
+      setError('Jaza jina la gharama na kiasi sahihi.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const payload = {
+        fee_structure_id: structure.id,
+        charge_name: charge.charge_name.trim(),
+        amount: Number(charge.amount),
+        applies_to: charge.applies_to,
+        is_mandatory: charge.is_mandatory
+      };
+
+      const result = editingCharge
+        ? await supabase.from('fee_other_charges')
+            .update(payload).eq('id', editingCharge)
+        : await supabase.from('fee_other_charges').insert(payload);
+
+      if (result.error) throw result.error;
+
+      await loadCharges(structure.id);
+      resetCharge();
+      setMessage('Gharama nyingine imehifadhiwa.');
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteCharge(x: Charge) {
+    if (!window.confirm(`Una uhakika unataka kufuta ${x.charge_name}?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('fee_other_charges')
+        .delete()
+        .eq('id', x.id);
+
+      if (error) throw error;
+      setCharges(old => old.filter(item => item.id !== x.id));
+      if (editingCharge === x.id) resetCharge();
+      setMessage('Gharama imefutwa.');
+    } catch (e) {
+      reportError(e);
+    }
+         }
+    async function generateAccounts() {
+    if (!structure) {
+      setError('Tafadhali weka kwanza ada za darasa hili.');
+      return;
+    }
+
+    setGenerating(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('student_enrollments')
+        .select('*')
+        .eq('academic_year_id', yearId)
+        .eq('class_id', classId)
+        .eq('status', 'Active');
+
+      if (enrollmentError) throw enrollmentError;
+
+      const activeEnrollments = (enrollmentData || []) as Enrollment[];
+
+      if (!activeEnrollments.length) {
+        setMessage('Hakuna wanafunzi waliosajiliwa katika darasa hili kwa mwaka huu.');
+        return;
+      }
+
+      const enrollmentIds = activeEnrollments.map(x => x.id);
+
+      const { data: existingData, error: existingError } = await supabase
+        .from('student_fee_accounts')
+        .select('enrollment_id')
+        .in('enrollment_id', enrollmentIds);
+
+      if (existingError) throw existingError;
+
+      const existingIds = new Set(
+        (existingData || []).map(x => x.enrollment_id)
+      );
+
+      const newEnrollments = activeEnrollments.filter(
+        x => !existingIds.has(x.id)
+      );
+
+      if (!newEnrollments.length) {
+        setMessage('Akaunti za ada za wanafunzi hawa tayari zipo.');
+        await refresh();
+        return;
+      }
+
+      const { data: chargeData, error: chargeError } = await supabase
+        .from('fee_other_charges')
+        .select('*')
+        .eq('fee_structure_id', structure.id)
+        .eq('is_mandatory', true);
+
+      if (chargeError) throw chargeError;
+
+      const mandatoryCharges = (chargeData || []) as Charge[];
+
+      const accountRows = newEnrollments.map(enrollment => {
+        const isBoarding =
+          enrollment.accommodation_type?.toLowerCase() === 'boarding';
+
+        const applicableCharges = mandatoryCharges.filter(item =>
+          item.applies_to === 'All' ||
+          (item.applies_to === 'Boarding' && isBoarding) ||
+          (item.applies_to === 'Day' && !isBoarding)
+        );
+
+        const otherTotal = applicableCharges.reduce(
+          (sum, item) => sum + Number(item.amount || 0), 0
+        );
+
+        const schoolFee = Number(structure.school_fee || 0);
+        const accommodationFee = isBoarding
+          ? Number(structure.accommodation_fee || 0)
+          : 0;
+        const transportFee = !isBoarding
+          ? Number(structure.transport_fee || 0)
+          : 0;
+
+        return {
+          enrollment_id: enrollment.id,
+          fee_structure_id: structure.id,
+          school_fee: schoolFee,
+          accommodation_fee: accommodationFee,
+          transport_fee: transportFee,
+          other_charges_total: otherTotal,
+          total_amount:
+            schoolFee + accommodationFee + transportFee + otherTotal
+        };
+      });
+
+      const { error: insertError } = await supabase
+        .from('student_fee_accounts')
+        .insert(accountRows);
+
+      if (insertError) throw insertError;
+
+      await refresh();
+      setTab('accounts');
+      setMessage(
+        `Akaunti za ada ${accountRows.length} zimefunguliwa kikamilifu.`
+      );
+    } catch (e: any) {
+      reportError(e);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function openPayment(account: Account) {
+    setPaymentAccount(account);
+    setPayment({
+      amount: '',
+      payment_date: today(),
+      payment_method: 'Cash',
+      reference_number: '',
+      notes: ''
+    });
+    setError('');
+    setMessage('');
+  }
+
+  async function savePayment(e: FormEvent) {
+    e.preventDefault();
+
+    if (!paymentAccount) return;
+
+    const amount = Number(payment.amount);
+
+    if (!amount || amount <= 0) {
+      setError('Weka kiasi sahihi cha malipo.');
+      return;
+    }
+
+    const paidSoFar = payments
+      .filter(x => x.student_fee_account_id === paymentAccount.id)
+      .reduce((sum, x) => sum + Number(x.amount), 0);
+
+    const remaining =
+      Number(paymentAccount.total_amount) - paidSoFar;
+
+    if (amount > remaining) {
+      setError(
+        `Kiasi kimezidi deni lililobaki. Deni ni TSh ${money(remaining)}.`
+      );
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const receiptNumber =
+        `ADA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      const { error: insertError } = await supabase
+        .from('fee_payments')
+        .insert({
+          student_fee_account_id: paymentAccount.id,
+          receipt_number: receiptNumber,
+          amount,
+          payment_date: payment.payment_date,
+          payment_method: payment.payment_method,
+          reference_number: payment.reference_number.trim() || null,
+          notes: payment.notes.trim() || null
+        });
+
+      if (insertError) throw insertError;
+
+      setPaymentAccount(null);
+      setMessage(`Malipo yamehifadhiwa. Risiti: ${receiptNumber}`);
+      await refresh();
+    } catch (e: any) {
+      reportError(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+    const historyEnrollment = historyAccount
+    ? enrollmentMap.get(historyAccount.enrollment_id)
+    : undefined;
+
+  const historyStudent = historyEnrollment
+    ? studentMap.get(historyEnrollment.student_id)
+    : undefined;
+
+  const historyPayments = historyAccount
+    ? payments.filter(
+        x => x.student_fee_account_id === historyAccount.id
+      )
+    : [];
+
+  const historyPaid = historyPayments.reduce(
+    (sum, x) => sum + Number(x.amount), 0
+  );
+
+  function printReceipt(p: Payment, account: Account) {
+    const enrollment = enrollmentMap.get(account.enrollment_id);
+    const student = enrollment
+      ? studentMap.get(enrollment.student_id)
+      : undefined;
+
+    const school = schools.find(x => x.id === schoolId);
+    const content = `
+      <html>
+      <head>
+        <title>Risiti ${p.receipt_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 25px; color: #222; }
+          .receipt { max-width: 650px; margin: auto; border: 1px solid #999; padding: 25px; }
+          h2, h3 { text-align: center; margin: 5px; }
+          .line { border-bottom: 1px dashed #999; margin: 15px 0; }
+          .row { display: flex; justify-content: space-between; gap: 20px; margin: 12px 0; }
+          .amount { font-size: 22px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 35px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <h2>${school?.school_name || 'SHULE'}</h2>
+          <h3>RISITI YA MALIPO YA ADA</h3>
+          <div class="line"></div>
+          <div class="row"><span>Namba ya Risiti</span><b>${p.receipt_number}</b></div>
+          <div class="row"><span>Tarehe</span><b>${p.payment_date}</b></div>
+          <div class="row"><span>Mwanafunzi</span><b>${student ? `${student.first_name} ${student.middle_name || ''} ${student.last_name}` : '—'}</b></div>
+          <div class="row"><span>Namba ya Usajili</span><b>${student?.admission_no || '—'}</b></div>
+          <div class="row"><span>Njia ya Malipo</span><b>${p.payment_method}</b></div>
+          <div class="row"><span>Namba ya Muamala</span><b>${p.reference_number || '—'}</b></div>
+          <div class="line"></div>
+          <div class="row amount"><span>Kiasi Kilicholipwa</span><span>TSh ${money(p.amount)}</span></div>
+          <div class="row"><span>Maelezo</span><b>${p.notes || '—'}</b></div>
+          <div class="footer">Asante kwa kufanya malipo.</div>
+        </div>
+        <script>window.onload = () => window.print();</script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setError('Ruhusu popup kwenye browser ili kuchapisha risiti.');
+      return;
+    }
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+  }
+
+  const page: React.CSSProperties = {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    padding: 16,
+    boxSizing: 'border-box',
+    color: '#243447'
+  };
+
+  const fieldGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+    gap: 14,
+    width: '100%',
+    minWidth: 0
+  };
+
+  const tableStyle: React.CSSProperties = {
+    width: '100%',
+    borderCollapse: 'collapse',
+    minWidth: 900
+  };
+
+  const smallButton: React.CSSProperties = {
+    ...button,
+    padding: '8px 11px',
+    fontSize: 13,
+    whiteSpace: 'nowrap'
+  };
+
+  const tabButton = (active: boolean): React.CSSProperties => ({
+    padding: '11px 17px',
+    border: 0,
+    borderBottom: active ? '3px solid #173b5e' : '3px solid transparent',
+    background: 'transparent',
+    color: active ? '#173b5e' : '#64748b',
+    fontWeight: 700,
+    cursor: 'pointer'
+  });
+
+  return (
+    <div className="fees-module" style={page}>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap',
+        justifyContent: 'space-between', alignItems: 'center',
+        gap: 12, marginBottom: 20
+      }}>
+        <div>
+          <h2 style={{ margin: 0, color: '#173b5e' }}>Ada na Malipo</h2>
+          <p style={{ margin: '6px 0 0', color: '#64748b' }}>
+            Usimamizi wa ada, akaunti za wanafunzi na risiti za malipo
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: 12, marginBottom: 12, borderRadius: 9,
+          background: '#fee2e2', color: '#991b1b'
+        }}>
+          {error}
+          <button
+            onClick={() => setError('')}
+            style={{ float: 'right', border: 0, background: 'transparent' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {message && (
+        <div style={{
+          padding: 12, marginBottom: 12, borderRadius: 9,
+          background: '#dcfce7', color: '#166534'
+        }}>
+          {message}
+          <button
+            onClick={() => setMessage('')}
+            style={{ float: 'right', border: 0, background: 'transparent' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div style={{ ...card, marginBottom: 16 }}>
+        <div style={fieldGrid}>
+          <label style={label}>
+            Shule
+            <select
+              style={input}
+              value={schoolId}
+              onChange={e => changeSchool(e.target.value)}
+            >
+              <option value="">Chagua shule</option>
+              {schools.map(x => (
+                <option key={x.id} value={x.id}>{x.school_name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label style={label}>
+            Mwaka wa Masomo
+            <select
+              style={input}
+              value={yearId}
+              onChange={e => changeYear(e.target.value)}
+            >
+              {years.map(x => (
+                <option key={x.id} value={x.id}>{x.year_name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label style={label}>
+            Darasa
+            <select
+              style={input}
+              value={classId}
+              onChange={e => changeClass(e.target.value)}
+            >
+              {classes.map(x => (
+                <option key={x.id} value={x.id}>{x.class_name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div style={{
+        display: 'flex', gap: 8, borderBottom: '1px solid #e2e8f0',
+        marginBottom: 16, overflowX: 'auto'
+      }}>
+        <button style={tabButton(tab === 'setup')} onClick={() => setTab('setup')}>
+          Mpangilio wa Ada
+        </button>
+        <button style={tabButton(tab === 'accounts')} onClick={() => setTab('accounts')}>
+          Akaunti za Wanafunzi
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={card}>Inapakia taarifa...</div>
+      ) : (
+        <>
+          {tab === 'setup' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>
+                  Ada za Mwaka
+                </h3>
+                <p style={{ color: '#64748b', fontSize: 13 }}>
+                  Weka ada kwa mwaka mzima wa masomo kwa darasa lililochaguliwa.
+                </p>
+
+                <form onSubmit={saveFee}>
+                  <div style={fieldGrid}>
+                    <label style={label}>
+                      Ada ya Shule (TSh)
+                      <input
+                        style={input}
+                        type="number"
+                        min="0"
+                        value={fee.school_fee}
+                        onChange={e => setFee({ ...fee, school_fee: e.target.value })}
+                      />
+                    </label>
+
+                    <label style={label}>
+                      Ada ya Malazi - Boarding (TSh)
+                      <input
+                        style={input}
+                        type="number"
+                        min="0"
+                        value={fee.accommodation_fee}
+                        onChange={e => setFee({ ...fee, accommodation_fee: e.target.value })}
+                      />
+                    </label>
+
+                    <label style={label}>
+                      Ada ya Usafiri - Day (TSh)
+                      <input
+                        style={input}
+                        type="number"
+                        min="0"
+                        value={fee.transport_fee}
+                        onChange={e => setFee({ ...fee, transport_fee: e.target.value })}
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    style={{ ...button, marginTop: 16 }}
+                    disabled={saving || !schoolId || !yearId || !classId}
+                  >
+                    {saving ? 'Inahifadhi...' : 'Hifadhi Ada'}
+                  </button>
+                </form>
+              </div>
+
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>
+                  Ada na Huduma Nyingine
+                </h3>
+                <p style={{ color: '#64748b', fontSize: 13 }}>
+                  Ongeza huduma kama sare, huduma ya kwanza, mahafali, safari na mitihani.
+                </p>
+
+                {!structure ? (
+                  <p>Hifadhi kwanza ada za shule ili uweze kuongeza huduma nyingine.</p>
+                ) : (
+                  <>
+                    <form onSubmit={saveCharge}>
+                      <div style={fieldGrid}>
+                        <label style={label}>
+                          Jina la Huduma
+                          <input
+                            style={input}
+                            value={charge.charge_name}
+                            onChange={e => setCharge({ ...charge, charge_name: e.target.value })}
+                            placeholder="Mfano: Sare"
+                          />
+                        </label>
+
+                        <label style={label}>
+                          Kiasi (TSh)
+                          <input
+                            style={input}
+                            type="number"
+                            min="0"
+                            value={charge.amount}
+                            onChange={e => setCharge({ ...charge, amount: e.target.value })}
+                          />
+                        </label>
+
+                        <label style={label}>
+                          Inamhusu nani?
+                          <select
+                            style={input}
+                            value={charge.applies_to}
+                            onChange={e => setCharge({
+                              ...charge,
+                              applies_to: e.target.value as 'All' | 'Day' | 'Boarding'
+                            })}
+                          >
+                            <option value="All">Wanafunzi wote</option>
+                            <option value="Day">Day tu</option>
+                            <option value="Boarding">Boarding tu</option>
+                          </select>
+                        </label>
+
+                        <label style={label}>
+                          Aina ya Malipo
+                          <select
+                            style={input}
+                            value={charge.is_mandatory ? 'yes' : 'no'}
+                            onChange={e => setCharge({
+                              ...charge, is_mandatory: e.target.value === 'yes'
+                            })}
+                          >
+                            <option value="yes">Lazima</option>
+                            <option value="no">Hiari</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div style={{
+                        display: 'flex', flexWrap: 'wrap',
+                        gap: 8, marginTop: 14
+                      }}>
+                        <button type="submit" style={button} disabled={saving}>
+                          {editingCharge ? 'Hifadhi Mabadiliko' : 'Ongeza Huduma'}
+                        </button>
+                        {editingCharge && (
+                          <button
+                            type="button"
+                            style={{ ...button, background: '#64748b' }}
+                            onClick={resetCharge}
+                          >
+                            Ghairi
+                          </button>
+                        )}
+                      </div>
+                    </form>
+
+                    <div className="table-scroll" style={{ overflowX: 'auto', marginTop: 18 }}>
+                      <table style={{ ...tableStyle, minWidth: 650 }}>
+                        <thead>
+                          <tr>
+                            {['Huduma', 'Kiasi', 'Aina ya Wanafunzi', 'Malipo', 'Vitendo'].map(x => (
+                              <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedCharges.map(x => (
+                            <tr key={x.id}>
+                              <td style={cell}>{x.charge_name}</td>
+                              <td style={cell}>TSh {money(x.amount)}</td>
+                              <td style={cell}>{x.applies_to}</td>
+                              <td style={cell}>{x.is_mandatory ? 'Lazima' : 'Hiari'}</td>
+                              <td style={cell}>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button style={smallButton} onClick={() => editCharge(x)}>
+                                    Hariri
+                                  </button>
+                                  <button
+                                    style={{ ...smallButton, background: '#b91c1c' }}
+                                    onClick={() => deleteCharge(x.id)}
+                                  >
+                                    Futa
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {!selectedCharges.length && (
+                            <tr><td style={cell} colSpan={5}>Hakuna huduma zilizoongezwa.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'accounts' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gap: 12
+              }}>
+                {[
+                  ['Jumla ya Ada', totals.total],
+                  ['Jumla Iliyolipwa', totals.paid],
+                  ['Deni Lililobaki', totals.debt],
+                  ['Idadi ya Wanafunzi', rows.length]
+                ].map(([name, value]) => (
+                  <div key={String(name)} style={card}>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>{name}</div>
+                    <strong style={{
+                      display: 'block', marginTop: 8,
+                      color: '#173b5e', fontSize: 20
+                    }}>
+                      {typeof value === 'number' && name !== 'Idadi ya Wanafunzi'
+                        ? `TSh ${money(value)}`
+                        : value}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+
+              <div style={card}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  flexWrap: 'wrap', alignItems: 'center', gap: 10
+                }}>
+                  <h3 style={{ margin: 0, color: '#173b5e' }}>
+                    Orodha ya Akaunti za Wanafunzi
+                  </h3>
+                  <button
+                    style={button}
+                    onClick={generateAccounts}
+                    disabled={generating || !structure}
+                  >
+                    {generating ? 'Inafungua akaunti...' : 'Fungua Akaunti za Wanafunzi'}
+                  </button>
+                </div>
+
+                <input
+                  style={{ ...input, marginTop: 15, marginBottom: 12 }}
+                  placeholder="Tafuta mwanafunzi au namba ya usajili..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+
+                <div className="table-scroll" style={{ overflowX: 'auto', width: '100%' }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        {[
+                          'Namba ya Usajili', 'Mwanafunzi', 'Darasa',
+                          'Mkondo', 'Aina', 'Ada Jumla', 'Amelipa',
+                          'Deni', 'Vitendo'
+                        ].map(x => (
+                          <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map(({ account, enrollment, student, paid, balance }) => (
+                        <tr key={account.id}>
+                          <td style={cell}>{student?.admission_no || '—'}</td>
+                          <td style={cell}>
+                            {student
+                              ? `${student.first_name} ${student.middle_name || ''} ${student.last_name}`
+                              : '—'}
+                          </td>
+                          <td style={cell}>
+                            {classes.find(c => c.id === enrollment?.class_id)?.class_name || '—'}
+                          </td>
+                          <td style={cell}>
+                            {streams.find(st => st.id === enrollment?.stream_id)?.stream_name || '—'}
+                          </td>
+                          <td style={cell}>{enrollment?.accommodation_type || '—'}</td>
+                          <td style={cell}>TSh {money(account.total_amount)}</td>
+                          <td style={cell}>TSh {money(paid)}</td>
+                          <td style={cell}>TSh {money(balance)}</td>
+                          <td style={cell}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button style={smallButton} onClick={() => openPayment(account)}>
+                                Lipa
+                              </button>
+                              <button
+                                style={{ ...smallButton, background: '#475569' }}
+                                onClick={() => setHistoryAccount(account)}
+                              >
+                                Historia
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {!filteredRows.length && (
+                        <tr>
+                          <td style={cell} colSpan={9}>Hakuna akaunti zilizopatikana.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {paymentAccount && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(15,23,42,.6)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          padding: 12, overflowY: 'auto'
+        }}>
+          <div style={{
+            ...card, maxWidth: 520, width: '100%',
+            maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <h3 style={{ marginTop: 0, color: '#173b5e' }}>Pokea Malipo</h3>
+            <form onSubmit={savePayment}>
+              <div style={fieldGrid}>
+                <label style={label}>
+                  Kiasi (TSh)
+                  <input
+                    style={input}
+                    type="number"
+                    min="1"
+                    max={Math.max(0, Number(paymentAccount.total_amount) -
+                      payments.filter(x => x.student_fee_account_id === paymentAccount.id)
+                        .reduce((s, x) => s + Number(x.amount), 0))}
+                    value={payment.amount}
+                    onChange={e => setPayment({ ...payment, amount: e.target.value })}
+                    required
+                  />
+                </label>
+
+                <label style={label}>
+                  Tarehe ya Malipo
+                  <input
+                    style={input}
+                    type="date"
+                    value={payment.payment_date}
+                    onChange={e => setPayment({ ...payment, payment_date: e.target.value })}
+                    required
+                  />
+                </label>
+
+                <label style={label}>
+                  Njia ya Malipo
+                  <select
+                    style={input}
+                    value={payment.payment_method}
+                    onChange={e => setPayment({ ...payment, payment_method: e.target.value })}
+                  >
+                    <option value="Cash">Taslimu</option>
+                    <option value="Bank">Benki</option>
+                    <option value="Mobile Money">Mobile Money</option>
+                    <option value="Cheque">Hundi</option>
+                  </select>
+                </label>
+
+                <label style={label}>
+                  Namba ya Muamala / Hundi
+                  <input
+                    style={input}
+                    value={payment.reference_number}
+                    onChange={e => setPayment({ ...payment, reference_number: e.target.value })}
+                    placeholder="Si lazima"
+                  />
+                </label>
+
+                <label style={{ ...label, gridColumn: '1 / -1' }}>
+                  Maelezo
+                  <textarea
+                    style={{ ...input, minHeight: 75 }}
+                    value={payment.notes}
+                    onChange={e => setPayment({ ...payment, notes: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <button type="submit" style={button} disabled={saving}>
+                  {saving ? 'Inahifadhi...' : 'Hifadhi Malipo'}
+                </button>
+                <button
+                  type="button"
+                  style={{ ...button, background: '#64748b' }}
+                  onClick={() => setPaymentAccount(null)}
+                >
+                  Funga
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {historyAccount && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(15,23,42,.6)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          padding: 12, overflowY: 'auto'
+        }}>
+          <div style={{
+            ...card, maxWidth: 750, width: '100%',
+            maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', gap: 10
+            }}>
+              <h3 style={{ margin: 0, color: '#173b5e' }}>Historia ya Malipo</h3>
+              <button
+                style={{ ...smallButton, background: '#64748b' }}
+                onClick={() => setHistoryAccount(null)}
+              >
+                Funga
+              </button>
+            </div>
+
+            <p>
+              <b>Mwanafunzi:</b>{' '}
+              {historyStudent
+                ? `${historyStudent.first_name} ${historyStudent.middle_name || ''} ${historyStudent.last_name}`
+                : '—'}
+            </p>
+            <p><b>Jumla ya Ada:</b> TSh {money(historyAccount.total_amount)}</p>
+            <p><b>Amelipa:</b> TSh {money(historyPaid)}</p>
+            <p>
+              <b>Deni:</b>{' '}
+              TSh {money(Math.max(0, Number(historyAccount.total_amount) - historyPaid))}
+            </p>
+
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ ...tableStyle, minWidth: 650 }}>
+                <thead>
+                  <tr>
+                    {['Tarehe', 'Namba ya Risiti', 'Njia', 'Kiasi', 'Muamala', 'Risiti'].map(x => (
+                      <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPayments.map(p => (
+                    <tr key={p.id}>
+                      <td style={cell}>{p.payment_date}</td>
+                      <td style={cell}>{p.receipt_number}</td>
+                      <td style={cell}>{p.payment_method}</td>
+                      <td style={cell}>TSh {money(p.amount)}</td>
+                      <td style={cell}>{p.reference_number || '—'}</td>
+                      <td style={cell}>
+                        <button
+                          style={smallButton}
+                          onClick={() => printReceipt(p, historyAccount)}
+                        >
+                          Chapisha
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!historyPayments.length && (
+                    <tr>
+                      <td style={cell} colSpan={6}>Hakuna malipo yaliyorekodiwa.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+          }
