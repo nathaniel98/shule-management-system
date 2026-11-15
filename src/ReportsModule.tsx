@@ -103,8 +103,10 @@ export default function ReportsModule() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const selectedExam = exams.find(e => e.id === examId);
+  const selectedSchool = schools.find(s => s.id === schoolId);
 
   const completed = useMemo(
     () => rows.filter(
@@ -262,15 +264,12 @@ export default function ReportsModule() {
       }
 
       const { data: enrollmentData, error: enrollmentError } = await query;
-
       if (enrollmentError) throw enrollmentError;
 
       const enrollments = (enrollmentData || []) as Enrollment[];
 
       if (!enrollments.length) {
-        setNotice(
-          'Hakuna wanafunzi waliosajiliwa kwenye darasa la mtihani huu.'
-        );
+        setNotice('Hakuna wanafunzi waliosajiliwa kwenye darasa la mtihani huu.');
         return;
       }
 
@@ -286,9 +285,7 @@ export default function ReportsModule() {
 
         supabase
           .from('student_results')
-          .select(
-            'id,exam_subject_id,enrollment_id,marks_obtained,is_absent'
-          )
+          .select('id,exam_subject_id,enrollment_id,marks_obtained,is_absent')
           .in('exam_subject_id', examSubjectIds)
           .in('enrollment_id', enrollmentIds),
       ]);
@@ -303,10 +300,7 @@ export default function ReportsModule() {
       const resultMap = new Map<string, Result>();
 
       ((resultResult.data || []) as Result[]).forEach(r => {
-        resultMap.set(
-          `${r.enrollment_id}_${r.exam_subject_id}`,
-          r
-        );
+        resultMap.set(`${r.enrollment_id}_${r.exam_subject_id}`, r);
       });
 
       const reportRows = enrollments
@@ -318,7 +312,6 @@ export default function ReportsModule() {
           let maximum = 0;
           let entered = 0;
           let absent = 0;
-
           const marks: Record<string, number | null> = {};
 
           subjectList.forEach(subject => {
@@ -367,9 +360,7 @@ export default function ReportsModule() {
 
       const ranked = [...reportRows]
         .filter(r => r.entered === subjectList.length)
-        .sort(
-          (a, b) => b.average - a.average || b.total - a.total
-        );
+        .sort((a, b) => b.average - a.average || b.total - a.total);
 
       let previous: number | null = null;
       let position = 0;
@@ -378,7 +369,6 @@ export default function ReportsModule() {
         if (previous === null || r.average !== previous) {
           position = index + 1;
         }
-
         r.position = position;
         previous = r.average;
       });
@@ -392,8 +382,14 @@ export default function ReportsModule() {
     }
   }
 
-  function printReport() {
-    window.print();
+  function printAllReports() {
+    setPrintingId(null);
+    window.setTimeout(() => window.print(), 150);
+  }
+
+  function printOneReport(enrollmentId: string) {
+    setPrintingId(enrollmentId);
+    window.setTimeout(() => window.print(), 150);
   }
 
   const tableWrap: React.CSSProperties = {
@@ -490,12 +486,13 @@ export default function ReportsModule() {
 
         .reports-root .subject-marks {
           display: grid;
-          grid-template-columns: repeat(
-            auto-fit,
-            minmax(min(100%, 135px), 1fr)
-          );
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr));
           gap: 9px;
           min-width: 0;
+        }
+
+        .student-print-only {
+          display: none;
         }
 
         @media(max-width:640px) {
@@ -509,37 +506,91 @@ export default function ReportsModule() {
         }
 
         @media print {
+          @page {
+            size: A4;
+            margin: 12mm;
+          }
+
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
           }
 
-          .school-report,
-          .school-report * {
-            visibility: visible;
+          .student-print-only,
+          .student-print-only * {
+            visibility: visible !important;
           }
 
-          .school-report {
+          .student-print-only {
+            display: block !important;
             position: absolute;
-            inset: 0;
+            left: 0;
+            top: 0;
             width: 100%;
-            padding: 10px;
+            background: #fff;
+            color: #172b3d;
+          }
+
+          .student-print-page {
+            display: block;
+            width: 100%;
+            min-height: 250mm;
+            break-after: page;
+            page-break-after: always;
+          }
+
+          .student-print-page:last-child {
+            break-after: auto;
+            page-break-after: auto;
+          }
+
+          .student-print-heading {
+            text-align: center;
+            border-bottom: 2px solid #173b5e;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+          }
+
+          .student-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+          }
+
+          .student-print-table th,
+          .student-print-table td {
+            border: 1px solid #94a3b8;
+            padding: 9px;
+            text-align: left;
+          }
+
+          .student-print-table th {
+            background: #eaf0f6 !important;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .student-print-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+          }
+
+          .student-print-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            padding: 12px;
+          }
+
+          .student-print-signatures {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-top: 45px;
           }
 
           .no-print {
             display: none !important;
-          }
-
-          .report-table {
-            font-size: 10px !important;
-          }
-
-          .report-table th,
-          .report-table td {
-            padding: 5px !important;
-          }
-
-          .subject-card {
-            break-inside: avoid;
           }
         }
       `}</style>
@@ -550,36 +601,31 @@ export default function ReportsModule() {
         </h2>
 
         <p style={{ color: '#64748b' }}>
-          Chagua shule na mtihani ili kuona jumla ya alama,
-          wastani, madaraja na nafasi za wanafunzi.
+          Chagua shule na mtihani ili kuona matokeo ya wanafunzi.
         </p>
 
         {error && (
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              background: '#fee2e2',
-              color: '#991b1b',
-              marginBottom: 12,
-              overflowWrap: 'anywhere',
-            }}
-          >
+          <div style={{
+            padding: 12,
+            borderRadius: 8,
+            background: '#fee2e2',
+            color: '#991b1b',
+            marginBottom: 12,
+            overflowWrap: 'anywhere',
+          }}>
             {error}
           </div>
         )}
 
         {notice && (
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              background: '#dcfce7',
-              color: '#166534',
-              marginBottom: 12,
-              overflowWrap: 'anywhere',
-            }}
-          >
+          <div style={{
+            padding: 12,
+            borderRadius: 8,
+            background: '#dcfce7',
+            color: '#166534',
+            marginBottom: 12,
+            overflowWrap: 'anywhere',
+          }}>
             {notice}
           </div>
         )}
@@ -587,14 +633,12 @@ export default function ReportsModule() {
         <div className="report-filters">
           <label>
             <strong>Shule</strong>
-
             <select
               style={field}
               value={schoolId}
               onChange={e => void changeSchool(e.target.value)}
             >
               <option value="">Chagua shule</option>
-
               {schools.map(s => (
                 <option key={s.id} value={s.id}>
                   {s.school_name}
@@ -605,14 +649,12 @@ export default function ReportsModule() {
 
           <label>
             <strong>Mtihani</strong>
-
             <select
               style={field}
               value={examId}
               onChange={e => void loadReport(e.target.value)}
             >
               <option value="">Chagua mtihani</option>
-
               {exams.map(e => (
                 <option key={e.id} value={e.id}>
                   {e.exam_name} {e.academic_year ? `- ${e.academic_year}` : ''}
@@ -624,66 +666,48 @@ export default function ReportsModule() {
       </section>
 
       {loading && (
-        <section style={card}>
-          Inapakia taarifa za ripoti...
-        </section>
+        <section style={card}>Inapakia taarifa za ripoti...</section>
       )}
 
       {selectedExam && rows.length > 0 && (
-        <div
-          className="school-report"
-          style={{
-            display: 'grid',
-            gap: 16,
-            width: '100%',
-            maxWidth: '100%',
-            minWidth: 0,
-          }}
-        >
-          <section style={card}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                flexWrap: 'wrap',
-                gap: 12,
-                minWidth: 0,
-              }}
-            >
-              <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-                <h2 style={{ margin: 0 }}>
-                  Ripoti ya Matokeo
-                </h2>
-
-                <p style={{ marginBottom: 0 }}>
-                  {selectedExam.exam_name} | {selectedExam.academic_year}
-                </p>
-
-                <p style={{ marginTop: 5, color: '#64748b' }}>
-                  {selectedExam.exam_type} | {selectedExam.term}
-                </p>
+        <div className="school-report" style={{
+          display: 'grid',
+          gap: 16,
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+        }}>
+          <section className="no-print" style={card}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 12,
+            }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Ripoti ya Matokeo</h2>
+                <p>{selectedExam.exam_name} | {selectedExam.academic_year}</p>
+                <p>{selectedExam.exam_type} | {selectedExam.term}</p>
               </div>
 
               <button
-                className="no-print"
-                onClick={printReport}
+                onClick={printAllReports}
                 style={{
-                  padding: '11px 16px',
+                  padding: '12px 17px',
                   border: 0,
                   borderRadius: 8,
                   background: '#173b5e',
                   color: '#fff',
                   fontWeight: 700,
-                  maxWidth: '100%',
                 }}
               >
-                Chapisha / PDF
+                Chapisha Ripoti Zote / PDF
               </button>
             </div>
           </section>
 
-          <section className="report-summary">
+          <section className="report-summary no-print">
             {[
               ['Wanafunzi', summary.total],
               ['Wamekamilisha', summary.complete],
@@ -692,40 +716,20 @@ export default function ReportsModule() {
               ['Wamefaulu', summary.passed],
               ['Wamefeli', summary.failed],
             ].map(([label, value]) => (
-              <div
-                key={String(label)}
-                style={{ ...card, padding: 14 }}
-              >
+              <div key={String(label)} style={{ ...card, padding: 14 }}>
                 <div style={{ color: '#64748b', fontSize: 13 }}>
                   {label}
                 </div>
-
-                <strong
-                  style={{
-                    display: 'block',
-                    fontSize: 'clamp(19px, 5vw, 25px)',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {value}
-                </strong>
+                <strong style={{ fontSize: 23 }}>{value}</strong>
               </div>
             ))}
           </section>
 
-          <section style={card}>
-            <h3 style={{ marginTop: 0 }}>
-              Muhtasari wa Wanafunzi
-            </h3>
+          <section className="no-print" style={card}>
+            <h3 style={{ marginTop: 0 }}>Muhtasari wa Wanafunzi</h3>
 
-            <div
-              className="report-table-wrap"
-              style={tableWrap}
-            >
-              <table
-                className="report-table"
-                style={tableStyle}
-              >
+            <div className="report-table-wrap" style={tableWrap}>
+              <table className="report-table" style={tableStyle}>
                 <thead>
                   <tr style={{ background: '#f1f5f9' }}>
                     {[
@@ -738,13 +742,10 @@ export default function ReportsModule() {
                       'Nafasi',
                       'Hali',
                     ].map(h => (
-                      <th key={h} style={cell}>
-                        {h}
-                      </th>
+                      <th key={h} style={cell}>{h}</th>
                     ))}
                   </tr>
                 </thead>
-
                 <tbody>
                   {[...rows]
                     .sort((a, b) => {
@@ -757,12 +758,8 @@ export default function ReportsModule() {
                         <td style={cell}>{i + 1}</td>
                         <td style={cell}>{r.student.admission_no}</td>
                         <td style={cell}>{studentName(r.student)}</td>
-                        <td style={cell}>
-                          {r.total} / {r.maximum}
-                        </td>
-                        <td style={cell}>
-                          {r.average.toFixed(2)}
-                        </td>
+                        <td style={cell}>{r.total} / {r.maximum}</td>
+                        <td style={cell}>{r.average.toFixed(2)}</td>
                         <td style={cell}>{r.grade}</td>
                         <td style={cell}>{r.position ?? '-'}</td>
                         <td style={cell}>
@@ -777,96 +774,159 @@ export default function ReportsModule() {
             </div>
           </section>
 
-          <section style={card}>
-            <h3 style={{ marginTop: 0 }}>
-              Alama kwa Kila Somo
-            </h3>
+          <section className="no-print" style={card}>
+            <h3 style={{ marginTop: 0 }}>Alama kwa Kila Somo</h3>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr)',
-                gap: 12,
-                width: '100%',
-                minWidth: 0,
-              }}
-            >
+            <div style={{ display: 'grid', gap: 12 }}>
               {rows.map((r, index) => (
-                <article
-                  key={r.enrollment.id}
-                  className="subject-card"
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 16,
-                      marginBottom: 12,
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    {index + 1}. {studentName(r.student)}
-                  </div>
+                <article key={r.enrollment.id} className="subject-card">
+                  <strong>{index + 1}. {studentName(r.student)}</strong>
 
-                  <div className="subject-marks">
+                  <div className="subject-marks" style={{ marginTop: 12 }}>
                     {subjects.map(s => (
-                      <div
-                        key={s.id}
-                        style={{
-                          background: '#f1f5f9',
-                          borderRadius: 9,
-                          padding: 10,
-                          minWidth: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: '#64748b',
-                            fontSize: 13,
-                            overflowWrap: 'anywhere',
-                          }}
-                        >
+                      <div key={s.id} style={{
+                        background: '#f1f5f9',
+                        borderRadius: 9,
+                        padding: 10,
+                      }}>
+                        <div style={{ color: '#64748b', fontSize: 13 }}>
                           {s.subject_name}
                         </div>
-
-                        <strong
-                          style={{
-                            display: 'block',
-                            fontSize: 18,
-                            marginTop: 4,
-                          }}
-                        >
-                          {r.marks[s.id] === null
-                            ? '—'
-                            : r.marks[s.id]}
-
-                          <span
-                            style={{
-                              color: '#64748b',
-                              fontSize: 12,
-                              fontWeight: 400,
-                            }}
-                          >
+                        <strong style={{ fontSize: 18 }}>
+                          {r.marks[s.id] === null ? '—' : r.marks[s.id]}
+                          <span style={{ fontSize: 12, color: '#64748b' }}>
                             {' '} / {s.maximum_marks}
                           </span>
                         </strong>
                       </div>
                     ))}
                   </div>
+
+                  <div style={{ marginTop: 12, lineHeight: 1.8 }}>
+                    Jumla: <strong>{r.total}/{r.maximum}</strong>
+                    {' | '}Wastani: <strong>{r.average.toFixed(2)}%</strong>
+                    {' | '}Daraja: <strong>{r.grade}</strong>
+                    {' | '}Nafasi: <strong>{r.position ?? '-'}</strong>
+                  </div>
+
+                  <button
+                    onClick={() => printOneReport(r.enrollment.id)}
+                    style={{
+                      marginTop: 14,
+                      padding: '11px 15px',
+                      border: 0,
+                      borderRadius: 8,
+                      background: '#173b5e',
+                      color: '#fff',
+                      fontWeight: 700,
+                    }}
+                  >
+                    Chapisha Ripoti ya {studentName(r.student)}
+                  </button>
                 </article>
               ))}
             </div>
-
-            <p
-              style={{
-                color: '#64748b',
-                fontSize: 12,
-                marginBottom: 0,
-              }}
-            >
-              Alama ya “—” ina maana kuwa matokeo ya somo hilo
-              hayajaingizwa au mwanafunzi hakuwepo.
-            </p>
           </section>
+
+          <div className="student-print-only">
+            {rows
+              .filter(r => printingId === null || r.enrollment.id === printingId)
+              .map(r => (
+                <section key={r.enrollment.id} className="student-print-page">
+                  <header className="student-print-heading">
+                    <h1 style={{ margin: 0, color: '#173b5e' }}>
+                      {selectedSchool?.school_name || 'SHULE'}
+                    </h1>
+                    <h2 style={{ margin: '12px 0 5px' }}>
+                      RIPOTI YA MATOKEO YA MWANAFUNZI
+                    </h2>
+                    <p style={{ margin: 4 }}>
+                      {selectedExam.exam_name} | {selectedExam.academic_year}
+                    </p>
+                    <p style={{ margin: 4 }}>
+                      {selectedExam.exam_type} | {selectedExam.term}
+                    </p>
+                  </header>
+
+                  <h2 style={{ color: '#173b5e' }}>
+                    {studentName(r.student)}
+                  </h2>
+
+                  <p>
+                    <strong>Admission Number:</strong> {r.student.admission_no}
+                  </p>
+
+                  <h3>Matokeo kwa Kila Somo</h3>
+
+                  <table className="student-print-table">
+                    <thead>
+                      <tr>
+                        <th>Na.</th>
+                        <th>Somo</th>
+                        <th>Alama</th>
+                        <th>Alama za Juu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subjects.map((s, index) => (
+                        <tr key={s.id}>
+                          <td>{index + 1}</td>
+                          <td>{s.subject_name}</td>
+                          <td>
+                            {r.marks[s.id] === null ? '—' : r.marks[s.id]}
+                          </td>
+                          <td>{s.maximum_marks}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="student-print-summary">
+                    <div className="student-print-box">
+                      <strong>Jumla ya Alama</strong>
+                      <h2>{r.total} / {r.maximum}</h2>
+                    </div>
+                    <div className="student-print-box">
+                      <strong>Wastani</strong>
+                      <h2>{r.average.toFixed(2)}%</h2>
+                    </div>
+                    <div className="student-print-box">
+                      <strong>Daraja</strong>
+                      <h2>{r.grade}</h2>
+                    </div>
+                    <div className="student-print-box">
+                      <strong>Nafasi</strong>
+                      <h2>{r.position ?? 'Haijapatikana'}</h2>
+                    </div>
+                  </div>
+
+                  <p style={{ marginTop: 16 }}>
+                    <strong>Masomo yaliyokamilika:</strong> {r.entered} / {subjects.length}
+                  </p>
+
+                  <div style={{ marginTop: 30 }}>
+                    <strong>Maoni ya Mwalimu:</strong>
+                    <p>________________________________________________________</p>
+                    <p>________________________________________________________</p>
+                  </div>
+
+                  <div className="student-print-signatures">
+                    <div>
+                      ______________________
+                      <br />Saini ya Mwalimu
+                    </div>
+                    <div>
+                      ______________________
+                      <br />Saini ya Mkuu wa Shule
+                    </div>
+                    <div>
+                      ______________________
+                      <br />Tarehe
+                    </div>
+                  </div>
+                </section>
+              ))}
+          </div>
         </div>
       )}
     </div>
