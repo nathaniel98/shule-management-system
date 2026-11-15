@@ -328,19 +328,19 @@ const styles = `
   font-size:12px;
 }
 .exam-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: flex-start;
-  width: fit-content;
-  height: auto;
-  white-space: nowrap;
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  align-self:flex-start;
+  width:fit-content;
+  height:auto;
+  white-space:nowrap;
+  background:#eff6ff;
+  color:#1d4ed8;
+  padding:6px 12px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:700;
 }
 @media(max-width:700px) {
   .exam-grid {grid-template-columns:1fr}
@@ -427,6 +427,12 @@ export default function ExamsModule() {
     ].filter(Boolean).join('\n');
   }
 
+  function currentYearId(schoolId: string, yearRows = years) {
+    return yearRows.find(
+      y => y.school_id === schoolId && y.is_current
+    )?.id || '';
+  }
+
   async function loadData() {
     if (!supabase) {
       setError('Supabase haijaunganishwa.');
@@ -467,11 +473,38 @@ export default function ExamsModule() {
         if (result.error) throw result.error;
       }
 
-      setSchools((results[0].data || []) as School[]);
-      setYears((results[1].data || []) as AcademicYear[]);
+      const schoolRows = (results[0].data || []) as School[];
+      const yearRows = (results[1].data || []) as AcademicYear[];
+
+      setSchools(schoolRows);
+      setYears(yearRows);
       setClasses((results[2].data || []) as SchoolClass[]);
       setStreams((results[3].data || []) as Stream[]);
       setSubjects((results[4].data || []) as Subject[]);
+
+      setForm(previous => {
+        const selectedSchoolId =
+          previous.school_id &&
+          schoolRows.some(s => s.id === previous.school_id)
+            ? previous.school_id
+            : schoolRows[0]?.id || '';
+
+        const previousYear = yearRows.find(
+          y => y.id === previous.academic_year_id &&
+            y.school_id === selectedSchoolId
+        );
+
+        const selectedYear = previousYear ||
+          yearRows.find(
+            y => y.school_id === selectedSchoolId && y.is_current
+          );
+
+        return {
+          ...previous,
+          school_id: selectedSchoolId,
+          academic_year_id: selectedYear?.id || '',
+        };
+      });
 
       const examRows = (results[5].data || []) as Omit<
         Exam,
@@ -519,6 +552,22 @@ export default function ExamsModule() {
     setSelectedSubjects([]);
   }
 
+  function changeSchool(schoolId: string) {
+    const selectedYearId = currentYearId(schoolId);
+
+    setForm(p => ({
+      ...p,
+      school_id: schoolId,
+      academic_year_id: selectedYearId,
+      class_id: '',
+      stream_id: '',
+    }));
+
+    setSelectedSubjects([]);
+    setError('');
+    setMessage('');
+  }
+
   function toggleSubject(subject: Subject, checked: boolean) {
     setSelectedSubjects(previous => checked
       ? [...previous, {
@@ -538,7 +587,15 @@ export default function ExamsModule() {
   }
 
   function resetForm() {
-    setForm(initialForm);
+    const schoolId = form.school_id || schools[0]?.id || '';
+    const selectedYearId = currentYearId(schoolId);
+
+    setForm({
+      ...initialForm,
+      school_id: schoolId,
+      academic_year_id: selectedYearId,
+    });
+
     setSelectedSubjects([]);
     setEditingId(null);
     setError('');
@@ -584,16 +641,17 @@ export default function ExamsModule() {
 
     try {
       const selectedYear = years.find(
-        y => y.id === form.academic_year_id
+        y => y.id === form.academic_year_id &&
+          y.school_id === form.school_id
       );
 
       if (!selectedYear) {
-        throw new Error('Mwaka wa masomo uliochagua haujapatikana.');
+        throw new Error('Mwaka wa masomo uliochagua haujapatikana kwa shule hii.');
       }
 
       const payload = {
         school_id: form.school_id,
-        academic_year_id: form.academic_year_id,
+        academic_year_id: selectedYear.id,
         class_id: form.class_id,
         stream_id: form.stream_id || null,
         exam_name: form.exam_name.trim(),
@@ -783,16 +841,7 @@ export default function ExamsModule() {
               className="exam-input"
               required
               value={form.school_id}
-              onChange={e => {
-                setForm(p => ({
-                  ...p,
-                  school_id: e.target.value,
-                  academic_year_id: '',
-                  class_id: '',
-                  stream_id: '',
-                }));
-                setSelectedSubjects([]);
-              }}
+              onChange={e => changeSchool(e.target.value)}
             >
               <option value="">Chagua shule</option>
               {schools.map(s => (
@@ -822,6 +871,12 @@ export default function ExamsModule() {
                 </option>
               ))}
             </select>
+
+            {form.school_id && !form.academic_year_id && (
+              <small style={{ color: '#b45309' }}>
+                Shule hii haina mwaka wa sasa uliowekwa. Tafadhali kagua Miaka ya Masomo.
+              </small>
+            )}
           </div>
 
           <div className="exam-field">
@@ -1034,7 +1089,7 @@ export default function ExamsModule() {
           <button
             className="exam-btn exam-primary"
             type="submit"
-            disabled={saving}
+            disabled={saving || loading || !form.academic_year_id}
           >
             {saving
               ? 'Inahifadhi...'
