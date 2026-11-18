@@ -81,7 +81,9 @@ export default function FeesModule() {
   const [schoolId, setSchoolId] = useState('');
   const [yearId, setYearId] = useState('');
   const [classId, setClassId] = useState('');
-  const [tab, setTab] = useState<'setup' | 'accounts'>('setup');
+  const [tab, setTab] = useState<'setup' | 'accounts' | 'reports'>('setup');
+  const [reportStartDate, setReportStartDate] = useState(() => `${today().slice(0, 4)}-01-01`);
+  const [reportEndDate, setReportEndDate] = useState(today());
 
   const [fee, setFee] = useState({
     school_fee: '0', accommodation_fee: '0', transport_fee: '0'
@@ -151,6 +153,31 @@ export default function FeesModule() {
     paid: a.paid + x.paid,
     debt: a.debt + x.balance
   }), { total: 0, paid: 0, debt: 0 });
+
+  // Ripoti huchuja akaunti kwa mwaka wa masomo uliochaguliwa.
+  const reportRows = rows.filter(
+    x => x.enrollment?.academic_year_id === yearId
+  );
+  const reportAccountIds = new Set(reportRows.map(x => x.account.id));
+  const reportPayments = payments.filter(
+    x => reportAccountIds.has(x.student_fee_account_id)
+  );
+  const periodPayments = reportPayments.filter(x =>
+    x.payment_date >= reportStartDate && x.payment_date <= reportEndDate
+  );
+  const yearRevenue = reportPayments.reduce((sum, x) => sum + Number(x.amount), 0);
+  const periodRevenue = periodPayments.reduce((sum, x) => sum + Number(x.amount), 0);
+  const debtRows = reportRows.filter(x => x.balance > 0);
+  const fullyPaidRows = reportRows.filter(
+    x => Number(x.account.total_amount) > 0 && x.balance === 0
+  );
+  const reportStudentName = (student?: Student) => student
+    ? `${student.first_name} ${student.middle_name || ''} ${student.last_name}`.replace(/\s+/g, ' ').trim()
+    : '—';
+  const reportClassName = (enrollment?: Enrollment) =>
+    classes.find(c => c.id === enrollment?.class_id)?.class_name || '—';
+  const reportStreamName = (enrollment?: Enrollment) =>
+    streams.find(st => st.id === enrollment?.stream_id)?.stream_name || '—';
 
   function reportError(e: any) {
     setError(e?.message || 'Kuna tatizo. Jaribu tena.');
@@ -956,6 +983,9 @@ export default function FeesModule() {
         <button style={tabButton(tab === 'accounts')} onClick={() => setTab('accounts')}>
           Akaunti za Wanafunzi
         </button>
+        <button style={tabButton(tab === 'reports')} onClick={() => setTab('reports')}>
+          Ripoti za Ada
+        </button>
       </div>
 
       {loading ? (
@@ -1249,6 +1279,144 @@ export default function FeesModule() {
                           <td style={cell} colSpan={9}>Hakuna akaunti zilizopatikana.</td>
                         </tr>
                       )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'reports' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>Ripoti za Ada</h3>
+                <p style={{ marginTop: 0, color: '#64748b', fontSize: 13 }}>
+                  Ripoti zinaonyesha wanafunzi na makusanyo ya mwaka wa masomo uliochaguliwa.
+                </p>
+                <div style={fieldGrid}>
+                  <label style={label}>
+                    Kuanzia tarehe
+                    <input style={input} type="date" value={reportStartDate}
+                      onChange={e => setReportStartDate(e.target.value)} />
+                  </label>
+                  <label style={label}>
+                    Hadi tarehe
+                    <input style={input} type="date" value={reportEndDate}
+                      min={reportStartDate}
+                      onChange={e => setReportEndDate(e.target.value)} />
+                  </label>
+                </div>
+                {reportEndDate < reportStartDate && (
+                  <p style={{ color: '#b91c1c', marginBottom: 0 }}>
+                    Tarehe ya mwisho haiwezi kuwa kabla ya tarehe ya mwanzo.
+                  </p>
+                )}
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: 12
+              }}>
+                {[
+                  ['Jumla ya Makusanyo - Mwaka', yearRevenue],
+                  ['Makusanyo kwa Kipindi', reportEndDate >= reportStartDate ? periodRevenue : 0],
+                  ['Wanafunzi Wenye Deni', debtRows.length],
+                  ['Waliolipa Kikamilifu', fullyPaidRows.length]
+                ].map(([name, value]) => (
+                  <div key={String(name)} style={{ ...card, borderTop: '4px solid #173b5e' }}>
+                    <div style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>{name}</div>
+                    <div style={{ color: '#173b5e', fontSize: 22, fontWeight: 800, marginTop: 8 }}>
+                      {typeof value === 'number' && String(name).includes('Wanafunzi') || String(name).includes('Waliolipa')
+                        ? money(Number(value))
+                        : `TSh ${money(Number(value))}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>Wanafunzi Wenye Madeni</h3>
+                <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                  <table style={{ ...tableStyle, minWidth: 850 }}>
+                    <thead><tr>
+                      {['Namba ya Usajili', 'Mwanafunzi', 'Darasa', 'Mkondo', 'Ada Jumla', 'Amelipa', 'Deni'].map(x =>
+                        <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {debtRows.map(({ account, enrollment, student, paid, balance }) => (
+                        <tr key={account.id}>
+                          <td style={cell}>{student?.admission_no || '—'}</td>
+                          <td style={cell}>{reportStudentName(student)}</td>
+                          <td style={cell}>{reportClassName(enrollment)}</td>
+                          <td style={cell}>{reportStreamName(enrollment)}</td>
+                          <td style={cell}>TSh {money(account.total_amount)}</td>
+                          <td style={cell}>TSh {money(paid)}</td>
+                          <td style={{ ...cell, color: '#b91c1c', fontWeight: 700 }}>TSh {money(balance)}</td>
+                        </tr>
+                      ))}
+                      {!debtRows.length && <tr><td style={cell} colSpan={7}>Hakuna mwanafunzi mwenye deni kwa mwaka huu.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>Wanafunzi Waliolipa Ada Kikamilifu</h3>
+                <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                  <table style={{ ...tableStyle, minWidth: 750 }}>
+                    <thead><tr>
+                      {['Namba ya Usajili', 'Mwanafunzi', 'Darasa', 'Mkondo', 'Ada Jumla', 'Amelipa'].map(x =>
+                        <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {fullyPaidRows.map(({ account, enrollment, student, paid }) => (
+                        <tr key={account.id}>
+                          <td style={cell}>{student?.admission_no || '—'}</td>
+                          <td style={cell}>{reportStudentName(student)}</td>
+                          <td style={cell}>{reportClassName(enrollment)}</td>
+                          <td style={cell}>{reportStreamName(enrollment)}</td>
+                          <td style={cell}>TSh {money(account.total_amount)}</td>
+                          <td style={cell}>TSh {money(paid)}</td>
+                        </tr>
+                      ))}
+                      {!fullyPaidRows.length && <tr><td style={cell} colSpan={6}>Hakuna mwanafunzi aliyelipa kikamilifu kwa mwaka huu.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={card}>
+                <h3 style={{ marginTop: 0, color: '#173b5e' }}>Makusanyo kwa Tarehe</h3>
+                <p style={{ marginTop: 0, color: '#64748b', fontSize: 13 }}>
+                  Jumla ya kipindi: <b>TSh {money(periodRevenue)}</b>
+                </p>
+                <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                  <table style={{ ...tableStyle, minWidth: 850 }}>
+                    <thead><tr>
+                      {['Tarehe', 'Risiti', 'Namba ya Usajili', 'Mwanafunzi', 'Darasa', 'Mkondo', 'Njia ya Malipo', 'Kiasi'].map(x =>
+                        <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {reportEndDate >= reportStartDate && periodPayments.map(p => {
+                        const account = accounts.find(a => a.id === p.student_fee_account_id);
+                        const enrollment = account ? enrollmentMap.get(account.enrollment_id) : undefined;
+                        const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
+                        return (
+                          <tr key={p.id}>
+                            <td style={cell}>{p.payment_date}</td>
+                            <td style={cell}>{p.receipt_number}</td>
+                            <td style={cell}>{student?.admission_no || '—'}</td>
+                            <td style={cell}>{reportStudentName(student)}</td>
+                            <td style={cell}>{reportClassName(enrollment)}</td>
+                            <td style={cell}>{reportStreamName(enrollment)}</td>
+                            <td style={cell}>{p.payment_method}</td>
+                            <td style={cell}>TSh {money(p.amount)}</td>
+                          </tr>
+                        );
+                      })}
+                      {(reportEndDate < reportStartDate || !periodPayments.length) &&
+                        <tr><td style={cell} colSpan={8}>Hakuna makusanyo yaliyopatikana katika kipindi hiki.</td></tr>}
                     </tbody>
                   </table>
                 </div>
