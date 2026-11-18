@@ -82,8 +82,9 @@ export default function FeesModule() {
   const [yearId, setYearId] = useState('');
   const [classId, setClassId] = useState('');
   const [tab, setTab] = useState<'setup' | 'accounts' | 'reports'>('setup');
-  const [reportStartDate, setReportStartDate] = useState(() => `${today().slice(0, 4)}-01-01`);
-  const [reportEndDate, setReportEndDate] = useState(today());
+  const [reportPeriod, setReportPeriod] = useState<'month' | 'year'>('month');
+  const [reportMonth, setReportMonth] = useState(() => today().slice(5, 7));
+  const [reportCalendarYear, setReportCalendarYear] = useState(() => today().slice(0, 4));
 
   const [fee, setFee] = useState({
     school_fee: '0', accommodation_fee: '0', transport_fee: '0'
@@ -162,6 +163,12 @@ export default function FeesModule() {
   const reportPayments = payments.filter(
     x => reportAccountIds.has(x.student_fee_account_id)
   );
+  const reportStartDate = reportPeriod === 'year'
+    ? `${reportCalendarYear}-01-01`
+    : `${reportCalendarYear}-${reportMonth}-01`;
+  const reportEndDate = reportPeriod === 'year'
+    ? `${reportCalendarYear}-12-31`
+    : `${reportCalendarYear}-${reportMonth}-${String(new Date(Number(reportCalendarYear), Number(reportMonth), 0).getDate()).padStart(2, '0')}`;
   const periodPayments = reportPayments.filter(x =>
     x.payment_date >= reportStartDate && x.payment_date <= reportEndDate
   );
@@ -1291,26 +1298,48 @@ export default function FeesModule() {
               <div style={card}>
                 <h3 style={{ marginTop: 0, color: '#173b5e' }}>Ripoti za Ada</h3>
                 <p style={{ marginTop: 0, color: '#64748b', fontSize: 13 }}>
-                  Ripoti zinaonyesha wanafunzi na makusanyo ya mwaka wa masomo uliochaguliwa.
+                  Chagua kuona makusanyo kwa mwezi mmoja au mwaka mzima. Ripoti itajisasisha kulingana na chaguo lako.
                 </p>
-                <div style={fieldGrid}>
+                <div style={{ ...fieldGrid, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                   <label style={label}>
-                    Kuanzia tarehe
-                    <input style={input} type="date" value={reportStartDate}
-                      onChange={e => setReportStartDate(e.target.value)} />
+                    Aina ya Ripoti
+                    <select style={input} value={reportPeriod}
+                      onChange={e => setReportPeriod(e.target.value as 'month' | 'year')}>
+                      <option value="month">Kwa Mwezi</option>
+                      <option value="year">Kwa Mwaka</option>
+                    </select>
                   </label>
+                  {reportPeriod === 'month' && (
+                    <label style={label}>
+                      Chagua Mwezi
+                      <select style={input} value={reportMonth}
+                        onChange={e => setReportMonth(e.target.value)}>
+                        {[
+                          ['01', 'Januari'], ['02', 'Februari'], ['03', 'Machi'],
+                          ['04', 'Aprili'], ['05', 'Mei'], ['06', 'Juni'],
+                          ['07', 'Julai'], ['08', 'Agosti'], ['09', 'Septemba'],
+                          ['10', 'Oktoba'], ['11', 'Novemba'], ['12', 'Desemba']
+                        ].map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+                      </select>
+                    </label>
+                  )}
                   <label style={label}>
-                    Hadi tarehe
-                    <input style={input} type="date" value={reportEndDate}
-                      min={reportStartDate}
-                      onChange={e => setReportEndDate(e.target.value)} />
+                    Chagua Mwaka
+                    <select style={input} value={reportCalendarYear}
+                      onChange={e => setReportCalendarYear(e.target.value)}>
+                      {Array.from(new Set([
+                        String(new Date().getFullYear()),
+                        ...payments.map(p => p.payment_date.slice(0, 4)),
+                        ...years.map(y => String(y.year_name).match(/\d{4}/)?.[0] || '')
+                      ].filter(Boolean))).sort((a, b) => Number(b) - Number(a)).map(y =>
+                        <option key={y} value={y}>{y}</option>
+                      )}
+                    </select>
                   </label>
                 </div>
-                {reportEndDate < reportStartDate && (
-                  <p style={{ color: '#b91c1c', marginBottom: 0 }}>
-                    Tarehe ya mwisho haiwezi kuwa kabla ya tarehe ya mwanzo.
-                  </p>
-                )}
+                <p style={{ color: '#64748b', fontSize: 13, marginBottom: 0 }}>
+                  Kipindi kinachoonyeshwa: <b>{reportStartDate}</b> hadi <b>{reportEndDate}</b>
+                </p>
               </div>
 
               <div style={{
@@ -1320,7 +1349,7 @@ export default function FeesModule() {
               }}>
                 {[
                   ['Jumla ya Makusanyo - Mwaka', yearRevenue],
-                  ['Makusanyo kwa Kipindi', reportEndDate >= reportStartDate ? periodRevenue : 0],
+                  [reportPeriod === 'month' ? 'Makusanyo kwa Mwezi' : 'Makusanyo kwa Mwaka', periodRevenue],
                   ['Wanafunzi Wenye Deni', debtRows.length],
                   ['Waliolipa Kikamilifu', fullyPaidRows.length]
                 ].map(([name, value]) => (
@@ -1398,7 +1427,7 @@ export default function FeesModule() {
                         <th key={x} style={{ ...cell, background: '#f1f5f9' }}>{x}</th>)}
                     </tr></thead>
                     <tbody>
-                      {reportEndDate >= reportStartDate && periodPayments.map(p => {
+                      {periodPayments.map(p => {
                         const account = accounts.find(a => a.id === p.student_fee_account_id);
                         const enrollment = account ? enrollmentMap.get(account.enrollment_id) : undefined;
                         const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
@@ -1415,7 +1444,7 @@ export default function FeesModule() {
                           </tr>
                         );
                       })}
-                      {(reportEndDate < reportStartDate || !periodPayments.length) &&
+                      {(!periodPayments.length) &&
                         <tr><td style={cell} colSpan={8}>Hakuna makusanyo yaliyopatikana katika kipindi hiki.</td></tr>}
                     </tbody>
                   </table>
