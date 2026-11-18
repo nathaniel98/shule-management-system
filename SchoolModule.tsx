@@ -35,21 +35,38 @@ const emptyForm: SchoolForm = {
 
 const inputStyle = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   boxSizing: 'border-box' as const,
-  padding: '11px 12px',
+  padding: '12px 14px',
   border: '1px solid #cbd5e1',
-  borderRadius: 8,
-  fontSize: 15,
+  borderRadius: 10,
+  fontSize: 16,
+  lineHeight: 1.4,
   background: '#fff',
   color: '#172b3d',
 };
 
 const labelStyle = {
   display: 'grid',
-  gap: 7,
+  minWidth: 0,
+  width: '100%',
+  gap: 8,
   fontWeight: 600 as const,
   color: '#334155',
   fontSize: 14,
+};
+
+const cardStyle = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 16,
+  padding: 'clamp(14px, 3vw, 20px)',
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+  overflow: 'hidden',
 };
 
 export function SchoolModule() {
@@ -69,18 +86,22 @@ export function SchoolModule() {
 
     setLoading(true);
     setError('');
+
     const { data, error: loadError } = await supabase
       .from('schools')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (loadError) {
-      setError(loadError.code === '42501'
-        ? 'Huna ruhusa ya kuona taarifa za shule. Kagua sera ya SELECT ya RLS.'
-        : `Imeshindikana kupakia shule: ${loadError.message}`);
+      setError(
+        loadError.code === '42501'
+          ? 'Huna ruhusa ya kuona taarifa za shule. Kagua sera ya SELECT ya RLS.'
+          : `Imeshindikana kupakia shule: ${loadError.message}`
+      );
     } else {
       setSchools((data ?? []) as School[]);
     }
+
     setLoading(false);
   }
 
@@ -90,14 +111,17 @@ export function SchoolModule() {
 
   async function registerSchool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     if (!supabase) {
       setError('Supabase haijaunganishwa.');
       return;
     }
+
     if (!form.school_name.trim() || !form.school_code.trim()) {
       setError('Jina la shule na namba ya usajili vinahitajika.');
       return;
     }
+
     if (!form.education_system) {
       setError('Chagua mfumo wa elimu wa shule.');
       return;
@@ -132,48 +156,103 @@ export function SchoolModule() {
       setForm({ ...emptyForm });
       await loadSchools();
     }
+
     setSaving(false);
   }
 
   return (
-    <section style={{ display: 'grid', gap: 20 }}>
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 20 }}>
-        <h2 style={{ margin: '0 0 8px', color: '#173b5e' }}>Usajili wa Shule</h2>
-        <p style={{ margin: '0 0 20px', color: '#64748b' }}>
+    <section
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: 18,
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
+      }}
+    >
+      <div style={cardStyle}>
+        <h2 style={{ margin: '0 0 8px', color: '#173b5e', fontSize: 'clamp(22px, 5vw, 30px)' }}>
+          Usajili wa Shule
+        </h2>
+
+        <p style={{ margin: '0 0 20px', color: '#64748b', lineHeight: 1.6 }}>
           Sajili shule na angalia orodha ya shule zilizosajiliwa.
         </p>
 
         {error && (
-          <div role="alert" style={{ background: '#fff1f0', color: '#9f2929', padding: 13, borderRadius: 9, marginBottom: 15 }}>
+          <div
+            role="alert"
+            style={{
+              background: '#fff1f0',
+              color: '#9f2929',
+              padding: 13,
+              borderRadius: 9,
+              marginBottom: 15,
+              overflowWrap: 'anywhere',
+            }}
+          >
             {error}
           </div>
         )}
+
         {message && (
-          <div role="status" style={{ background: '#ecfdf3', color: '#166534', padding: 13, borderRadius: 9, marginBottom: 15 }}>
+          <div
+            role="status"
+            style={{
+              background: '#ecfdf3',
+              color: '#166534',
+              padding: 13,
+              borderRadius: 9,
+              marginBottom: 15,
+            }}
+          >
             {message}
           </div>
         )}
 
-        <form onSubmit={registerSchool}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        <form onSubmit={registerSchool} style={{ width: '100%', minWidth: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              gap: 16,
+              width: '100%',
+              minWidth: 0,
+            }}
+          >
             <label style={labelStyle}>
               Jina la shule *
-              <input style={inputStyle} required value={form.school_name}
+              <input
+                style={inputStyle}
+                required
+                value={form.school_name}
                 onChange={(event) => setForm({ ...form, school_name: event.target.value })}
-                placeholder="Jina la shule" />
+                placeholder="Jina la shule"
+                autoComplete="organization"
+              />
             </label>
 
             <label style={labelStyle}>
               Namba ya usajili *
-              <input style={inputStyle} required value={form.school_code}
+              <input
+                style={inputStyle}
+                required
+                value={form.school_code}
                 onChange={(event) => setForm({ ...form, school_code: event.target.value })}
-                placeholder="Mfano: RG 000023" />
+                placeholder="Mfano: RG 000023"
+              />
             </label>
 
             <label style={labelStyle}>
               Aina ya shule *
-              <select style={inputStyle} value={form.school_type}
-                onChange={(event) => setForm({ ...form, school_type: event.target.value })}>
+              <select
+                style={inputStyle}
+                value={form.school_type}
+                onChange={(event) => setForm({ ...form, school_type: event.target.value })}
+              >
                 <option value="Private">Private</option>
                 <option value="Public">Public</option>
               </select>
@@ -181,8 +260,12 @@ export function SchoolModule() {
 
             <label style={labelStyle}>
               Mfumo wa elimu *
-              <select style={inputStyle} required value={form.education_system}
-                onChange={(event) => setForm({ ...form, education_system: event.target.value })}>
+              <select
+                style={inputStyle}
+                required
+                value={form.education_system}
+                onChange={(event) => setForm({ ...form, education_system: event.target.value })}
+              >
                 <option value="Zanzibar">Zanzibar</option>
                 <option value="Tanzania">Tanzania Bara</option>
               </select>
@@ -190,42 +273,94 @@ export function SchoolModule() {
 
             <label style={labelStyle}>
               Barua pepe
-              <input style={inputStyle} type="email" value={form.email}
+              <input
+                style={inputStyle}
+                type="email"
+                value={form.email}
                 onChange={(event) => setForm({ ...form, email: event.target.value })}
-                placeholder="Barua pepe" />
+                placeholder="Barua pepe"
+                autoComplete="email"
+              />
             </label>
 
             <label style={labelStyle}>
               Namba ya simu
-              <input style={inputStyle} type="tel" value={form.phone}
+              <input
+                style={inputStyle}
+                type="tel"
+                value={form.phone}
                 onChange={(event) => setForm({ ...form, phone: event.target.value })}
-                placeholder="Namba ya simu" />
+                placeholder="Namba ya simu"
+                autoComplete="tel"
+              />
             </label>
 
-            <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>
               Anwani ya shule
-              <input style={inputStyle} value={form.address}
+              <input
+                style={inputStyle}
+                value={form.address}
                 onChange={(event) => setForm({ ...form, address: event.target.value })}
-                placeholder="Mkoa, wilaya au eneo la shule" />
+                placeholder="Mkoa, wilaya au eneo la shule"
+                autoComplete="street-address"
+              />
             </label>
           </div>
 
-          <button type="submit" disabled={saving}
-            style={{ marginTop: 18, padding: '12px 20px', border: 0, borderRadius: 9,
-              background: saving ? '#94a3b8' : '#173b5e', color: '#fff',
-              fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              marginTop: 18,
+              width: '100%',
+              maxWidth: 240,
+              minHeight: 48,
+              padding: '12px 20px',
+              border: 0,
+              borderRadius: 10,
+              background: saving ? '#94a3b8' : '#173b5e',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: saving ? 'wait' : 'pointer',
+            }}
+          >
             {saving ? 'Inasajili...' : 'Sajili Shule'}
           </button>
         </form>
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ margin: 0, color: '#173b5e' }}>Shule zilizosajiliwa ({schools.length})</h2>
-          <button type="button" onClick={() => void loadSchools()}
-            style={{ padding: '9px 14px', border: '1px solid #cbd5e1', borderRadius: 8,
-              background: '#fff', color: '#173b5e', fontWeight: 600 }}>
-            Onyesha upya
+      <div style={cardStyle}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
+            minWidth: 0,
+          }}
+        >
+          <h2 style={{ margin: 0, color: '#173b5e', fontSize: 'clamp(20px, 4.5vw, 28px)' }}>
+            Shule zilizosajiliwa ({schools.length})
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => void loadSchools()}
+            disabled={loading}
+            style={{
+              padding: '10px 14px',
+              minHeight: 42,
+              border: '1px solid #cbd5e1',
+              borderRadius: 9,
+              background: '#fff',
+              color: '#173b5e',
+              fontWeight: 600,
+              cursor: loading ? 'wait' : 'pointer',
+            }}
+          >
+            {loading ? 'Inapakia...' : 'Onyesha upya'}
           </button>
         </div>
 
@@ -234,26 +369,62 @@ export function SchoolModule() {
         ) : schools.length === 0 ? (
           <p style={{ color: '#64748b' }}>Bado hakuna shule zilizosajiliwa.</p>
         ) : (
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+          <div
+            style={{
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              marginTop: 12,
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <table
+              style={{
+                width: '100%',
+                minWidth: 620,
+                borderCollapse: 'collapse',
+              }}
+            >
               <thead>
                 <tr>
                   {['Jina la shule', 'Namba', 'Aina', 'Mfumo wa elimu', 'Simu'].map((heading) => (
-                    <th key={heading} style={{ textAlign: 'left', padding: 11,
-                      borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: 13 }}>
+                    <th
+                      key={heading}
+                      style={{
+                        textAlign: 'left',
+                        padding: '12px 10px',
+                        borderBottom: '1px solid #e2e8f0',
+                        color: '#475569',
+                        fontSize: 13,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {heading}
                     </th>
                   ))}
                 </tr>
               </thead>
+
               <tbody>
                 {schools.map((school) => (
                   <tr key={school.id}>
-                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9' }}>{school.school_name}</td>
-                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9' }}>{school.school_code}</td>
-                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9' }}>{school.school_type}</td>
-                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9' }}>{school.education_system}</td>
-                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9' }}>{school.phone || '—'}</td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      {school.school_name}
+                    </td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      {school.school_code}
+                    </td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      {school.school_type}
+                    </td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      {school.education_system}
+                    </td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      {school.phone || '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
