@@ -28,7 +28,6 @@ type Student = {
 const BUCKET = 'student-photos';
 
 const emptyForm = {
-  admission_no: '',
   first_name: '',
   middle_name: '',
   last_name: '',
@@ -246,7 +245,6 @@ export default function StudentsModule() {
     setEditingId(student.id);
 
     setForm({
-      admission_no: student.admission_no || '',
       first_name: student.first_name || '',
       middle_name: student.middle_name || '',
       last_name: student.last_name || '',
@@ -304,12 +302,8 @@ export default function StudentsModule() {
       return;
     }
 
-    if (
-      !form.admission_no.trim() ||
-      !form.first_name.trim() ||
-      !form.last_name.trim()
-    ) {
-      setError('Jaza namba ya usajili, jina la kwanza na jina la mwisho.');
+    if (!form.first_name.trim() || !form.last_name.trim()) {
+      setError('Jaza jina la kwanza na jina la mwisho.');
       return;
     }
 
@@ -324,7 +318,6 @@ export default function StudentsModule() {
 
       const payload: Record<string, unknown> = {
         school_id: schoolId,
-        admission_no: form.admission_no.trim(),
         first_name: form.first_name.trim(),
         middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
@@ -342,23 +335,23 @@ export default function StudentsModule() {
         payload.photo_url = null;
       }
 
-      const result = editingId
-        ? await supabase
-            .from('students')
-            .update(payload)
-            .eq('id', editingId)
-            .eq('school_id', schoolId)
-        : await supabase
-            .from('students')
-            .insert(payload);
-
-      if (result.error) throw result.error;
-
-      setMessage(
-        editingId
-          ? 'Taarifa za mwanafunzi zimehaririwa kikamilifu.'
-          : 'Mwanafunzi amesajiliwa kikamilifu.'
-      );
+      if (editingId) {
+        const { error } = await supabase
+          .from('students')
+          .update(payload)
+          .eq('id', editingId)
+          .eq('school_id', schoolId);
+        if (error) throw error;
+        setMessage('Taarifa za mwanafunzi zimehaririwa kikamilifu.');
+      } else {
+        const { data, error } = await supabase
+          .from('students')
+          .insert(payload)
+          .select('admission_no')
+          .single();
+        if (error) throw error;
+        setMessage(`Mwanafunzi amesajiliwa kikamilifu. Namba yake ya usajili ni ${data.admission_no}.`);
+      }
 
       setEditingId(null);
       setForm(emptyForm);
@@ -539,13 +532,17 @@ export default function StudentsModule() {
               }}
             >
               <label style={labelStyle}>
-                Namba ya usajili *
+                Namba ya usajili
                 <input
-                  style={inputStyle}
-                  required
-                  value={form.admission_no}
-                  onChange={e => setForm({ ...form, admission_no: e.target.value })}
+                  style={{ ...inputStyle, background: '#f1f5f9', color: '#475569' }}
+                  value={editingId
+                    ? students.find(student => student.id === editingId)?.admission_no || ''
+                    : 'Itatolewa na mfumo baada ya kuhifadhi'}
+                  readOnly
                 />
+                <span style={{ color: '#64748b', fontSize: 12, fontWeight: 400 }}>
+                  {editingId ? 'Namba hii haiwezi kubadilishwa.' : 'Mfumo utatoa namba ya kipekee moja kwa moja baada ya usajili.'}
+                </span>
               </label>
 
               <label style={labelStyle}>
