@@ -1,4 +1,3 @@
-
 import ResultsModule from './ResultsModule';
 import ReportsModule from './ReportsModule';
 import ClassesModule from './ClassesModule';
@@ -77,18 +76,21 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [notice, setNotice] = useState('');
+
   const [dashboardCounts, setDashboardCounts] = useState({
     schools: 0,
     students: 0,
     teachers: 0,
     classes: 0
   });
+
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   async function loadDashboardStats() {
     if (!supabase) {
-      setDashboardError('Supabase haijaunganishwa.');
+      setDashboardError('Supabase haijaunganishwa. Kagua mipangilio ya Vercel.');
       setDashboardLoading(false);
       return;
     }
@@ -97,35 +99,142 @@ function App() {
     setDashboardError('');
 
     try {
-      const [schoolsResult, studentsResult, teachersResult, classesResult] =
-        await Promise.all([
-          supabase.from('schools').select('id', { count: 'exact', head: true }),
-          supabase.from('students').select('id', { count: 'exact', head: true }),
-          supabase.from('teachers').select('id', { count: 'exact', head: true }),
-          supabase.from('classes').select('id', { count: 'exact', head: true })
-        ]);
+      const [
+        schoolsCount,
+        studentsCount,
+        teachersCount,
+        classesCount,
+        recentSchools,
+        recentStudents,
+        recentTeachers
+      ] = await Promise.all([
+        supabase.from('schools').select('id', { count: 'exact', head: true }),
+        supabase.from('students').select('id', { count: 'exact', head: true }),
+        supabase.from('teachers').select('id', { count: 'exact', head: true }),
+        supabase.from('classes').select('id', { count: 'exact', head: true }),
 
-      const firstError =
-        schoolsResult.error ||
-        studentsResult.error ||
-        teachersResult.error ||
-        classesResult.error;
+        supabase.from('schools')
+          .select('id, school_name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
 
-      if (firstError) {
+        supabase.from('students')
+          .select('id, admission_no, first_name, middle_name, last_name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
+
+        supabase.from('teachers')
+          .select('id, employee_no, first_name, middle_name, last_name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5)
+      ]);
+
+      const results = [
+        schoolsCount,
+        studentsCount,
+        teachersCount,
+        classesCount
+      ];
+
+      const labels = [
+        'Shule',
+        'Wanafunzi',
+        'Walimu',
+        'Madarasa'
+      ];
+
+      const failedIndex = results.findIndex(
+        result => Boolean(result.error)
+      );
+
+      const activityError =
+        recentSchools.error ||
+        recentStudents.error ||
+        recentTeachers.error;
+
+      if (failedIndex !== -1) {
+        const failedResult = results[failedIndex];
+
+        const message =
+          failedResult.error?.message ||
+          'Hitilafu haijafafanuliwa.';
+
         setDashboardError(
-          `Imeshindikana kusoma takwimu. Kagua ruhusa za SELECT/RLS: ${firstError.message}`
+          `Imeshindikana kusoma idadi ya ${labels[failedIndex].toLowerCase()}: ${message}. Kagua ruhusa za SELECT/RLS za jedwali hilo.`
         );
+
+        return;
+      }
+
+      setDashboardCounts({
+        schools: schoolsCount.count ?? 0,
+        students: studentsCount.count ?? 0,
+        teachers: teachersCount.count ?? 0,
+        classes: classesCount.count ?? 0
+      });
+
+      if (activityError) {
+        console.error(
+          'Dashboard activity query error:',
+          activityError.message
+        );
+
+        setRecentActivities([]);
       } else {
-        setDashboardCounts({
-          schools: schoolsResult.count ?? 0,
-          students: studentsResult.count ?? 0,
-          teachers: teachersResult.count ?? 0,
-          classes: classesResult.count ?? 0
-        });
+        const activities = [
+          ...(recentSchools.data || []).map((row: any) => ({
+            id: `school-${row.id}`,
+            category: 'Shule',
+            title: row.school_name || 'Shule mpya',
+            detail: 'Shule imesajiliwa',
+            created_at: row.created_at
+          })),
+
+          ...(recentStudents.data || []).map((row: any) => ({
+            id: `student-${row.id}`,
+            category: 'Mwanafunzi',
+            title: [
+              row.first_name,
+              row.middle_name,
+              row.last_name
+            ].filter(Boolean).join(' ') || 'Mwanafunzi mpya',
+            detail: `Namba ya usajili: ${row.admission_no || 'Haijawekwa'}`,
+            created_at: row.created_at
+          })),
+
+          ...(recentTeachers.data || []).map((row: any) => ({
+            id: `teacher-${row.id}`,
+            category: 'Mwalimu',
+            title: [
+              row.first_name,
+              row.middle_name,
+              row.last_name
+            ].filter(Boolean).join(' ') || 'Mwalimu mpya',
+            detail: `Namba ya ajira: ${row.employee_no || 'Haijawekwa'}`,
+            created_at: row.created_at
+          }))
+        ];
+
+        setRecentActivities(
+          activities
+            .filter(item => item.created_at)
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            )
+            .slice(0, 8)
+        );
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Hitilafu ya muunganisho.';
-      setDashboardError(`Imeshindikana kupakia takwimu: ${message}`);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Hitilafu ya muunganisho.';
+
+      setDashboardError(
+        `Imeshindikana kupakia takwimu: ${message}`
+      );
     } finally {
       setDashboardLoading(false);
     }
@@ -181,10 +290,46 @@ function App() {
   }
 
   const stats = [
-    { label: 'Shule zilizosajiliwa', value: dashboardLoading ? '...' : dashboardError ? '—' : dashboardCounts.schools.toLocaleString(), icon: School, sub: 'Jumla ya shule zilizosajiliwa' },
-    { label: 'Wanafunzi', value: dashboardLoading ? '...' : dashboardError ? '—' : dashboardCounts.students.toLocaleString(), icon: GraduationCap, sub: 'Jumla ya wanafunzi' },
-    { label: 'Walimu', value: dashboardLoading ? '...' : dashboardError ? '—' : dashboardCounts.teachers.toLocaleString(), icon: Users, sub: 'Walimu waliosajiliwa' },
-    { label: 'Madarasa', value: dashboardLoading ? '...' : dashboardError ? '—' : dashboardCounts.classes.toLocaleString(), icon: Building2, sub: 'Madarasa yaliyosajiliwa' }
+    {
+      label: 'Shule zilizosajiliwa',
+      value: dashboardLoading
+        ? '...'
+        : dashboardError
+          ? '—'
+          : dashboardCounts.schools.toLocaleString(),
+      icon: School,
+      sub: 'Jumla ya shule zilizosajiliwa'
+    },
+    {
+      label: 'Wanafunzi',
+      value: dashboardLoading
+        ? '...'
+        : dashboardError
+          ? '—'
+          : dashboardCounts.students.toLocaleString(),
+      icon: GraduationCap,
+      sub: 'Jumla ya wanafunzi'
+    },
+    {
+      label: 'Walimu',
+      value: dashboardLoading
+        ? '...'
+        : dashboardError
+          ? '—'
+          : dashboardCounts.teachers.toLocaleString(),
+      icon: Users,
+      sub: 'Walimu waliosajiliwa'
+    },
+    {
+      label: 'Madarasa',
+      value: dashboardLoading
+        ? '...'
+        : dashboardError
+          ? '—'
+          : dashboardCounts.classes.toLocaleString(),
+      icon: Building2,
+      sub: 'Madarasa yaliyosajiliwa'
+    }
   ];
 
   const current = nav.find(n => n.id === section)!;
@@ -396,7 +541,11 @@ function App() {
               {dashboardError && (
                 <div className="notice" role="alert" style={{ marginBottom: 16 }}>
                   {dashboardError}
-                  <button type="button" className="secondary" onClick={() => void loadDashboardStats()}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => void loadDashboardStats()}
+                  >
                     Jaribu tena
                   </button>
                 </div>
@@ -430,33 +579,113 @@ function App() {
                     <span className="pill">Leo</span>
                   </div>
 
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <ClipboardList size={25} />
+                  {dashboardLoading ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">
+                        <ClipboardList size={25} />
+                      </div>
+                      <b>Inapakia shughuli za hivi karibuni...</b>
                     </div>
+                  ) : dashboardError ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">
+                        <ClipboardList size={25} />
+                      </div>
+                      <b>Shughuli hazijaweza kupakiwa</b>
+                      <span>{dashboardError}</span>
 
-                    <b>
-                      {dashboardLoading
-                        ? 'Inapakia takwimu za shule...'
-                        : dashboardError
-                          ? 'Takwimu hazijaweza kupakiwa'
-                          : 'Muhtasari wa shule uko tayari'}
-                    </b>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void loadDashboardStats()}
+                        style={{ marginTop: 12 }}
+                      >
+                        Jaribu tena
+                      </button>
+                    </div>
+                  ) : recentActivities.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">
+                        <ClipboardList size={25} />
+                      </div>
+                      <b>Bado hakuna shughuli za usajili</b>
+                      <span>
+                        Usajili mpya wa shule, wanafunzi na walimu utaonekana hapa.
+                      </span>
 
-                    <span>
-                      {dashboardError
-                        ? 'Hakikisha sera za SELECT/RLS zinaruhusu mtumiaji kusoma taarifa za shule.'
-                        : 'Idadi ya shule, wanafunzi, walimu na madarasa inaonyeshwa kwenye kadi zilizo juu.'}
-                    </span>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => void loadDashboardStats()}
-                      style={{ marginTop: 12 }}
-                    >
-                      Onyesha upya takwimu
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void loadDashboardStats()}
+                        style={{ marginTop: 12 }}
+                      >
+                        Onyesha upya shughuli
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 0 }}>
+                      {recentActivities.map((item, index) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 12,
+                            padding: '13px 0',
+                            borderBottom:
+                              index === recentActivities.length - 1
+                                ? 'none'
+                                : '1px solid #e5e7eb'
+                          }}
+                        >
+                          <div className="stat-icon" style={{ flexShrink: 0 }}>
+                            <Activity size={18} />
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <b style={{ display: 'block', color: '#243b53' }}>
+                              {item.title}
+                            </b>
+
+                            <span
+                              style={{
+                                display: 'block',
+                                color: '#64748b',
+                                fontSize: 13,
+                                marginTop: 3
+                              }}
+                            >
+                              {item.category} · {item.detail}
+                            </span>
+
+                            <time
+                              dateTime={item.created_at}
+                              style={{
+                                display: 'block',
+                                color: '#94a3b8',
+                                fontSize: 12,
+                                marginTop: 4
+                              }}
+                            >
+                              {new Date(item.created_at).toLocaleString('sw-TZ', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short'
+                              })}
+                            </time>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void loadDashboardStats()}
+                        style={{ marginTop: 12 }}
+                      >
+                        Onyesha upya shughuli
+                      </button>
+                    </div>
+                  )}
                 </section>
 
                 <section className="panel">
@@ -484,8 +713,13 @@ function App() {
 
                   <div className="check-row">
                     <span>Ruhusa za kusoma takwimu</span>
-                    <b className={dashboardError ? "pending" : "good"}>
-                      {dashboardLoading ? "Inakaguliwa" : dashboardError ? "Kuna hitilafu" : "Zinafanya kazi"}
+
+                    <b className={dashboardError ? 'pending' : 'good'}>
+                      {dashboardLoading
+                        ? 'Inakaguliwa'
+                        : dashboardError
+                          ? 'Kuna hitilafu'
+                          : 'Zinafanya kazi'}
                     </b>
                   </div>
 
