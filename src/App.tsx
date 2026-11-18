@@ -1,17 +1,17 @@
 
-import ResultsModule from './src/ResultsModule';
-import ReportsModule from './src/ReportsModule';
-import ClassesModule from './src/ClassesModule';
-import FeesModule from './src/FeesModule';
-import { useEffect, useState } from 'react';
+import ResultsModule from './ResultsModule';
+import ReportsModule from './ReportsModule';
+import ClassesModule from './ClassesModule';
+import FeesModule from './FeesModule';
+import { useEffect, useState, type FormEvent } from 'react';
 import { SchoolModule } from './SchoolModule';
-import StudentsModule from './src/StudentsModule';
-import EnrollmentModule from './src/EnrollmentModule';
-import TeachersModule from './src/TeachersModule';
-import StreamsModule from './src/StreamsModule';
-import SubjectsModule from './src/SubjectsModule';
-import ExamsModule from './src/ExamsModule';
-import AcademicYearsModule from './src/AcademicYearsModule';
+import StudentsModule from './StudentsModule';
+import EnrollmentModule from './EnrollmentModule';
+import TeachersModule from './TeachersModule';
+import StreamsModule from './StreamsModule';
+import SubjectsModule from './SubjectsModule';
+import ExamsModule from './ExamsModule';
+import AcademicYearsModule from './AcademicYearsModule';
 
 import {
   Activity,
@@ -151,7 +151,7 @@ function App() {
     if (session) void loadDashboardStats();
   }, [session]);
 
-  async function signIn(e: React.FormEvent) {
+  async function signIn(e: FormEvent) {
     e.preventDefault();
 
     if (!supabase) {
