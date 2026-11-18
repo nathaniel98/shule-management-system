@@ -163,6 +163,46 @@ export function SchoolModule() {
     setSaving(false);
   }
 
+  async function deleteSchool(school: School) {
+    const confirmed = window.confirm(
+      `Una uhakika unataka kufuta usajili wa shule "${school.school_name}" (${school.school_code})? Kitendo hiki hakiwezi kutenguliwa.`
+    );
+
+    if (!confirmed) return;
+
+    if (!supabase) {
+      setError('Supabase haijaunganishwa.');
+      return;
+    }
+
+    setError('');
+    setMessage('');
+
+    const { data, error: deleteError } = await supabase
+      .from('schools')
+      .delete()
+      .eq('id', school.id)
+      .select('id')
+      .maybeSingle();
+
+    if (deleteError) {
+      setError(
+        deleteError.code === '23503'
+          ? 'Shule hii haiwezi kufutwa kwa sababu ina taarifa zinazohusiana nayo, kama wanafunzi au madarasa. Ondoa au hamisha taarifa hizo kwanza.'
+          : `Imeshindikana kufuta shule: ${deleteError.message}`
+      );
+      return;
+    }
+
+    if (!data) {
+      setError('Shule haikufutwa. Hakikisha una ruhusa ya kufuta shule kupitia sera za RLS.');
+      return;
+    }
+
+    setMessage(`Usajili wa shule "${school.school_name}" umefutwa.`);
+    await loadSchools();
+  }
+
   return (
     <section
       style={{
@@ -396,7 +436,7 @@ export function SchoolModule() {
             >
               <thead>
                 <tr>
-                  {['Jina la shule', 'Namba rasmi ya usajili', 'Aina', 'Mfumo wa elimu', 'Simu'].map((heading) => (
+                  {['Jina la shule', 'Namba ya shule', 'Aina', 'Mfumo wa elimu', 'Simu', 'Kitendo'].map((heading) => (
                     <th
                       key={heading}
                       style={{
@@ -431,6 +471,23 @@ export function SchoolModule() {
                     </td>
                     <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
                       {school.phone || '—'}
+                    </td>
+                    <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => void deleteSchool(school)}
+                        style={{
+                          padding: '8px 12px',
+                          border: '1px solid #fecaca',
+                          borderRadius: 8,
+                          background: '#fff1f2',
+                          color: '#b91c1c',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Futa
+                      </button>
                     </td>
                   </tr>
                 ))}
