@@ -236,14 +236,17 @@ export function SchoolModule() {
             </label>
 
             <label style={labelStyle}>
-              Namba ya usajili *
+              Namba rasmi ya usajili wa shule *
               <input
                 style={inputStyle}
                 required
                 value={form.school_code}
                 onChange={(event) => setForm({ ...form, school_code: event.target.value })}
-                placeholder="Mfano: RG 000023"
+                placeholder="Andika kama ilivyo kwenye cheti cha usajili"
               />
+              <span style={{ color: '#64748b', fontSize: 12, fontWeight: 400 }}>
+                Namba hii hutolewa na mamlaka husika; mfumo hautengenezi namba rasmi ya serikali.
+              </span>
             </label>
 
             <label style={labelStyle}>
@@ -389,7 +392,7 @@ export function SchoolModule() {
             >
               <thead>
                 <tr>
-                  {['Jina la shule', 'Namba', 'Aina', 'Mfumo wa elimu', 'Simu'].map((heading) => (
+                  {['Jina la shule', 'Namba rasmi ya usajili', 'Aina', 'Mfumo wa elimu', 'Simu'].map((heading) => (
                     <th
                       key={heading}
                       style={{
