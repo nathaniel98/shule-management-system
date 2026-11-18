@@ -117,8 +117,8 @@ export function SchoolModule() {
       return;
     }
 
-    if (!form.school_name.trim() || !form.school_code.trim()) {
-      setError('Jina la shule na namba ya usajili vinahitajika.');
+    if (!form.school_name.trim()) {
+      setError('Jina la shule linahitajika.');
       return;
     }
 
@@ -131,15 +131,18 @@ export function SchoolModule() {
     setError('');
     setMessage('');
 
-    const { error: insertError } = await supabase.from('schools').insert({
-      school_name: form.school_name.trim(),
-      school_code: form.school_code.trim().toUpperCase(),
-      school_type: form.school_type,
-      education_system: form.education_system,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      address: form.address.trim() || null,
-    });
+    const { data: insertedSchool, error: insertError } = await supabase
+      .from('schools')
+      .insert({
+        school_name: form.school_name.trim(),
+        school_type: form.school_type,
+        education_system: form.education_system,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+      })
+      .select('school_code')
+      .single();
 
     if (insertError) {
       if (insertError.code === '42501') {
@@ -152,7 +155,7 @@ export function SchoolModule() {
         setError(`Usajili umeshindikana: ${insertError.message}`);
       }
     } else {
-      setMessage('Shule imesajiliwa kikamilifu.');
+      setMessage(`Shule imesajiliwa kikamilifu. Namba yake ni ${insertedSchool?.school_code ?? 'imetengenezwa'}.`);
       setForm({ ...emptyForm });
       await loadSchools();
     }
@@ -235,19 +238,20 @@ export function SchoolModule() {
               />
             </label>
 
-            <label style={labelStyle}>
-              Namba rasmi ya usajili wa shule *
-              <input
-                style={inputStyle}
-                required
-                value={form.school_code}
-                onChange={(event) => setForm({ ...form, school_code: event.target.value })}
-                placeholder="Andika kama ilivyo kwenye cheti cha usajili"
-              />
-              <span style={{ color: '#64748b', fontSize: 12, fontWeight: 400 }}>
-                Namba hii hutolewa na mamlaka husika; mfumo hautengenezi namba rasmi ya serikali.
-              </span>
-            </label>
+            <div
+              style={{
+                padding: 13,
+                borderRadius: 10,
+                background: '#f1f5f9',
+                color: '#475569',
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Namba ya shule:</strong> Itatengenezwa na mfumo moja kwa moja baada ya kusajili shule.
+              <br />
+              Mfano: ZNZ/SCH/2026/0001
+            </div>
 
             <label style={labelStyle}>
               Aina ya shule *
