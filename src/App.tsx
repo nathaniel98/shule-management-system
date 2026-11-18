@@ -4,7 +4,7 @@ import ReportsModule from './ReportsModule';
 import ClassesModule from './ClassesModule';
 import FeesModule from './FeesModule';
 import { useEffect, useState, type FormEvent } from 'react';
-import { SchoolModule } from './SchoolModule';
+import { SchoolModule } from '../SchoolModule';
 import StudentsModule from './StudentsModule';
 import EnrollmentModule from './EnrollmentModule';
 import TeachersModule from './TeachersModule';
