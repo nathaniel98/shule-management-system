@@ -881,7 +881,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                     Futa Matokeo
                   </button>
                   <button
-                    onClick={() => printOneReport(r.enrollment.id)
+                    onClick={() => printOneReport(r.enrollment.id)}
                     style={{
                       marginTop: 14,
                       padding: '11px 15px',
