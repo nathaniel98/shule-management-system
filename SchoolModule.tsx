@@ -131,7 +131,9 @@ export function SchoolModule() {
     setError('');
     setMessage('');
 
-    const { data: insertedSchool, error: insertError } = await supabase
+    // Do not request a returned row here: INSERT ... RETURNING also requires
+    // SELECT permission and can fail even when the INSERT policy allows the write.
+    const { error: insertError } = await supabase
       .from('schools')
       .insert({
         school_name: form.school_name.trim(),
@@ -140,22 +142,20 @@ export function SchoolModule() {
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
-      })
-      .select('school_code')
-      .single();
+      });
 
     if (insertError) {
       if (insertError.code === '42501') {
-        setError('Usajili umezuiwa na ruhusa za RLS. Hakikisha umeingia kwa akaunti yenye ruhusa ya System Admin.');
+        setError(`Ruhusa imekataliwa na Supabase (RLS): ${insertError.message}`);
       } else if (insertError.code === '23505') {
-        setError('Namba hii ya usajili tayari imetumika. Tumia namba nyingine.');
+        setError('Namba hii ya usajili tayari imetumika. Mfumo haujaweza kutengeneza namba mpya.');
       } else if (insertError.code === '23502') {
         setError(`Kuna taarifa ya lazima haijatumwa: ${insertError.message}`);
       } else {
-        setError(`Usajili umeshindikana: ${insertError.message}`);
+        setError(`Usajili umeshindikana [${insertError.code ?? 'unknown'}]: ${insertError.message}`);
       }
     } else {
-      setMessage(`Shule imesajiliwa kikamilifu. Namba yake ni ${insertedSchool?.school_code ?? 'imetengenezwa'}.`);
+      setMessage('Shule imesajiliwa kikamilifu. Namba ya shule imetengenezwa na mfumo.');
       setForm({ ...emptyForm });
       await loadSchools();
     }
