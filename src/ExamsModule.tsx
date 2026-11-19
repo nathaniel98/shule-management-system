@@ -781,9 +781,15 @@ export default function ExamsModule() {
 
     setSelectedSubjects(exam.exam_subjects || []);
     setError('');
-    setMessage('');
+    setMessage(`Unahariri mtihani: ${exam.exam_name}. Fanya marekebisho kisha bonyeza Hifadhi Mabadiliko.`);
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Bring the actual form into view (the page may have a fixed header).
+    window.requestAnimationFrame(() => {
+      document.getElementById('exam-form')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
   }
 
   async function deleteExam(exam: Exam) {
@@ -877,7 +883,7 @@ export default function ExamsModule() {
         </div>
       )}
 
-      <form className="exam-panel" onSubmit={saveExam}>
+      <form id="exam-form" className="exam-panel" onSubmit={saveExam}>
         <h3>
           {editingId ? 'Hariri Mtihani' : 'Sajili Mtihani Mpya'}
         </h3>
