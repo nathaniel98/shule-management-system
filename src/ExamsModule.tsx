@@ -696,12 +696,19 @@ export default function ExamsModule() {
       let examId = editingId;
 
       if (editingId) {
-        const { error: updateError } = await supabase
+        const { data: updatedRows, error: updateError } = await supabase
           .from('exams')
           .update(payload)
-          .eq('id', editingId);
+          .eq('id', editingId)
+          .select('id');
 
         if (updateError) throw updateError;
+
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error(
+            'Mabadiliko hayajahifadhiwa. Ruhusa ya UPDATE (RLS) kwenye jedwali exams haijaruhusu kuhariri mtihani huu. Kagua sera ya exams_school_update.'
+          );
+        }
       } else {
         const { data, error: insertError } = await supabase
           .from('exams')
