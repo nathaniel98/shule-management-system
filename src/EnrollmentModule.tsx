@@ -739,7 +739,17 @@ export default function EnrollmentModule() {
                 Hakuna mwanafunzi aliyeunganishwa na darasa hili bado.
               </p>
             ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{
+                display: 'flex',
+                gap: 12,
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                paddingBottom: 10,
+                width: '100%',
+                maxWidth: '100%',
+                WebkitOverflowScrolling: 'touch',
+                scrollSnapType: 'x proximity',
+              }}>
                 {enrollments
                   .filter(e => !e.status || e.status === 'Active')
                   .map(enrollment => {
@@ -754,10 +764,16 @@ export default function EnrollmentModule() {
                         key={enrollment.id}
                         style={{
                           display: 'grid',
+                          alignContent: 'start',
                           gap: 10,
                           border: '1px solid #e2e8f0',
                           borderRadius: 9,
                           padding: 12,
+                          flex: '0 0 280px',
+                          minWidth: 260,
+                          maxWidth: '85vw',
+                          boxSizing: 'border-box',
+                          scrollSnapAlign: 'start',
                         }}
                       >
                         <div>
