@@ -1,5 +1,3 @@
-import ResultsModule from './ResultsModule';
-import ReportsModule from './ReportsModule';
 import ClassesModule from './ClassesModule';
 import FeesModule from './FeesModule';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -17,7 +15,6 @@ import {
   BookOpen,
   Building2,
   CalendarDays,
-  ChartNoAxesCombined,
   ChevronDown,
   CircleHelp,
   ClipboardList,
@@ -46,9 +43,7 @@ type Section =
   | 'subjects'
   | 'academic-years'
   | 'exams'
-  | 'results'
   | 'fees'
-  | 'reports'
   | 'settings';
 
 const nav: { id: Section; label: string; icon: any }[] = [
@@ -62,9 +57,7 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'subjects', label: 'Masomo', icon: BookOpen },
   { id: 'academic-years', label: 'Miaka ya Masomo', icon: CalendarDays },
   { id: 'exams', label: 'Mitihani', icon: ClipboardList },
-  { id: 'results', label: 'Matokeo', icon: ChartNoAxesCombined },
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
-  { id: 'reports', label: 'Ripoti', icon: Activity },
   { id: 'settings', label: 'Mipangilio', icon: Settings }
 ];
 
@@ -748,12 +741,8 @@ function App() {
             <AcademicYearsModule />
           ) : section === 'exams' ? (
             <ExamsModule />
-          ) : section === 'results' ? (
-            <ResultsModule />
           ) : section === 'fees' ? (
             <FeesModule />
-          ) : section === 'reports' ? (
-            <ReportsModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
