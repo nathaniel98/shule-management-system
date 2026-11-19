@@ -352,13 +352,53 @@ export default function ResultsModule() {
         remarks: remarks[enrollment.id]?.trim() || null
       }));
 
-      const { error } = await supabase
+      // Tenganisha INSERT na UPDATE badala ya upsert. Hii huepusha
+      // upsert kujaribu kubadilisha rekodi iliyopo kupitia njia ya INSERT.
+      const { data: existingRows, error: existingError } = await supabase
         .from('student_results')
-        .upsert(payload, {
-          onConflict: 'exam_subject_id,enrollment_id'
-        });
+        .select('id,enrollment_id')
+        .eq('exam_subject_id', examSubjectId);
 
-      if (error) throw error;
+      if (existingError) throw existingError;
+
+      const existingByEnrollment = new Map(
+        (existingRows || []).map(row => [row.enrollment_id, row.id])
+      );
+
+      const rowsToInsert = [];
+      const updateTasks = [];
+
+      for (const row of payload) {
+        const existingId = existingByEnrollment.get(row.enrollment_id);
+
+        if (existingId) {
+          updateTasks.push(
+            supabase
+              .from('student_results')
+              .update({
+                marks_obtained: row.marks_obtained,
+                is_absent: row.is_absent,
+                remarks: row.remarks
+              })
+              .eq('id', existingId)
+          );
+        } else {
+          rowsToInsert.push(row);
+        }
+      }
+
+      for (const task of updateTasks) {
+        const { error: updateError } = await task;
+        if (updateError) throw updateError;
+      }
+
+      if (rowsToInsert.length) {
+        const { error: insertError } = await supabase
+          .from('student_results')
+          .insert(rowsToInsert);
+
+        if (insertError) throw insertError;
+      }
 
       setNotice('Matokeo yamehifadhiwa kikamilifu.');
       await selectSubject(examSubjectId);
