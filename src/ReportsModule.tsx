@@ -93,7 +93,7 @@ function studentName(s: Student) {
     .join(' ');
 }
 
-export default function ReportsModule() {
+export default function ReportsModule({ onEditResults }: { onEditResults: () => void }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -396,6 +396,27 @@ export default function ReportsModule() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteStudentReportResults(enrollmentId: string, name: string) {
+    if (!supabase || !examId || !subjects.length) return;
+    if (!window.confirm(`Una uhakika unataka kufuta matokeo yote ya ${name} kwenye mtihani huu?`)) return;
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      const { error } = await supabase
+        .from('student_results')
+        .delete()
+        .eq('enrollment_id', enrollmentId)
+        .in('exam_subject_id', subjects.map(subject => subject.id));
+      if (error) throw error;
+      setNotice(`Matokeo ya ${name} yamefutwa kwenye mtihani huu.`);
+      await loadReport(examId);
+    } catch (e) {
+      setError((e as Error).message);
       setLoading(false);
     }
   }
@@ -846,8 +867,21 @@ export default function ReportsModule() {
                     {' | '}Nafasi darasa: <strong>{r.classPosition ?? '-'}</strong>
                   </div>
 
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                   <button
-                    onClick={() => printOneReport(r.enrollment.id)}
+                    onClick={onEditResults}
+                    style={{ padding: '11px 15px', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 700 }}
+                  >
+                    Hariri Matokeo
+                  </button>
+                  <button
+                    onClick={() => void deleteStudentReportResults(r.enrollment.id, studentName(r.student))}
+                    style={{ padding: '11px 15px', border: 0, borderRadius: 8, background: '#b42318', color: '#fff', fontWeight: 700 }}
+                  >
+                    Futa Matokeo
+                  </button>
+                  <button
+                    onClick={() => printOneReport(r.enrollment.id)
                     style={{
                       marginTop: 14,
                       padding: '11px 15px',
@@ -860,6 +894,7 @@ export default function ReportsModule() {
                   >
                     Chapisha Ripoti ya {studentName(r.student)}
                   </button>
+                  </div>
                 </article>
               ))}
             </div>
