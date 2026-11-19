@@ -18,6 +18,17 @@ const levels = [
   'Advanced Secondary'
 ];
 
+function makeSubjectCode(name: string, existing: Subject[], editingId: string | null, level: string) {
+  const words = name.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toUpperCase().match(/[A-Z0-9]+/g) || [];
+  if (!words.length) return '';
+  const base = words.length === 1 ? words[0].slice(0, 3) : words.map(word => word[0]).join('').slice(0, 6);
+  const used = new Set(existing.filter(item => item.id !== editingId && item.education_level === level).map(item => item.subject_code.toUpperCase()));
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(base + suffix)) suffix += 1;
+  return base + suffix;
+}
+
 const emptyForm = {
   subject_code: '',
   subject_name: '',
@@ -161,11 +172,11 @@ export default function SubjectsModule() {
       return;
     }
 
-    const code = form.subject_code.trim();
     const name = form.subject_name.trim();
+    const code = makeSubjectCode(name, subjects, editingId, form.education_level);
 
-    if (!code || !name) {
-      setError('Jaza code na jina la somo.');
+    if (!name || !code) {
+      setError('Ingiza jina sahihi la somo ili code ijitengeneze.');
       return;
     }
 
@@ -173,7 +184,6 @@ export default function SubjectsModule() {
       item.id !== editingId &&
       item.education_level === form.education_level &&
       (
-        item.subject_code.toLowerCase() === code.toLowerCase() ||
         item.subject_name.toLowerCase() === name.toLowerCase()
       )
     );
@@ -435,13 +445,11 @@ export default function SubjectsModule() {
             Code ya somo *
             <input
               style={inputStyle}
-              required
-              value={form.subject_code}
-              placeholder="Mfano: MAT"
-              onChange={e => setForm({
-                ...form,
-                subject_code: e.target.value
-              })}
+              value={makeSubjectCode(form.subject_name, subjects, editingId, form.education_level)}
+              placeholder="Itajazwa moja kwa moja (mfano: MAT)"
+              readOnly
+              aria-readonly="true"
+              title="Code hutengenezwa moja kwa moja kutokana na jina la somo"
             />
           </label>
 
@@ -454,7 +462,8 @@ export default function SubjectsModule() {
               placeholder="Mfano: Mathematics"
               onChange={e => setForm({
                 ...form,
-                subject_name: e.target.value
+                subject_name: e.target.value,
+                subject_code: makeSubjectCode(e.target.value, subjects, editingId, form.education_level)
               })}
             />
           </label>
@@ -466,7 +475,8 @@ export default function SubjectsModule() {
               value={form.education_level}
               onChange={e => setForm({
                 ...form,
-                education_level: e.target.value
+                education_level: e.target.value,
+                subject_code: makeSubjectCode(form.subject_name, subjects, editingId, e.target.value)
               })}
             >
               {levels.map(level => (
