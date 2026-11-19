@@ -792,6 +792,9 @@ export default function ExamsModule() {
     setMessage('');
 
     try {
+      // Delete child rows first, then verify the parent row was actually
+      // deleted. PostgREST can return no error when RLS silently filters
+      // a DELETE, so checking the returned rows prevents a false success.
       const { error: detailError } = await supabase
         .from('exam_subjects')
         .delete()
@@ -799,15 +802,22 @@ export default function ExamsModule() {
 
       if (detailError) throw detailError;
 
-      const { error: deleteError } = await supabase
+      const { data: deletedRows, error: deleteError } = await supabase
         .from('exams')
         .delete()
-        .eq('id', exam.id);
+        .eq('id', exam.id)
+        .select('id');
 
       if (deleteError) throw deleteError;
 
-      setMessage('Mtihani umefutwa.');
-      await loadData();
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error(
+          'Mtihani haujafutwa. Ruhusa ya DELETE (RLS) kwenye jedwali exams haijaruhusu kufuta rekodi hii. Kagua sera ya exams_school_delete.'
+        );
+      }
+
+      setExams(previous => previous.filter(item => item.id !== exam.id));
+      setMessage('Mtihani umefutwa kikamilifu.');
     } catch (err) {
       setError(`Imeshindikana kufuta mtihani: ${errorMessage(err)}`);
     }
