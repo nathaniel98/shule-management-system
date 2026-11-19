@@ -86,6 +86,7 @@ export default function ResultsModule() {
   const [marks, setMarks] = useState<Record<string, string>>({});
   const [absent, setAbsent] = useState<Record<string, boolean>>({});
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -425,6 +426,7 @@ export default function ResultsModule() {
         row.enrollment_id,
         row.remarks || ''
       ])));
+      setEditing({});
       setNotice('Matokeo yamehifadhiwa na kuonyeshwa kwenye orodha.');
     } catch (e) {
       setError((e as Error).message);
@@ -733,7 +735,7 @@ export default function ResultsModule() {
                                 type="number"
                                 min="0"
                                 max={selectedSubject.maximum_marks}
-                                disabled={isAbsent}
+                                disabled={isAbsent || (saved && !editing[enrollment.id])}
                                 value={value}
                                 onChange={e => setMarks(current => ({
                                   ...current,
@@ -749,6 +751,7 @@ export default function ResultsModule() {
                             <td>
                               <input
                                 type="checkbox"
+                                disabled={saved && !editing[enrollment.id]}
                                 checked={isAbsent}
                                 onChange={e => setAbsent(current => ({
                                   ...current,
@@ -759,6 +762,7 @@ export default function ResultsModule() {
                             <td>
                               <input
                                 style={{ width: 120 }}
+                                disabled={saved && !editing[enrollment.id]}
                                 value={remarks[enrollment.id] || ''}
                                 onChange={e => setRemarks(current => ({
                                   ...current,
@@ -768,12 +772,20 @@ export default function ResultsModule() {
                             </td>
                             <td>
                               {saved && (
+                                <div className="results-actions">
+                                <button
+                                  style={{ ...buttonStyle, background: '#2563eb' }}
+                                  onClick={() => setEditing(current => ({ ...current, [enrollment.id]: !current[enrollment.id] }))}
+                                >
+                                  {editing[enrollment.id] ? 'Acha kuhariri' : 'Hariri'}
+                                </button>
                                 <button
                                   style={{ ...buttonStyle, background: '#b42318' }}
                                   onClick={() => deleteResult(enrollment.id)}
                                 >
                                   Futa
                                 </button>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -807,7 +819,7 @@ export default function ResultsModule() {
                             type="number"
                             min="0"
                             max={selectedSubject.maximum_marks}
-                            disabled={isAbsent}
+                            disabled={isAbsent || (saved && !editing[enrollment.id])}
                             value={value}
                             onChange={e => setMarks(current => ({
                               ...current,
@@ -819,6 +831,7 @@ export default function ResultsModule() {
                         <label>
                           <input
                             type="checkbox"
+                            disabled={saved && !editing[enrollment.id]}
                             checked={isAbsent}
                             onChange={e => setAbsent(current => ({
                               ...current,
@@ -832,6 +845,7 @@ export default function ResultsModule() {
                           Maoni
                           <input
                             style={{ ...inputStyle, width: '100%' }}
+                            disabled={saved && !editing[enrollment.id]}
                             value={remarks[enrollment.id] || ''}
                             onChange={e => setRemarks(current => ({
                               ...current,
@@ -848,12 +862,20 @@ export default function ResultsModule() {
                         </div>
 
                         {saved && (
+                          <div className="results-actions">
+                          <button
+                            style={{ ...buttonStyle, background: '#2563eb' }}
+                            onClick={() => setEditing(current => ({ ...current, [enrollment.id]: !current[enrollment.id] }))}
+                          >
+                            {editing[enrollment.id] ? 'Acha kuhariri' : 'Hariri'}
+                          </button>
                           <button
                             style={{ ...buttonStyle, background: '#b42318' }}
                             onClick={() => deleteResult(enrollment.id)}
                           >
                             Futa matokeo
                           </button>
+                          </div>
                         )}
                       </div>
                     );
