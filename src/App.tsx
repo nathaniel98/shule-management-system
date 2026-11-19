@@ -8,6 +8,8 @@ import TeachersModule from './TeachersModule';
 import StreamsModule from './StreamsModule';
 import SubjectsModule from './SubjectsModule';
 import ExamsModule from './ExamsModule';
+import ResultsModule from './ResultsModule';
+import ReportsModule from './ReportsModule';
 import AcademicYearsModule from './AcademicYearsModule';
 
 import {
@@ -43,6 +45,8 @@ type Section =
   | 'subjects'
   | 'academic-years'
   | 'exams'
+  | 'results'
+  | 'reports'
   | 'fees'
   | 'settings';
 
@@ -57,6 +61,8 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'subjects', label: 'Masomo', icon: BookOpen },
   { id: 'academic-years', label: 'Miaka ya Masomo', icon: CalendarDays },
   { id: 'exams', label: 'Mitihani', icon: ClipboardList },
+  { id: 'results', label: 'Matokeo', icon: ClipboardList },
+  { id: 'reports', label: 'Ripoti', icon: Activity },
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
   { id: 'settings', label: 'Mipangilio', icon: Settings }
 ];
@@ -741,6 +747,10 @@ function App() {
             <AcademicYearsModule />
           ) : section === 'exams' ? (
             <ExamsModule />
+          ) : section === 'results' ? (
+            <ResultsModule />
+          ) : section === 'reports' ? (
+            <ReportsModule onEditResults={() => setSection('results')} />
           ) : section === 'fees' ? (
             <FeesModule />
           ) : (
