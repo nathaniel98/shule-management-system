@@ -443,13 +443,17 @@ export default function ResultsModule() {
     }
 
     try {
-      const { error } = await supabase
+      const { data: deletedRows, error } = await supabase
         .from('student_results')
         .delete()
         .eq('exam_subject_id', examSubjectId)
-        .eq('enrollment_id', enrollmentId);
+        .eq('enrollment_id', enrollmentId)
+        .select('id');
 
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('Hakuna matokeo yaliyofutwa. Inawezekana hakuna rekodi ya mwanafunzi huyu kwenye somo hili au sera ya RLS haina ruhusa ya DELETE.');
+      }
 
       setResults(current => current.filter(
         r => r.enrollment_id !== enrollmentId
