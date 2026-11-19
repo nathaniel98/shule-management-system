@@ -740,15 +740,11 @@ export default function EnrollmentModule() {
               </p>
             ) : (
               <div style={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr)',
                 gap: 12,
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                paddingBottom: 10,
                 width: '100%',
-                maxWidth: '100%',
-                WebkitOverflowScrolling: 'touch',
-                scrollSnapType: 'x proximity',
+                minWidth: 0,
               }}>
                 {enrollments
                   .filter(e => !e.status || e.status === 'Active')
@@ -766,32 +762,32 @@ export default function EnrollmentModule() {
                           display: 'grid',
                           alignContent: 'start',
                           gap: 10,
+                          width: '100%',
+                          minWidth: 0,
+                          boxSizing: 'border-box',
                           border: '1px solid #e2e8f0',
                           borderRadius: 9,
                           padding: 12,
-                          flex: '0 0 280px',
-                          minWidth: 260,
-                          maxWidth: '85vw',
-                          boxSizing: 'border-box',
-                          scrollSnapAlign: 'start',
+                          
                         }}
                       >
-                        <div>
+                        <div style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          columnGap: 18,
+                          rowGap: 6,
+                          minWidth: 0,
+                        }}>
                           <strong>{studentName(student)}</strong>
-                          <div style={{
-                            color: '#64748b',
-                            fontSize: 13,
-                          }}>
+                          <span style={{ color: '#64748b', fontSize: 13 }}>
                             {student.admission_no}
-                          </div>
-                          <div style={{
-                            color: '#64748b',
-                            fontSize: 13,
-                          }}>
+                          </span>
+                          <span style={{ color: '#64748b', fontSize: 13 }}>
                             Malazi: {enrollment.accommodation_type === 'Boarding'
                               ? 'Bweni'
                               : 'Kutwa'}
-                          </div>
+                          </span>
                         </div>
 
                         {editing?.id === enrollment.id ? (
