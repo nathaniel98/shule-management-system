@@ -53,8 +53,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function generateEmployeeNo(): string {
+  const year = new Date().getFullYear();
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  const serial = (values[0] % 1000000).toString().padStart(6, '0');
+  return `AJR-${year}-${serial}`;
+}
+
 const emptyForm: TeacherForm = {
-  employee_no: '',
+  employee_no: generateEmployeeNo(),
   first_name: '',
   middle_name: '',
   last_name: '',
@@ -182,7 +190,7 @@ export default function TeachersModule() {
   async function changeSchool(id: string) {
     setSchoolId(id);
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, employee_no: generateEmployeeNo() });
     setSearch('');
     setError('');
     setMessage('');
@@ -222,7 +230,7 @@ export default function TeachersModule() {
 
   function cancelEdit() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, employee_no: generateEmployeeNo() });
     setError('');
     setMessage('');
   }
@@ -241,7 +249,7 @@ export default function TeachersModule() {
       !form.last_name.trim()
     ) {
       setError(
-        'Jaza namba ya ajira, jina la kwanza na jina la mwisho.'
+        'Jina la kwanza na jina la mwisho vinahitajika.'
       );
       return;
     }
@@ -284,7 +292,7 @@ export default function TeachersModule() {
       );
 
       setEditingId(null);
-      setForm(emptyForm);
+      setForm({ ...emptyForm, employee_no: generateEmployeeNo() });
 
       await loadTeachers(schoolId);
     } catch (e) {
@@ -456,13 +464,17 @@ export default function TeachersModule() {
               <label style={labelStyle}>
                 Namba ya ajira *
                 <input
-                  style={inputStyle}
+                  style={{ ...inputStyle, background: '#f1f5f9', fontWeight: 700 }}
                   required
+                  readOnly
                   value={form.employee_no}
-                  onChange={e =>
-                    setForm({ ...form, employee_no: e.target.value })
-                  }
+                  aria-readonly="true"
                 />
+                {!editingId && (
+                  <small style={{ color: '#64748b', fontWeight: 400 }}>
+                    Namba inatengenezwa na mfumo moja kwa moja.
+                  </small>
+                )}
               </label>
 
               <label style={labelStyle}>
