@@ -314,7 +314,7 @@ export function SchoolModule() {
                 onChange={(event) => setForm({ ...form, education_system: event.target.value })}
               >
                 <option value="Zanzibar">Zanzibar</option>
-                <option value="Tanzania">Tanzania Bara</option>
+                <option value="Tanzania Mainland">Tanzania Bara</option>
               </select>
             </label>
 
