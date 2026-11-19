@@ -213,10 +213,23 @@ export default function ResultsModule() {
         subject_name: subjectNames[s.subject_id] || 'Somo lisilojulikana'
       })) as ExamSubject[]);
 
-      const { data: enrollmentRows, error: enrollmentError } = await supabase
+      // Pata wanafunzi wa darasa, mkondo na mwaka uleule wa mtihani.
+      // Kutotumia academic_year_id kulikuwa kunasababisha orodha kutolingana
+      // na usajili wa wanafunzi wa mwaka husika.
+      let enrollmentQuery = supabase
         .from('student_enrollments')
-        .select('id,student_id,class_id,stream_id,status')
-        .eq('class_id', exam.class_id);
+        .select('id,student_id,class_id,stream_id,status,academic_year_id')
+        .eq('class_id', exam.class_id)
+        .eq('academic_year_id', exam.academic_year_id);
+
+      if (exam.stream_id) {
+        enrollmentQuery = enrollmentQuery.eq('stream_id', exam.stream_id);
+      } else {
+        enrollmentQuery = enrollmentQuery.is('stream_id', null);
+      }
+
+      const { data: enrollmentRows, error: enrollmentError } =
+        await enrollmentQuery;
 
       if (enrollmentError) throw enrollmentError;
 
