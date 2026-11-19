@@ -457,19 +457,31 @@ export default function EnrollmentModule() {
 
     setError('');
     setMessage('');
+    setSaving(true);
 
-    const { error } = await supabase
-      .from('student_enrollments')
-      .delete()
-      .eq('id', enrollment.id);
+    try {
+      const { data, error } = await supabase
+        .from('student_enrollments')
+        .delete()
+        .eq('id', enrollment.id)
+        .select('id')
+        .maybeSingle();
 
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error(
+          'Hakuna rekodi iliyofutwa. Huenda akaunti haina ruhusa ya DELETE (RLS), au usajili huu haupo tena.'
+        );
+      }
+
+      setMessage('Mwanafunzi ameondolewa darasani kikamilifu.');
+      await loadClassData();
+    } catch (e) {
+      setError(`Imeshindikana kuondoa darasani: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
     }
-
-    setMessage('Mwanafunzi ameondolewa kwenye darasa.');
-    await loadClassData();
   }
 
   function studentName(s: Student) {
