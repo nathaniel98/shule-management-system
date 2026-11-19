@@ -640,6 +640,20 @@ export default function ExamsModule() {
     setSaving(true);
 
     try {
+      // Refresh the Supabase access token before a write so RLS evaluates
+      // the current authenticated user instead of a stale/expired JWT.
+      const { data: refreshed, error: refreshError } =
+        await supabase.auth.refreshSession();
+
+      if (refreshError) throw refreshError;
+
+      const authenticatedUser = refreshed.session?.user;
+      if (!authenticatedUser) {
+        throw new Error(
+          'Session ya kuingia imeisha. Toka kwenye mfumo kisha ingia tena.'
+        );
+      }
+
       const selectedYear = years.find(
         y => y.id === form.academic_year_id &&
           y.school_id === form.school_id
