@@ -407,12 +407,16 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
     setError('');
     setNotice('');
     try {
-      const { error } = await supabase
+      const { data: deletedRows, error } = await supabase
         .from('student_results')
         .delete()
         .eq('enrollment_id', enrollmentId)
-        .in('exam_subject_id', subjects.map(subject => subject.id));
+        .in('exam_subject_id', subjects.map(subject => subject.id))
+        .select('id');
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('Hakuna alama zilizofutwa. Inawezekana hakuna matokeo yaliyohifadhiwa kwa mwanafunzi huyu au sera ya RLS haina ruhusa ya DELETE.');
+      }
       setNotice(`Matokeo ya ${name} yamefutwa kwenye mtihani huu.`);
       await loadReport(examId);
     } catch (e) {
