@@ -290,7 +290,7 @@ export function SchoolModule() {
             >
               <strong>Namba ya shule:</strong> Itatengenezwa na mfumo moja kwa moja baada ya kusajili shule.
               <br />
-              Mfano: ZNZ/SCH/2026/0001
+              Mfano: {form.education_system === 'Tanzania Mainland' ? 'TZA' : 'ZNZ'}/SCH/{new Date().getFullYear()}/0001
             </div>
 
             <label style={labelStyle}>
