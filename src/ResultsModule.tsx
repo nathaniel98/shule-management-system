@@ -400,8 +400,32 @@ export default function ResultsModule() {
         if (insertError) throw insertError;
       }
 
-      setNotice('Matokeo yamehifadhiwa kikamilifu.');
-      await selectSubject(examSubjectId);
+      // Onyesha mara moja alama zilizohifadhiwa kwenye fomu.
+      // Hatufanyi SELECT ya pili hapa kwa sababu sera ya kusoma inaweza
+      // kurudisha orodha tupu hata baada ya INSERT/UPDATE kufanikiwa.
+      const nextResults: Result[] = payload.map(row => ({
+        id: existingByEnrollment.get(row.enrollment_id) || `local-${row.enrollment_id}`,
+        exam_subject_id: row.exam_subject_id,
+        enrollment_id: row.enrollment_id,
+        marks_obtained: row.marks_obtained,
+        is_absent: row.is_absent,
+        remarks: row.remarks
+      }));
+
+      setResults(nextResults);
+      setMarks(Object.fromEntries(payload.map(row => [
+        row.enrollment_id,
+        row.marks_obtained === null ? '' : String(row.marks_obtained)
+      ])));
+      setAbsent(Object.fromEntries(payload.map(row => [
+        row.enrollment_id,
+        row.is_absent
+      ])));
+      setRemarks(Object.fromEntries(payload.map(row => [
+        row.enrollment_id,
+        row.remarks || ''
+      ])));
+      setNotice('Matokeo yamehifadhiwa na kuonyeshwa kwenye orodha.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
