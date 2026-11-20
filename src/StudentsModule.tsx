@@ -1,6 +1,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
+import BulkImportPanel from './BulkImportPanel';
 
 type School = {
   id: string;
@@ -522,6 +523,14 @@ export default function StudentsModule() {
                 ))}
               </select>
             </label>
+
+            {!editingId && schoolId && (
+              <BulkImportPanel
+                kind="students"
+                schoolId={schoolId}
+                onComplete={() => loadStudents(schoolId)}
+              />
+            )}
 
             <form
               onSubmit={saveStudent}
