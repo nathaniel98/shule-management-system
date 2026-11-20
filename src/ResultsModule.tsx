@@ -443,16 +443,24 @@ export default function ResultsModule() {
     }
 
     try {
-      const { data: deletedRows, error } = await supabase
+      const { error } = await supabase
         .from('student_results')
         .delete()
         .eq('exam_subject_id', examSubjectId)
-        .eq('enrollment_id', enrollmentId)
-        .select('id');
+        .eq('enrollment_id', enrollmentId);
 
       if (error) throw error;
-      if (!deletedRows || deletedRows.length === 0) {
-        throw new Error('Hakuna matokeo yaliyofutwa. Inawezekana hakuna rekodi ya mwanafunzi huyu kwenye somo hili au sera ya RLS haina ruhusa ya DELETE.');
+
+      // Verify separately: DELETE ... RETURNING can be blocked by SELECT policies.
+      const { data: remainingRows, error: verifyError } = await supabase
+        .from('student_results')
+        .select('id')
+        .eq('exam_subject_id', examSubjectId)
+        .eq('enrollment_id', enrollmentId);
+
+      if (verifyError) throw verifyError;
+      if (remainingRows && remainingRows.length > 0) {
+        throw new Error('Matokeo bado yapo. Sera ya RLS ya DELETE imezuia kufuta rekodi hii.');
       }
 
       setResults(current => current.filter(
