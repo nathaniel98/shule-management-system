@@ -22,6 +22,13 @@ function normalize(value: string) {
   return value.trim().toLowerCase().replace(/[\s-]+/g, ' ');
 }
 
+function normalizeGender(value?: string): 'Male' | 'Female' | null {
+  const gender = normalize(value || '');
+  if (['male', 'm', 'man', 'boy', 'mwanaume', 'mvulana', 'me'].includes(gender)) return 'Male';
+  if (['female', 'f', 'woman', 'girl', 'mwanamke', 'msichana', 'ke'].includes(gender)) return 'Female';
+  return null;
+}
+
 function parseDelimited(text: string): string[][] {
   const firstLine = text.split(/\r?\n/, 1)[0] || '';
   const delimiter = firstLine.includes('\t') ? '\t' : firstLine.includes(';') && !firstLine.includes(',') ? ';' : ',';
@@ -149,7 +156,7 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
       return kind === 'students'
         ? {
             ...common,
-            gender: row.gender?.trim() || null,
+            gender: normalizeGender(row.gender),
             date_of_birth: row.date_of_birth?.trim() || null,
             admission_date: row.admission_date?.trim() || null
           }
