@@ -391,8 +391,17 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
         previousStream = r.average;
       });
 
-      setRows(reportRows);
-      setNotice('Ripoti imeandaliwa kikamilifu.');
+      // Ripoti ionyeshe wanafunzi wenye angalau alama moja
+      // zilizohifadhiwa kwenye mtihani huu. Wanafunzi wasio na
+      // rekodi kwenye student_results wasionekane kwenye ripoti.
+      const rowsWithResults = reportRows.filter(row => row.entered > 0);
+
+      setRows(rowsWithResults);
+      setNotice(
+        rowsWithResults.length
+          ? 'Ripoti imeandaliwa kikamilifu.'
+          : 'Hakuna matokeo yaliyohifadhiwa kwa mtihani huu.'
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
