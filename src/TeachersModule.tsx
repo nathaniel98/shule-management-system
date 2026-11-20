@@ -7,6 +7,7 @@ import {
   type CSSProperties
 } from 'react';
 import { supabase } from './supabase';
+import BulkImportPanel from './BulkImportPanel';
 
 type School = {
   id: string;
@@ -452,6 +453,14 @@ export default function TeachersModule() {
                 ))}
               </select>
             </label>
+
+            {!editingId && schoolId && (
+              <BulkImportPanel
+                kind="teachers"
+                schoolId={schoolId}
+                onComplete={() => loadTeachers(schoolId)}
+              />
+            )}
 
             <form
               onSubmit={saveTeacher}
