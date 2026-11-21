@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { createWorker } from 'tesseract.js';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { supabase } from './supabase';
 
@@ -97,26 +98,59 @@ function rowsFromText(text: string): ImportRow[] {
   }).filter(row => row.first_name || row.last_name);
 }
 
-async function extractPdfText(file: File): Promise<string> {
+async function extractPdfText(file: File, onProgress: (message: string) => void): Promise<string> {
   const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({ data }).promise;
-  const pages: string[] = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const lines = new Map<number, Array<{ x: number; text: string }>>();
-    for (const item of content.items) {
-      if (!('str' in item) || !item.str.trim()) continue;
-      const y = Math.round(item.transform[5] / 3) * 3;
-      const line = lines.get(y) || [];
-      line.push({ x: item.transform[4], text: item.str.trim() });
-      lines.set(y, line);
+  const worker = await createWorker('eng+swa', 1, {
+    logger: event => {
+      if (event.status === 'recognizing text') onProgress('Inasoma PDF... ' + Math.round((event.progress || 0) * 100) + '%');
     }
-    const pageLines = [...lines.entries()].sort((a, b) => b[0] - a[0]).map((entry) => entry[1].sort((a, b) => a.x - b.x).map((item) => item.text).join('\t'));
-    pages.push(pageLines.join('\n'));
+  });
+  const pages: string[] = [];
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      onProgress('Inasoma ukurasa ' + pageNumber + ' kati ya ' + pdf.numPages + '...');
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Imeshindikana kuandaa ukurasa wa PDF.');
+      await page.render({ canvasContext: context, viewport }).promise;
+      const result = await worker.recognize(canvas);
+      pages.push(result.data.text);
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  } finally {
+    await worker.terminate();
   }
   return pages.join('\n');
 }
+
+async function extractImageText(file: File, onProgress: (message: string) => void): Promise<string> {
+  const worker = await createWorker('eng+swa', 1, {
+    logger: event => {
+      if (event.status === 'recognizing text') onProgress('Inasoma picha... ' + Math.round((event.progress || 0) * 100) + '%');
+    }
+  });
+  try {
+    const image = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Imeshindikana kuandaa picha.');
+    context.drawImage(image, 0, 0);
+    const result = await worker.recognize(canvas);
+    image.close();
+    return result.data.text;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 function makeEmployeeNo() {
   const year = new Date().getFullYear();
   return `AJR-${year}-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
@@ -133,6 +167,7 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [ocrProgress, setOcrProgress] = useState('');
 
   const validRows = useMemo(
     () => rows.filter(row => row.first_name?.trim() && row.last_name?.trim()),
@@ -148,24 +183,29 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
 
   async function chooseFile(file?: File) {
     if (!file) return;
-    if (!/\.(csv|txt|pdf)$/i.test(file.name)) {
-      setError('Pakia CSV, TXT au PDF. Faili la Excel (.xlsx) lifungue Excel kisha Save As → CSV UTF-8.');
+    if (!/\.(csv|txt|pdf|png|jpe?g|webp)$/i.test(file.name)) {
+      setError('Pakia CSV, TXT, PDF au picha (JPG, PNG, WEBP). Excel (.xlsx) ihifadhiwe kwanza kama CSV.');
       return;
     }
     setFileName(file.name);
+    setOcrProgress('');
     try {
+      let extracted = '';
       if (/\.pdf$/i.test(file.name)) {
-        const extracted = await extractPdfText(file);
-        if (!extracted.trim()) {
-          setError('PDF hii haina maandishi yanayoweza kusomwa. Inaweza kuwa scanned; tumia PDF yenye maandishi au OCR.');
-          return;
-        }
-        prepare(extracted);
+        extracted = await extractPdfText(file, setOcrProgress);
+      } else if (/\.(png|jpe?g|webp)$/i.test(file.name)) {
+        extracted = await extractImageText(file, setOcrProgress);
       } else {
-        prepare(await file.text());
+        extracted = await file.text();
       }
+      if (!extracted.trim()) {
+        setError('Hakuna maandishi yaliyotambuliwa. Hakikisha picha/PDF iko wazi na maandishi yanaonekana.');
+        return;
+      }
+      prepare(extracted);
+      setOcrProgress('Imemaliza kusoma. Kagua majina kabla ya kuhifadhi.');
     } catch (e) {
-      setError(e instanceof Error ? 'Imeshindikana kusoma PDF: ' + e.message : 'Imeshindikana kusoma faili.');
+      setError(e instanceof Error ? 'Imeshindikana kusoma faili: ' + e.message : 'Imeshindikana kusoma faili.');
     }
   }
 
@@ -251,14 +291,15 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
       <div>
         <h3 style={{ margin: '0 0 6px' }}>Import {kind === 'students' ? 'Wanafunzi' : 'Walimu'} (Excel/CSV au Copy-Paste)</h3>
         <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-          Pakia CSV au PDF yenye maandishi, au paste safu kutoka Excel moja kwa moja hapa. {fieldHint}.
+          Pakia CSV, PDF au picha ya orodha; OCR itasoma maandishi hata kwenye PDF iliyoskaniwa. Unaweza pia kupaste kutoka Excel. {fieldHint}.
         </p>
       </div>
       <label style={{ display: 'grid', gap: 6, fontWeight: 600, fontSize: 14 }}>
-        Chagua faili la CSV au PDF
-        <input type="file" accept=".csv,.txt,.pdf,application/pdf,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
+        Chagua CSV, PDF au picha (OCR)
+        <input type="file" accept=".csv,.txt,.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
       </label>
       {fileName && <small style={{ color: '#475569' }}>Faili: {fileName}</small>}
+      {ocrProgress && <p style={{ margin: 0, color: '#1d4ed8', fontSize: 13 }}>{ocrProgress}</p>}
       <label style={{ display: 'grid', gap: 6, fontWeight: 600, fontSize: 14 }}>
         Au paste data hapa
         <textarea
