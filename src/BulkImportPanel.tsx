@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 import { supabase } from './supabase';
 
 type Kind = 'students' | 'teachers';
@@ -93,6 +97,26 @@ function rowsFromText(text: string): ImportRow[] {
   }).filter(row => row.first_name || row.last_name);
 }
 
+async function extractPdfText(file: File): Promise<string> {
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const lines = new Map<number, Array<{ x: number; text: string }>>();
+    for (const item of content.items) {
+      if (!('str' in item) || !item.str.trim()) continue;
+      const y = Math.round(item.transform[5] / 3) * 3;
+      const line = lines.get(y) || [];
+      line.push({ x: item.transform[4], text: item.str.trim() });
+      lines.set(y, line);
+    }
+    const pageLines = [...lines.entries()].sort((a, b) => b[0] - a[0]).map((entry) => entry[1].sort((a, b) => a.x - b.x).map((item) => item.text).join('\t'));
+    pages.push(pageLines.join('\n'));
+  }
+  return pages.join('\n');
+}
 function makeEmployeeNo() {
   const year = new Date().getFullYear();
   return `AJR-${year}-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
@@ -124,12 +148,25 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
 
   async function chooseFile(file?: File) {
     if (!file) return;
-    if (!/\.(csv|txt)$/i.test(file.name)) {
-      setError('Kwa sasa pakia CSV/TXT. Faili la Excel (.xlsx) lifungue Excel kisha Save As → CSV UTF-8.');
+    if (!/\.(csv|txt|pdf)$/i.test(file.name)) {
+      setError('Pakia CSV, TXT au PDF. Faili la Excel (.xlsx) lifungue Excel kisha Save As → CSV UTF-8.');
       return;
     }
     setFileName(file.name);
-    prepare(await file.text());
+    try {
+      if (/\.pdf$/i.test(file.name)) {
+        const extracted = await extractPdfText(file);
+        if (!extracted.trim()) {
+          setError('PDF hii haina maandishi yanayoweza kusomwa. Inaweza kuwa scanned; tumia PDF yenye maandishi au OCR.');
+          return;
+        }
+        prepare(extracted);
+      } else {
+        prepare(await file.text());
+      }
+    } catch (e) {
+      setError(e instanceof Error ? 'Imeshindikana kusoma PDF: ' + e.message : 'Imeshindikana kusoma faili.');
+    }
   }
 
   async function importRows() {
@@ -214,12 +251,12 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
       <div>
         <h3 style={{ margin: '0 0 6px' }}>Import {kind === 'students' ? 'Wanafunzi' : 'Walimu'} (Excel/CSV au Copy-Paste)</h3>
         <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-          Pakia CSV iliyotolewa Excel, au paste safu kutoka Excel moja kwa moja hapa. {fieldHint}.
+          Pakia CSV au PDF yenye maandishi, au paste safu kutoka Excel moja kwa moja hapa. {fieldHint}.
         </p>
       </div>
       <label style={{ display: 'grid', gap: 6, fontWeight: 600, fontSize: 14 }}>
-        Chagua faili la CSV
-        <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
+        Chagua faili la CSV au PDF
+        <input type="file" accept=".csv,.txt,.pdf,application/pdf,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
       </label>
       {fileName && <small style={{ color: '#475569' }}>Faili: {fileName}</small>}
       <label style={{ display: 'grid', gap: 6, fontWeight: 600, fontSize: 14 }}>
