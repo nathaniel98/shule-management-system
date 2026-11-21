@@ -776,7 +776,7 @@ export default function FeesModule() {
   }
 
   function parseFeeImport(text: string) {
-    const lines = text.replace(/^\\uFEFF/, '').split(/\\r?\\n/).filter(line => line.trim());
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
     if (lines.length < 2) return [];
     const splitLine = (line: string, delimiter: string) => {
       const values: string[] = [];
@@ -793,7 +793,7 @@ export default function FeesModule() {
     };
     const normalize = (value: string) => value.toLowerCase()
       .replace(/[⇅↑↓]/g, '').replace(/[^a-z0-9]/g, '');
-    const delimiters = [',', '\\t', ';'];
+    const delimiters = [',', '\t', ';'];
     let headerIndex = -1, delimiter = ',';
     let headers: string[] = [];
     for (let i = 0; i < Math.min(lines.length, 12); i++) {
@@ -808,7 +808,7 @@ export default function FeesModule() {
       if (headerIndex >= 0) break;
     }
     if (headerIndex < 0) {
-      delimiter = lines[0].includes('\\t') ? '\\t' : ',';
+      delimiter = lines[0].includes('\t') ? '\t' : ',';
       headers = splitLine(lines[0], delimiter).map(normalize);
       headerIndex = 0;
     }
@@ -816,7 +816,7 @@ export default function FeesModule() {
       const index = headers.findIndex(h => aliases.includes(h));
       return index < 0 ? '' : (row[index] || '').trim();
     };
-    const number = (value: string) => value.replace(/[,\\s]/g, '').replace(/[^0-9.-]/g, '');
+    const number = (value: string) => value.replace(/[,\s]/g, '').replace(/[^0-9.-]/g, '');
     return lines.slice(headerIndex + 1).map((line, index) => {
       const row = splitLine(line, delimiter);
       const amount = find(row, ['amount','amountpaid','paidamount','paid','kiasi','kiasichalipwa','malipo']);
