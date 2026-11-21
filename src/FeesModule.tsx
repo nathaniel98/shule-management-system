@@ -1648,9 +1648,55 @@ export default function FeesModule() {
             <p style={{ color: '#64748b', fontSize: 14 }}>
               Pakia CSV iliyotolewa Excel au bandika data kutoka Excel. Mfumo hutambua mwanafunzi kwa Namba ya Usajili ya shule, darasa na mwaka uliochagua.
             </p>
-            <label style={label}>Chagua faili la CSV
-              <input style={input} type="file" accept=".csv,.txt,text/csv,text/plain"
-                onChange={async e => { const file = e.target.files?.[0]; if (file) setFeeImportText(await file.text()); }} />
+            <label style={label}>Chagua faili (Excel, CSV, PDF au Word)
+              <input style={input} type="file"
+                accept=".csv,.txt,.xlsx,.xls,.pdf,.docx,.doc,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+                onChange={async e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setError('');
+                  setMessage('');
+                  try {
+                    const ext = file.name.split('.').pop()?.toLowerCase();
+                    let extracted = '';
+                    if (ext === 'csv' || ext === 'txt') {
+                      extracted = await file.text();
+                    } else if (ext === 'xlsx' || ext === 'xls') {
+                      const XLSX = await import('xlsx');
+                      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                      extracted = workbook.SheetNames.map(name =>
+                        XLSX.utils.sheet_to_csv(workbook.Sheets[name])
+                      ).join('\n');
+                    } else if (ext === 'pdf') {
+                      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+                      const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+                      const pages: string[] = [];
+                      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+                        const page = await pdf.getPage(pageNo);
+                        const content = await page.getTextContent();
+                        pages.push(content.items.map((item: any) => item.str || '').join(' '));
+                      }
+                      extracted = pages.join('\n');
+                      if (!extracted.trim()) {
+                        throw new Error('PDF hii haina maandishi yanayoweza kusomwa. Badili iwe Excel/CSV au nakili maandishi yake.');
+                      }
+                    } else if (ext === 'docx') {
+                      const mammoth = await import('mammoth/mammoth.browser');
+                      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+                      extracted = result.value;
+                    } else if (ext === 'doc') {
+                      throw new Error('Faili la zamani la .doc halisomwi moja kwa moja. Tafadhali lihifadhi kama .docx au PDF.');
+                    } else {
+                      throw new Error('Aina ya faili hii haijaungwa mkono.');
+                    }
+                    setFeeImportText(extracted);
+                    if (ext === 'pdf' || ext === 'docx') {
+                      setMessage('Maandishi yamesomwa. Hakikisha safu zinafuata mpangilio wa admission_no, total_amount, paid_amount kabla ya ku-import.');
+                    }
+                  } catch (err: any) {
+                    setError('Imeshindikana kusoma faili: ' + (err?.message || 'Hitilafu isiyojulikana'));
+                  }
+                }} />
             </label>
             <label style={{ ...label, marginTop: 14 }}>Au bandika data hapa (Excel / CSV)
               <textarea style={{ ...input, minHeight: 170, fontFamily: 'monospace', whiteSpace: 'pre' }}
