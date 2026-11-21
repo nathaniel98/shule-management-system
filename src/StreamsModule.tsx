@@ -32,6 +32,7 @@ export default function StreamsModule() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   useEffect(() => {
     loadSchools();
@@ -56,21 +57,49 @@ export default function StreamsModule() {
   }, [classes]);
 
   async function loadSchools() {
-    const { data, error } = await supabase
-      .from('schools')
-      .select('id, school_name')
-      .order('school_name');
+    setMessage('');
+    const [{ data: schoolData, error: schoolsError }, { data: userData }] = await Promise.all([
+      supabase.from('schools').select('id, school_name').order('school_name'),
+      supabase.auth.getUser(),
+    ]);
 
-    if (error) {
-      setMessage(error.message);
+    if (schoolsError) {
+      setMessage('Imeshindikana kupakia madarasa ya shule: ' + schoolsError.message);
       return;
     }
 
-    setSchools(data || []);
+    const availableSchools = schoolData || [];
+    setSchools(availableSchools);
 
-    if (data?.length) {
-      setSchoolId(data[0].id);
+    const isMainAdmin =
+      (userData.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+    setIsPlatformAdmin(isMainAdmin);
+
+    if (isMainAdmin) {
+      if (availableSchools.length) setSchoolId((current) =>
+        availableSchools.some((item) => item.id === current) ? current : availableSchools[0].id
+      );
+      return;
     }
+
+    const { data: assignedData, error: assignedError } = await supabase.rpc('get_my_school');
+    if (assignedError) {
+      setMessage('Imeshindikana kupata shule ya akaunti hii: ' + assignedError.message);
+      return;
+    }
+
+    const assigned = Array.isArray(assignedData) ? assignedData[0] : assignedData;
+    if (!assigned?.school_id) {
+      setMessage('Akaunti hii haijaunganishwa na shule. Hakikisha school_members imeunganishwa.');
+      return;
+    }
+
+    const isAvailable = availableSchools.some((item) => item.id === assigned.school_id);
+    if (!isAvailable) {
+      setMessage('Shule yako imepatikana lakini huna ruhusa ya kuiona kwenye orodha ya shule.');
+      return;
+    }
+    setSchoolId(assigned.school_id);
   }
 
   async function loadClasses(id: string) {
@@ -225,6 +254,7 @@ export default function StreamsModule() {
             <label className="mb-1 block text-sm font-medium">Shule</label>
             <select
               value={schoolId}
+              disabled={!isPlatformAdmin}
               onChange={(e) => {
                 setSchoolId(e.target.value);
                 resetForm();
