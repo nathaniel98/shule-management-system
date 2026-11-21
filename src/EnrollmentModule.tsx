@@ -108,6 +108,8 @@ export default function EnrollmentModule() {
     [streams, editClassId]
   );
 
+  // Mwanafunzi mwenye usajili hai katika mwaka huu asionekane tena
+  // kwenye orodha ya kuongeza, hata kama usajili wake ni wa darasa jingine.
   const enrolledIds = useMemo(
     () => new Set(
       enrollments
@@ -115,6 +117,13 @@ export default function EnrollmentModule() {
         .map(e => e.student_id)
     ),
     [enrollments]
+  );
+
+  const classEnrollments = useMemo(
+    () => enrollments.filter(e =>
+      e.class_id === classId && (!e.status || e.status === 'Active')
+    ),
+    [enrollments, classId]
   );
 
   const availableStudents = useMemo(
@@ -136,8 +145,10 @@ export default function EnrollmentModule() {
   }, [availableStudents, search]);
 
   const enrolledStudents = useMemo(
-    () => students.filter(s => enrolledIds.has(s.id)),
-    [students, enrolledIds]
+    () => students.filter(s =>
+      classEnrollments.some(e => e.student_id === s.id)
+    ),
+    [students, classEnrollments]
   );
 
   async function loadInitial() {
@@ -214,27 +225,35 @@ export default function EnrollmentModule() {
     setSelectedIds([]);
 
     try {
-      const [studentResult, enrollmentResult] = await Promise.all([
-        supabase.from('students')
-          .select(
-            'id,school_id,admission_no,first_name,middle_name,last_name,status'
-          )
-          .eq('school_id', selectedSchoolId)
-          .order('first_name'),
+      const studentResult = await supabase.from('students')
+        .select(
+          'id,school_id,admission_no,first_name,middle_name,last_name,status'
+        )
+        .eq('school_id', selectedSchoolId)
+        .order('first_name');
 
-        supabase.from('student_enrollments')
+      if (studentResult.error) throw studentResult.error;
+
+      const studentRows = (studentResult.data || []) as Student[];
+      setStudents(studentRows);
+
+      // Pata usajili wa wanafunzi wa shule nzima kwa mwaka huu,
+      // si wa darasa lililochaguliwa pekee. Hii huzuia kurudia
+      // wanafunzi ambao tayari wapo darasa jingine.
+      const studentIds = studentRows.map(student => student.id);
+      if (!studentIds.length) {
+        setEnrollments([]);
+      } else {
+        const enrollmentResult = await supabase.from('student_enrollments')
           .select(
             'id,student_id,class_id,stream_id,academic_year_id,accommodation_type,enrollment_date,status'
           )
-          .eq('class_id', selectedClassId)
-          .eq('academic_year_id', selectedYear.id),
-      ]);
+          .in('student_id', studentIds)
+          .eq('academic_year_id', selectedYear.id);
 
-      if (studentResult.error) throw studentResult.error;
-      if (enrollmentResult.error) throw enrollmentResult.error;
-
-      setStudents((studentResult.data || []) as Student[]);
-      setEnrollments((enrollmentResult.data || []) as Enrollment[]);
+        if (enrollmentResult.error) throw enrollmentResult.error;
+        setEnrollments((enrollmentResult.data || []) as Enrollment[]);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -630,11 +649,11 @@ export default function EnrollmentModule() {
               </div>
               <div>
                 <strong>{enrolledStudents.length}</strong>
-                <div style={{ color: '#64748b' }}>Waliopo darasani</div>
+                <div style={{ color: '#64748b' }}>Waliopo darasa hili</div>
               </div>
               <div>
                 <strong>{availableStudents.length}</strong>
-                <div style={{ color: '#64748b' }}>Bado hawajaunganishwa</div>
+                <div style={{ color: '#64748b' }}>Bado hawajapangiwa darasa mwaka huu</div>
               </div>
             </div>
 
@@ -746,9 +765,7 @@ export default function EnrollmentModule() {
                 width: '100%',
                 minWidth: 0,
               }}>
-                {enrollments
-                  .filter(e => !e.status || e.status === 'Active')
-                  .map(enrollment => {
+                {classEnrollments.map(enrollment => {
                     const student = students.find(
                       s => s.id === enrollment.student_id
                     );
