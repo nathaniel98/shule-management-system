@@ -112,6 +112,7 @@ export default function TeachersModule() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -455,11 +456,81 @@ export default function TeachersModule() {
             </label>
 
             {!editingId && schoolId && (
-              <BulkImportPanel
-                kind="teachers"
-                schoolId={schoolId}
-                onComplete={() => loadTeachers(schoolId)}
-              />
+              <div style={{ marginBottom: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkImport(true)}
+                  style={{
+                    ...buttonStyle,
+                    width: '100%',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    fontSize: 16
+                  }}
+                >
+                  <span aria-hidden="true">⇧</span>
+                  Import Walimu (Excel / CSV / Copy-Paste)
+                </button>
+              </div>
+            )}
+
+            {showBulkImport && !editingId && schoolId && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Import walimu"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 1000,
+                  background: 'rgba(15,23,42,0.62)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 14,
+                  overflowY: 'auto'
+                }}
+              >
+                <div style={{
+                  width: '100%',
+                  maxWidth: 680,
+                  maxHeight: '92vh',
+                  overflowY: 'auto',
+                  background: '#fff',
+                  borderRadius: 18,
+                  padding: 16,
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 12
+                  }}>
+                    <h3 style={{ margin: 0 }}>Import Walimu</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkImport(false)}
+                      aria-label="Funga"
+                      style={{ ...buttonStyle, background: '#64748b', padding: '8px 13px' }}
+                    >
+                      Funga ✕
+                    </button>
+                  </div>
+                  <BulkImportPanel
+                    kind="teachers"
+                    schoolId={schoolId}
+                    onComplete={async () => {
+                      await loadTeachers(schoolId);
+                      setShowBulkImport(false);
+                    }}
+                  />
+                </div>
+              </div>
             )}
 
             <form
