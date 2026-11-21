@@ -113,6 +113,7 @@ export default function TeachersModule() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -211,6 +212,7 @@ export default function TeachersModule() {
 
   function startEdit(t: Teacher) {
     setEditingId(t.id);
+    setShowForm(true);
 
     setForm({
       employee_no: t.employee_no || '',
@@ -294,6 +296,7 @@ export default function TeachersModule() {
       );
 
       setEditingId(null);
+      setShowForm(false);
       setForm({ ...emptyForm, employee_no: generateEmployeeNo() });
 
       await loadTeachers(schoolId);
@@ -533,6 +536,17 @@ export default function TeachersModule() {
               </div>
             )}
 
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '8px 0 16px', padding: 14, borderRadius: 12, background: '#f1f5f9' }}>
+              <div>
+                <strong style={{ color: '#173b5e' }}>{showForm ? (editingId ? 'Unahariri taarifa' : 'Fomu ya usajili') : 'Usajili wa Walimu'}</strong>
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 3 }}>{showForm ? 'Jaza taarifa kisha hifadhi.' : 'Fungua fomu pale unapohitaji kusajili mwalimu mpya.'}</div>
+              </div>
+              <button type="button" onClick={() => { if (showForm && editingId) cancelEdit(); setShowForm(value => !value); setError(''); setMessage(''); }} style={{ ...buttonStyle, minHeight: 44 }}>
+                {showForm ? 'Funga fomu' : '+ Sajili Mwalimu'}
+              </button>
+            </div>
+
+            {showForm && (
             <form
               onSubmit={saveTeacher}
               style={{
@@ -697,6 +711,7 @@ export default function TeachersModule() {
                 )}
               </div>
             </form>
+            )}
           </>
         )}
       </section>
