@@ -82,6 +82,7 @@ export default function StudentsModule() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [selectMode, setSelectMode] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -868,20 +869,34 @@ export default function StudentsModule() {
         }}>
           <h2>Wanafunzi ({filteredStudents.length})</h2>
 
-          <button
-            type="button"
-            style={{
-              ...buttonStyle,
-              background: '#eaf1f7',
-              color: '#173b5e'
-            }}
-            onClick={refreshStudents}
-          >
-            Onyesha upya
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: selectMode ? '#173b5e' : '#eaf1f7', color: selectMode ? '#fff' : '#173b5e' }}
+              onClick={() => {
+                setSelectMode(current => {
+                  if (current) setSelectedStudentIds([]);
+                  return !current;
+                });
+              }}
+            >
+              {selectMode ? 'Funga Select' : 'Select'}
+            </button>
+            <button
+              type="button"
+              style={{
+                ...buttonStyle,
+                background: '#eaf1f7',
+                color: '#173b5e'
+              }}
+              onClick={refreshStudents}
+            >
+              Onyesha upya
+            </button>
+          </div>
         </div>
 
-        {selectedStudentIds.length > 0 && (
+        {selectMode && selectedStudentIds.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: 12, background: '#fff1f0', borderRadius: 10 }}>
             <strong>{selectedStudentIds.length} wamechaguliwa</strong>
             <button
@@ -914,19 +929,20 @@ export default function StudentsModule() {
           }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                  <input
-                    type="checkbox"
-                    aria-label="Chagua wanafunzi wote wanaoonekana"
-                    checked={filteredStudents.length > 0 && filteredStudents.every(student => selectedStudentIds.includes(student.id))}
-                    onChange={event => setSelectedStudentIds(current => event.target.checked
-                      ? Array.from(new Set([...current, ...filteredStudents.map(student => student.id)]))
-                      : current.filter(id => !filteredStudents.some(student => student.id === id))
-                    )}
-                  />
-                </th>
+                {selectMode && (
+                  <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Chagua wanafunzi wote wanaoonekana"
+                      checked={filteredStudents.length > 0 && filteredStudents.every(student => selectedStudentIds.includes(student.id))}
+                      onChange={event => setSelectedStudentIds(current => event.target.checked
+                        ? Array.from(new Set([...current, ...filteredStudents.map(student => student.id)]))
+                        : current.filter(id => !filteredStudents.some(student => student.id === id))
+                      )}
+                    />
+                  </th>
+                )}
                 {[
-                  'Chagua',
                   'Na.',
                   'Picha',
                   'Namba',
@@ -954,18 +970,20 @@ export default function StudentsModule() {
             <tbody>
               {filteredStudents.map((student, index) => (
                 <tr key={student.id}>
-                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Chagua ${student.first_name} ${student.last_name}`}
-                      checked={selectedStudentIds.includes(student.id)}
-                      onChange={event => setSelectedStudentIds(current =>
-                        event.target.checked
-                          ? [...current, student.id]
-                          : current.filter(id => id !== student.id)
-                      )}
-                    />
-                  </td>
+                  {selectMode && (
+                    <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Chagua ${student.first_name} ${student.last_name}`}
+                        checked={selectedStudentIds.includes(student.id)}
+                        onChange={event => setSelectedStudentIds(current =>
+                          event.target.checked
+                            ? [...current, student.id]
+                            : current.filter(id => id !== student.id)
+                        )}
+                      />
+                    </td>
+                  )}
                   <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', fontWeight: 700 }}>
                     {index + 1}
                   </td>
