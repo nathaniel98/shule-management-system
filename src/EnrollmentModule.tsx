@@ -760,165 +760,170 @@ export default function EnrollmentModule() {
             ) : (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr)',
-                gap: 12,
+                gap: 8,
                 width: '100%',
                 minWidth: 0,
               }}>
                 {classEnrollments.map(enrollment => {
-                    const student = students.find(
-                      s => s.id === enrollment.student_id
-                    );
+                  const student = students.find(
+                    s => s.id === enrollment.student_id
+                  );
 
-                    if (!student) return null;
+                  if (!student) return null;
 
-                    return (
-                      <div
-                        key={enrollment.id}
-                        style={{
-                          display: 'grid',
-                          alignContent: 'start',
-                          gap: 10,
-                          width: '100%',
-                          minWidth: 0,
-                          boxSizing: 'border-box',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 9,
-                          padding: 12,
-                          
-                        }}
-                      >
+                  return (
+                    <div
+                      key={enrollment.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'nowrap',
+                        gap: 12,
+                        width: '100%',
+                        minWidth: 0,
+                        overflowX: 'auto',
+                        boxSizing: 'border-box',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 9,
+                        padding: '10px 12px',
+                      }}
+                    >
+                      <strong style={{
+                        whiteSpace: 'nowrap',
+                        flex: '0 0 auto',
+                      }}>
+                        {studentName(student)}
+                      </strong>
+
+                      <span style={{
+                        color: '#64748b',
+                        fontSize: 13,
+                        whiteSpace: 'nowrap',
+                        flex: '0 0 auto',
+                      }}>
+                        {student.admission_no}
+                      </span>
+
+                      <span style={{
+                        color: '#64748b',
+                        fontSize: 13,
+                        whiteSpace: 'nowrap',
+                        flex: '0 0 auto',
+                      }}>
+                        {enrollment.accommodation_type === 'Boarding'
+                          ? 'Bweni'
+                          : 'Kutwa'}
+                      </span>
+
+                      {editing?.id === enrollment.id ? (
                         <div style={{
                           display: 'flex',
-                          flexWrap: 'wrap',
                           alignItems: 'center',
-                          columnGap: 18,
-                          rowGap: 6,
-                          minWidth: 0,
+                          flexWrap: 'nowrap',
+                          gap: 8,
+                          flex: '0 0 auto',
                         }}>
-                          <strong>{studentName(student)}</strong>
-                          <span style={{ color: '#64748b', fontSize: 13 }}>
-                            {student.admission_no}
-                          </span>
-                          <span style={{ color: '#64748b', fontSize: 13 }}>
-                            Malazi: {enrollment.accommodation_type === 'Boarding'
-                              ? 'Bweni'
-                              : 'Kutwa'}
-                          </span>
+                          <select
+                            aria-label="Darasa"
+                            style={{ ...inputStyle, width: 150 }}
+                            value={editClassId}
+                            onChange={e => {
+                              setEditClassId(e.target.value);
+                              setEditStreamId('');
+                            }}
+                          >
+                            {availableClasses.map(c => (
+                              <option key={c.id} value={c.id}>
+                                {c.class_name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            aria-label="Mkondo"
+                            style={{ ...inputStyle, width: 130 }}
+                            value={editStreamId}
+                            onChange={e => setEditStreamId(e.target.value)}
+                          >
+                            <option value="">Bila mkondo</option>
+                            {editStreams.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.stream_name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            aria-label="Aina ya malazi"
+                            style={{ ...inputStyle, width: 130 }}
+                            value={editAccommodation}
+                            onChange={e => setEditAccommodation(e.target.value)}
+                          >
+                            <option value="Day">Kutwa</option>
+                            <option value="Boarding">Bweni</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            style={{ ...buttonStyle, whiteSpace: 'nowrap' }}
+                            disabled={saving}
+                            onClick={() => void saveEdit()}
+                          >
+                            {saving ? 'Inahifadhi...' : 'Hifadhi'}
+                          </button>
+
+                          <button
+                            type="button"
+                            style={{
+                              ...buttonStyle,
+                              background: '#64748b',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onClick={() => setEditing(null)}
+                          >
+                            Ghairi
+                          </button>
                         </div>
+                      ) : (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'nowrap',
+                          gap: 7,
+                          marginLeft: 'auto',
+                          flex: '0 0 auto',
+                        }}>
+                          <button
+                            type="button"
+                            style={{
+                              ...buttonStyle,
+                              padding: '8px 12px',
+                              whiteSpace: 'nowrap',
+                            }}
+                            onClick={() => startEdit(enrollment)}
+                          >
+                            Hariri
+                          </button>
 
-                        {editing?.id === enrollment.id ? (
-                          <div style={{
-                            display: 'grid',
-                            gap: 10,
-                            background: '#f8fafc',
-                            padding: 12,
-                            borderRadius: 8,
-                          }}>
-                            <label>
-                              <strong>Darasa</strong>
-                              <select
-                                style={inputStyle}
-                                value={editClassId}
-                                onChange={e => {
-                                  setEditClassId(e.target.value);
-                                  setEditStreamId('');
-                                }}
-                              >
-                                {availableClasses.map(c => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.class_name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label>
-                              <strong>Mkondo</strong>
-                              <select
-                                style={inputStyle}
-                                value={editStreamId}
-                                onChange={e => setEditStreamId(e.target.value)}
-                              >
-                                <option value="">Bila mkondo</option>
-                                {editStreams.map(s => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.stream_name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label>
-                              <strong>Aina ya Malazi</strong>
-                              <select
-                                style={inputStyle}
-                                value={editAccommodation}
-                                onChange={e =>
-                                  setEditAccommodation(e.target.value)
-                                }
-                              >
-                                <option value="Day">Kutwa (Day)</option>
-                                <option value="Boarding">Bweni (Boarding)</option>
-                              </select>
-                            </label>
-
-                            <div style={{
-                              display: 'flex',
-                              gap: 8,
-                              flexWrap: 'wrap',
-                            }}>
-                              <button
-                                type="button"
-                                style={buttonStyle}
-                                disabled={saving}
-                                onClick={() => void saveEdit()}
-                              >
-                                {saving ? 'Inahifadhi...' : 'Hifadhi Mabadiliko'}
-                              </button>
-
-                              <button
-                                type="button"
-                                style={{
-                                  ...buttonStyle,
-                                  background: '#64748b',
-                                }}
-                                onClick={() => setEditing(null)}
-                              >
-                                Ghairi
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{
-                            display: 'flex',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                          }}>
-                            <button
-                              type="button"
-                              style={buttonStyle}
-                              onClick={() => startEdit(enrollment)}
-                            >
-                              Hariri
-                            </button>
-
-                            <button
-                              type="button"
-                              style={{
-                                ...buttonStyle,
-                                background: '#fee2e2',
-                                color: '#b91c1c',
-                              }}
-                              onClick={() => void removeEnrollment(enrollment)}
-                            >
-                              Ondoa Darasani
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          <button
+                            type="button"
+                            style={{
+                              ...buttonStyle,
+                              padding: '8px 12px',
+                              background: '#fee2e2',
+                              color: '#b91c1c',
+                              whiteSpace: 'nowrap',
+                            }}
+                            disabled={saving}
+                            onClick={() => void removeEnrollment(enrollment)}
+                          >
+                            Futa
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
