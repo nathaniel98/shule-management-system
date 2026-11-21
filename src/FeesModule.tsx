@@ -1334,11 +1334,27 @@ export default function FeesModule() {
                     Orodha ya Akaunti za Wanafunzi
                   </h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <button style={{ ...button, background: '#eaf1f7', color: '#173b5e' }}
-                      onClick={() => setShowFeeImport(true)} disabled={!structure}>
+                    <button type="button" style={{ ...button, background: '#eaf1f7', color: '#173b5e' }}
+                      onClick={() => {
+                        setError('');
+                        setMessage('');
+                        if (!structure) {
+                          setTab('setup');
+                          setError('Kwanza hifadhi ada za shule, mwaka wa masomo na darasa ulilochagua kwenye Mpangilio wa Ada. Kisha rudi hapa kuingiza taarifa.');
+                          return;
+                        }
+                        setShowFeeImport(true);
+                      }}>
                       Import Ada na Malipo
                     </button>
-                    <button style={button} onClick={generateAccounts} disabled={generating || !structure}>
+                    <button type="button" style={button} onClick={() => {
+                      if (!structure) {
+                        setTab('setup');
+                        setError('Kwanza weka na uhifadhi ada za darasa kwenye Mpangilio wa Ada. Mfumo utatumia kiasi hicho kufungua akaunti za wanafunzi.');
+                        return;
+                      }
+                      void generateAccounts();
+                    }} disabled={generating}>
                       {generating ? 'Inafungua akaunti...' : 'Fungua Akaunti za Wanafunzi'}
                     </button>
                   </div>
