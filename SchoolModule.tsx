@@ -76,6 +76,7 @@ export function SchoolModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showForm, setShowForm] = useState(false);
 
   async function loadSchools() {
     if (!supabase) {
@@ -157,6 +158,7 @@ export function SchoolModule() {
     } else {
       setMessage('Shule imesajiliwa kikamilifu. Namba ya shule imetengenezwa na mfumo.');
       setForm({ ...emptyForm });
+      setShowForm(false);
       await loadSchools();
     }
 
@@ -217,6 +219,20 @@ export function SchoolModule() {
       }}
     >
       <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2 style={{ margin: '0 0 6px', color: '#173b5e', fontSize: 'clamp(22px, 5vw, 30px)' }}>Dashboard ya Shule</h2>
+            <p style={{ margin: 0, color: '#64748b' }}>Jumla ya shule zilizosajiliwa na orodha ya majina.</p>
+          </div>
+          <strong style={{ fontSize: 34, color: '#173b5e' }}>{loading ? '...' : schools.length}</strong>
+        </div>
+        <button type="button" onClick={() => { setShowForm(value => !value); setError(''); setMessage(''); }}
+          style={{ marginTop: 18, padding: '12px 18px', minHeight: 46, border: 0, borderRadius: 10, background: '#173b5e', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+          {showForm ? 'Funga fomu' : '+ Sajili shule mpya'}
+        </button>
+      </div>
+
+      {showForm && <div style={cardStyle}>
         <h2 style={{ margin: '0 0 8px', color: '#173b5e', fontSize: 'clamp(22px, 5vw, 30px)' }}>
           Usajili wa Shule
         </h2>
@@ -375,9 +391,7 @@ export function SchoolModule() {
             {saving ? 'Inasajili...' : 'Sajili Shule'}
           </button>
         </form>
-      </div>
-
-      <div style={cardStyle}>
+      </div>}      <div style={cardStyle}>
         <div
           style={{
             display: 'flex',
