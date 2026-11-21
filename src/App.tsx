@@ -266,6 +266,17 @@ function App() {
     async function loadMySchool() {
       if (!session?.user?.id || !supabase) return;
       setSchoolAccessLoading(true);
+
+      // The platform owner account represents the whole database,
+      // not an individual school membership.
+      if ((session.user.email || '').toLowerCase() === 'goodlucknoel19@gmail.com') {
+        if (!cancelled) {
+          setActiveSchoolName('Shule Management Database');
+          setSchoolAccessLoading(false);
+        }
+        return;
+      }
+
       const { data, error } = await supabase.rpc('get_my_school');
       if (!cancelled) {
         if (error) {
