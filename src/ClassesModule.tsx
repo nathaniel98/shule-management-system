@@ -8,6 +8,8 @@ type School = {
   school_code?: string | null;
 };
 
+type EnrolledStudent = { id: string; admission_no: string; first_name: string; middle_name: string | null; last_name: string; gender?: string | null; };
+
 type SchoolClass = {
   id: string;
   school_id: string | null;
@@ -58,6 +60,10 @@ export default function ClassesModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [classStudents, setClassStudents] = useState<EnrolledStudent[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsError, setStudentsError] = useState('');
 
   async function loadClasses(id: string) {
     if (!id) {
@@ -136,6 +142,8 @@ export default function ClassesModule() {
     setSchoolId(id);
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedClassId(null);
+    setClassStudents([]);
     setError('');
     setNotice('');
 
@@ -146,6 +154,65 @@ export default function ClassesModule() {
       setError((e as Error).message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function showClassStudents(item: SchoolClass) {
+    if (selectedClassId === item.id) {
+      setSelectedClassId(null);
+      setClassStudents([]);
+      setStudentsError('');
+      return;
+    }
+
+    setSelectedClassId(item.id);
+    setClassStudents([]);
+    setStudentsError('');
+    setStudentsLoading(true);
+
+    try {
+      const { data: yearRows, error: yearError } = await supabase
+        .from('academic_years')
+        .select('id,year_name,is_current')
+        .eq('school_id', schoolId)
+        .order('year_name', { ascending: false });
+
+      if (yearError) throw yearError;
+      const years = yearRows || [];
+      const currentYear = years.find((year: any) => year.is_current) || years[0];
+
+      if (!currentYear) {
+        throw new Error('Shule hii haina mwaka wa masomo uliosajiliwa.');
+      }
+
+      const { data: enrollments, error: enrollmentError } = await supabase
+        .from('student_enrollments')
+        .select('student_id')
+        .eq('class_id', item.id)
+        .eq('academic_year_id', currentYear.id)
+        .or('status.eq.Active,status.is.null');
+
+      if (enrollmentError) throw enrollmentError;
+
+      const studentIds = [...new Set((enrollments || []).map((row: any) => row.student_id))];
+      if (!studentIds.length) {
+        setClassStudents([]);
+        return;
+      }
+
+      const { data: studentRows, error: studentError } = await supabase
+        .from('students')
+        .select('id,admission_no,first_name,middle_name,last_name,gender')
+        .in('id', studentIds)
+        .eq('school_id', schoolId)
+        .order('first_name');
+
+      if (studentError) throw studentError;
+      setClassStudents((studentRows || []) as EnrolledStudent[]);
+    } catch (e) {
+      setStudentsError((e as Error).message || 'Imeshindikana kupakia wanafunzi wa darasa.');
+    } finally {
+      setStudentsLoading(false);
     }
   }
 
@@ -526,6 +593,13 @@ export default function ClassesModule() {
                     }}
                   >
                     <button
+                      type="button"
+                      style={{ ...button, background: selectedClassId === item.id ? '#64748b' : '#256b8a', marginRight: 6 }}
+                      onClick={() => showClassStudents(item)}
+                    >
+                      {selectedClassId === item.id ? 'Ficha Wanafunzi' : 'Wanafunzi'}
+                    </button>
+                    <button
                       style={button}
                       onClick={() => editClass(item)}
                     >
@@ -550,6 +624,48 @@ export default function ClassesModule() {
           </table>
         )}
       </section>
+
+      {selectedClassId && (
+        <section style={{ background: '#fff', padding: 20, border: '1px solid #e2e8f0', borderRadius: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, color: '#173b5e' }}>
+              Wanafunzi wa {classes.find(item => item.id === selectedClassId)?.class_name || 'Darasa'}
+              {' '}({classStudents.length})
+            </h2>
+            <button type="button" style={{ ...button, background: '#64748b' }} onClick={() => { setSelectedClassId(null); setClassStudents([]); setStudentsError(''); }}>
+              Funga
+            </button>
+          </div>
+          {studentsLoading ? (
+            <p>Inapakia wanafunzi...</p>
+          ) : studentsError ? (
+            <p style={{ color: '#b42318' }}>{studentsError}</p>
+          ) : classStudents.length === 0 ? (
+            <p style={{ color: '#64748b' }}>Hakuna mwanafunzi aliyesajiliwa katika darasa hili kwa mwaka wa masomo wa sasa.</p>
+          ) : (
+            <div style={{ overflowX: 'auto', marginTop: 12 }}>
+              <table style={{ width: '100%', minWidth: 420, borderCollapse: 'collapse' }}>
+                <thead><tr>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Na.</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Namba ya usajili</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Jina kamili</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Jinsia</th>
+                </tr></thead>
+                <tbody>
+                  {classStudents.map((student, index) => (
+                    <tr key={student.id}>
+                      <td style={{ padding: 10, borderTop: '1px solid #e2e8f0' }}>{index + 1}</td>
+                      <td style={{ padding: 10, borderTop: '1px solid #e2e8f0' }}>{student.admission_no}</td>
+                      <td style={{ padding: 10, borderTop: '1px solid #e2e8f0' }}>{[student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')}</td>
+                      <td style={{ padding: 10, borderTop: '1px solid #e2e8f0' }}>{student.gender || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
