@@ -391,7 +391,9 @@ export function SchoolModule() {
             {saving ? 'Inasajili...' : 'Sajili Shule'}
           </button>
         </form>
-      </div>}      <div style={cardStyle}>
+      </div>}
+
+      <div style={cardStyle}>
         <div
           style={{
             display: 'flex',
