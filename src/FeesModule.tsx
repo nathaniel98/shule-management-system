@@ -100,6 +100,9 @@ export default function FeesModule() {
   const [search, setSearch] = useState('');
   const [paymentAccount, setPaymentAccount] = useState<Account | null>(null);
   const [historyAccount, setHistoryAccount] = useState<Account | null>(null);
+  const [showFeeImport, setShowFeeImport] = useState(false);
+  const [feeImportText, setFeeImportText] = useState('');
+  const [feeImporting, setFeeImporting] = useState(false);
 
   const [payment, setPayment] = useState({
     amount: '', payment_date: today(), payment_method: 'Cash',
@@ -725,6 +728,118 @@ export default function FeesModule() {
     setMessage('');
   }
 
+  function parseFeeImport(text: string) {
+    const lines = text.replace(/^\\uFEFF/, '').split(/\\r?\\n/).filter(line => line.trim());
+    if (lines.length < 2) return [];
+    const delimiter = lines[0].includes('\\t') ? '\\t' : ',';
+    const splitLine = (line: string) => {
+      const values: string[] = [];
+      let value = '', quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"' && line[i + 1] === '"' && quoted) { value += '"'; i++; }
+        else if (ch === '"') quoted = !quoted;
+        else if (ch === delimiter && !quoted) { values.push(value.trim()); value = ''; }
+        else value += ch;
+      }
+      values.push(value.trim());
+      return values;
+    };
+    const headers = splitLine(lines[0]).map(x => x.toLowerCase().trim().replace(/[ _-]+/g, ''));
+    const find = (row: string[], aliases: string[]) => {
+      const index = headers.findIndex(h => aliases.includes(h));
+      return index < 0 ? '' : (row[index] || '').trim();
+    };
+    return lines.slice(1).map((line, index) => {
+      const row = splitLine(line);
+      return {
+        line: index + 2,
+        admissionNo: find(row, ['admissionno','admission','registrationno','regno','nambayausajili','namba']),
+        total: find(row, ['totalamount','totalfee','fee','ada','adajumla','amountdue','jumlayada']),
+        paid: find(row, ['paidamount','amountpaid','paid','amelipa','kiasiamelipa','malipo']),
+        date: find(row, ['paymentdate','date','tarehe','tareheyalipo']),
+        method: find(row, ['paymentmethod','method','njia','njiyamalipo']),
+        receipt: find(row, ['receiptnumber','receipt','risiti']),
+        reference: find(row, ['referencenumber','reference','transactionid','muamala']),
+        notes: find(row, ['notes','maelezo'])
+      };
+    }).filter(row => row.admissionNo || row.total || row.paid);
+  }
+
+  async function importFeeData() {
+    if (!structure) { setError('Hifadhi kwanza ada za darasa hili kwenye Mpangilio wa Ada.'); return; }
+    const imported = parseFeeImport(feeImportText);
+    if (!imported.length) { setError('Hakuna mistari iliyosomwa. Hakikisha umeweka vichwa vya safu na data.'); return; }
+    setFeeImporting(true); setError(''); setMessage('');
+    let importedAccounts = 0, importedPayments = 0, skipped = 0;
+    const issues: string[] = [];
+    try {
+      const { data: enrollmentData, error: enrollmentError } = await supabase.from('student_enrollments')
+        .select('*').eq('academic_year_id', yearId).eq('class_id', classId).eq('status', 'Active');
+      if (enrollmentError) throw enrollmentError;
+      const classEnrollments = (enrollmentData || []) as Enrollment[];
+      const studentIds = [...new Set(classEnrollments.map(x => x.student_id))];
+      const { data: studentData, error: studentError } = studentIds.length
+        ? await supabase.from('students').select('id, admission_no').in('id', studentIds)
+        : { data: [], error: null };
+      if (studentError) throw studentError;
+      const admissionMap = new Map((studentData || []).map((s: any) => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
+      const enrollmentByStudent = new Map(classEnrollments.map(x => [x.student_id, x]));
+      const { data: accountData, error: accountError } = await supabase.from('student_fee_accounts')
+        .select('*').eq('fee_structure_id', structure.id);
+      if (accountError) throw accountError;
+      const accountByEnrollment = new Map(((accountData || []) as Account[]).map(x => [x.enrollment_id, x]));
+      const accountIds = (accountData || []).map((x: any) => x.id);
+      const { data: paymentData, error: paymentError } = accountIds.length
+        ? await supabase.from('fee_payments').select('receipt_number, student_fee_account_id').in('student_fee_account_id', accountIds)
+        : { data: [], error: null };
+      if (paymentError) throw paymentError;
+      const receiptSet = new Set((paymentData || []).map((x: any) => x.student_fee_account_id + ':' + x.receipt_number));
+      for (const row of imported) {
+        const studentId = admissionMap.get(row.admissionNo.toLowerCase());
+        const enrollment = studentId ? enrollmentByStudent.get(studentId) : undefined;
+        const total = Number(row.total);
+        const paid = Number(row.paid || 0);
+        if (!enrollment || !row.total || !Number.isFinite(total) || total < 0 || !Number.isFinite(paid) || paid < 0 || paid > total) {
+          skipped++; issues.push('Mstari ' + row.line + ': namba ya usajili haipo kwenye darasa hili au kiasi si sahihi.'); continue;
+        }
+        let account = accountByEnrollment.get(enrollment.id);
+        if (account) {
+          const { error: updateError } = await supabase.from('student_fee_accounts').update({ total_amount: total }).eq('id', account.id);
+          if (updateError) { skipped++; issues.push('Mstari ' + row.line + ': ' + updateError.message); continue; }
+          account = { ...account, total_amount: total };
+        } else {
+          const { data: created, error: createError } = await supabase.from('student_fee_accounts').insert({
+            enrollment_id: enrollment.id, fee_structure_id: structure.id,
+            school_fee: total, accommodation_fee: 0, transport_fee: 0,
+            other_charges_total: 0, total_amount: total
+          }).select('*').single();
+          if (createError) { skipped++; issues.push('Mstari ' + row.line + ': ' + createError.message); continue; }
+          account = created as Account;
+          accountByEnrollment.set(enrollment.id, account);
+        }
+        importedAccounts++;
+        if (paid > 0 && account) {
+          const receipt = row.receipt || ('IMPORT-' + Date.now() + '-' + row.line);
+          const key = account.id + ':' + receipt;
+          if (receiptSet.has(key)) { skipped++; issues.push('Mstari ' + row.line + ': risiti ' + receipt + ' tayari ipo; malipo hayajarudiwa.'); continue; }
+          const { error: addPaymentError } = await supabase.from('fee_payments').insert({
+            student_fee_account_id: account.id, receipt_number: receipt, amount: paid,
+            payment_date: row.date || today(), payment_method: row.method || 'Import',
+            reference_number: row.reference || null,
+            notes: row.notes || 'Malipo yaliyoingizwa kutoka mfumo mwingine'
+          });
+          if (addPaymentError) { skipped++; issues.push('Mstari ' + row.line + ': ' + addPaymentError.message); }
+          else { importedPayments++; receiptSet.add(key); }
+        }
+      }
+      await refresh(); setFeeImportText(''); setShowFeeImport(false);
+      setMessage('Import imekamilika. Akaunti: ' + importedAccounts + '; malipo: ' + importedPayments + '; mistari iliyorukwa: ' + skipped + '.');
+      if (issues.length) setError(issues.slice(0, 8).join('\\n'));
+    } catch (e) { reportError(e); }
+    finally { setFeeImporting(false); }
+  }
+
   async function savePayment(e: FormEvent) {
     e.preventDefault();
 
@@ -1218,13 +1333,15 @@ export default function FeesModule() {
                   <h3 style={{ margin: 0, color: '#173b5e' }}>
                     Orodha ya Akaunti za Wanafunzi
                   </h3>
-                  <button
-                    style={button}
-                    onClick={generateAccounts}
-                    disabled={generating || !structure}
-                  >
-                    {generating ? 'Inafungua akaunti...' : 'Fungua Akaunti za Wanafunzi'}
-                  </button>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <button style={{ ...button, background: '#eaf1f7', color: '#173b5e' }}
+                      onClick={() => setShowFeeImport(true)} disabled={!structure}>
+                      Import Ada na Malipo
+                    </button>
+                    <button style={button} onClick={generateAccounts} disabled={generating || !structure}>
+                      {generating ? 'Inafungua akaunti...' : 'Fungua Akaunti za Wanafunzi'}
+                    </button>
+                  </div>
                 </div>
 
                 <input
@@ -1453,6 +1570,41 @@ export default function FeesModule() {
             </div>
           )}
         </>
+      )}
+
+      {showFeeImport && (
+        <div role="dialog" aria-modal="true" aria-label="Import ada na malipo" style={{
+          position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15,23,42,.65)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, overflowY: 'auto'
+        }}>
+          <div style={{ ...card, maxWidth: 650, maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <h3 style={{ marginTop: 0, color: '#173b5e' }}>Import Ada na Malipo</h3>
+              <button type="button" style={{ ...smallButton, background: '#64748b' }} onClick={() => setShowFeeImport(false)}>Funga ✕</button>
+            </div>
+            <p style={{ color: '#64748b', fontSize: 14 }}>
+              Pakia CSV iliyotolewa Excel au bandika data kutoka Excel. Mfumo hutambua mwanafunzi kwa Namba ya Usajili ya shule, darasa na mwaka uliochagua.
+            </p>
+            <label style={label}>Chagua faili la CSV
+              <input style={input} type="file" accept=".csv,.txt,text/csv,text/plain"
+                onChange={async e => { const file = e.target.files?.[0]; if (file) setFeeImportText(await file.text()); }} />
+            </label>
+            <label style={{ ...label, marginTop: 14 }}>Au bandika data hapa (Excel / CSV)
+              <textarea style={{ ...input, minHeight: 170, fontFamily: 'monospace', whiteSpace: 'pre' }}
+                value={feeImportText} onChange={e => setFeeImportText(e.target.value)}
+                placeholder={'admission_no,total_amount,paid_amount,payment_date,payment_method,receipt_number\nBFA-0001,500000,200000,2026-01-15,Cash,RCT-001\nBFA-0002,450000,450000,2026-01-16,Bank,RCT-002'} />
+            </label>
+            <div style={{ background: '#f1f5f9', borderRadius: 10, padding: 12, marginTop: 12, fontSize: 13, color: '#334155' }}>
+              <b>Safu zinazotumika:</b>
+              <p style={{ margin: '6px 0' }}>admission_no, total_amount, paid_amount, payment_date, payment_method, receipt_number, reference_number, notes</p>
+              <p style={{ margin: 0 }}>Namba ya usajili na ada jumla ni muhimu. paid_amount inaweza kuwa 0. Ikiwa mwanafunzi amelipa kwa awamu nyingi, weka kila malipo kwenye mstari wake na risiti tofauti.</p>
+            </div>
+            <button type="button" style={{ ...button, width: '100%', marginTop: 14 }}
+              disabled={feeImporting || !feeImportText.trim() || !structure} onClick={importFeeData}>
+              {feeImporting ? 'Inaingiza taarifa...' : 'Import Ada na Malipo'}
+            </button>
+          </div>
+        </div>
       )}
 
       {paymentAccount && (
