@@ -452,14 +452,12 @@ function App() {
         </div>
 
         <div className="school-switch" style={{ flexShrink: 0 }}>
-          <div className="school-avatar">S</div>
+          <div className="school-avatar">{activeSchoolName.charAt(0).toUpperCase()}</div>
 
-          <div>
-            <b>Shule yangu</b>
+          <div style={{ minWidth: 0 }}>
+            <b>{schoolAccessLoading ? 'Inapakia shule...' : activeSchoolName}</b>
             <span>Usimamizi wa shule</span>
           </div>
-
-          <ChevronDown size={16} />
         </div>
 
         <p className="nav-caption" style={{ flexShrink: 0 }}>
