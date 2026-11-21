@@ -80,6 +80,7 @@ export default function StudentsModule() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
@@ -248,6 +249,7 @@ export default function StudentsModule() {
 
   function startEdit(student: Student) {
     setEditingId(student.id);
+    setShowForm(true);
 
     setForm({
       first_name: student.first_name || '',
@@ -359,6 +361,7 @@ export default function StudentsModule() {
       }
 
       setEditingId(null);
+      setShowForm(false);
       setForm(emptyForm);
       setPhotoFile(null);
       setPhotoPreview('');
@@ -657,6 +660,17 @@ export default function StudentsModule() {
               </div>
             )}
 
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '8px 0 16px', padding: 14, borderRadius: 12, background: '#f1f5f9' }}>
+              <div>
+                <strong style={{ color: '#173b5e' }}>{showForm ? (editingId ? 'Unahariri taarifa' : 'Fomu ya usajili') : 'Usajili wa Wanafunzi'}</strong>
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 3 }}>{showForm ? 'Jaza taarifa kisha hifadhi.' : 'Fungua fomu pale unapohitaji kusajili mwanafunzi mpya.'}</div>
+              </div>
+              <button type="button" onClick={() => { if (showForm && editingId) cancelEdit(); setShowForm(value => !value); setError(''); setMessage(''); }} style={{ ...buttonStyle, minHeight: 44 }}>
+                {showForm ? 'Funga fomu' : '+ Sajili Mwanafunzi'}
+              </button>
+            </div>
+
+            {showForm && (
             <form
               onSubmit={saveStudent}
               style={{
@@ -849,6 +863,7 @@ export default function StudentsModule() {
                 )}
               </div>
             </form>
+            )}
           </>
         )}
       </section>
