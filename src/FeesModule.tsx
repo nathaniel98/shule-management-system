@@ -776,10 +776,9 @@ export default function FeesModule() {
   }
 
   function parseFeeImport(text: string) {
-    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
+    const lines = text.replace(/^\\uFEFF/, '').split(/\\r?\\n/).filter(line => line.trim());
     if (lines.length < 2) return [];
-    const delimiter = lines[0].includes('\t') ? '\t' : ',';
-    const splitLine = (line: string) => {
+    const splitLine = (line: string, delimiter: string) => {
       const values: string[] = [];
       let value = '', quoted = false;
       for (let i = 0; i < line.length; i++) {
@@ -792,23 +791,46 @@ export default function FeesModule() {
       values.push(value.trim());
       return values;
     };
-    const headers = splitLine(lines[0]).map(x => x.toLowerCase().trim().replace(/[ _-]+/g, ''));
+    const normalize = (value: string) => value.toLowerCase()
+      .replace(/[⇅↑↓]/g, '').replace(/[^a-z0-9]/g, '');
+    const delimiters = [',', '\\t', ';'];
+    let headerIndex = -1, delimiter = ',';
+    let headers: string[] = [];
+    for (let i = 0; i < Math.min(lines.length, 12); i++) {
+      for (const candidate of delimiters) {
+        const cells = splitLine(lines[i], candidate).map(normalize);
+        if (cells.some(x => ['admissionno','registrationno','regno','nambayausajili'].includes(x)) &&
+            cells.some(x => ['receiptnumber','receiptno','receipt','risiti'].includes(x)) &&
+            cells.some(x => ['amount','amountpaid','paidamount','kiasichalipwa'].includes(x))) {
+          headerIndex = i; delimiter = candidate; headers = cells; break;
+        }
+      }
+      if (headerIndex >= 0) break;
+    }
+    if (headerIndex < 0) {
+      delimiter = lines[0].includes('\\t') ? '\\t' : ',';
+      headers = splitLine(lines[0], delimiter).map(normalize);
+      headerIndex = 0;
+    }
     const find = (row: string[], aliases: string[]) => {
       const index = headers.findIndex(h => aliases.includes(h));
       return index < 0 ? '' : (row[index] || '').trim();
     };
-    return lines.slice(1).map((line, index) => {
-      const row = splitLine(line);
+    const number = (value: string) => value.replace(/[,\\s]/g, '').replace(/[^0-9.-]/g, '');
+    return lines.slice(headerIndex + 1).map((line, index) => {
+      const row = splitLine(line, delimiter);
+      const amount = find(row, ['amount','amountpaid','paidamount','paid','kiasi','kiasichalipwa','malipo']);
       return {
-        line: index + 2,
+        line: headerIndex + index + 2,
         admissionNo: find(row, ['admissionno','admission','registrationno','regno','nambayausajili','namba']),
-        total: find(row, ['totalamount','totalfee','fee','ada','adajumla','amountdue','jumlayada']),
-        paid: find(row, ['paidamount','amountpaid','paid','amelipa','kiasiamelipa','malipo']),
+        total: number(find(row, ['totalamount','totalfee','fee','ada','adajumla','amountdue','jumlayada'])),
+        paid: number(amount),
         date: find(row, ['paymentdate','date','tarehe','tareheyalipo']),
-        method: find(row, ['paymentmethod','method','njia','njiyamalipo']),
-        receipt: find(row, ['receiptnumber','receipt','risiti']),
-        reference: find(row, ['referencenumber','reference','transactionid','muamala']),
-        notes: find(row, ['notes','maelezo'])
+        method: find(row, ['paymentmethod','method','njia','njiyamalipo','account']),
+        receipt: find(row, ['receiptnumber','receiptno','receipt','risiti']),
+        reference: find(row, ['referencenumber','reference','transactionid','muamala','controlno']),
+        notes: [find(row, ['payername','payer','jinalamlipaji']), find(row, ['notes','maelezo'])]
+          .filter(Boolean).join(' | ')
       };
     }).filter(row => row.admissionNo || row.total || row.paid);
   }
@@ -816,7 +838,7 @@ export default function FeesModule() {
   async function importFeeData() {
     if (!structure) { setError('Hifadhi kwanza ada za darasa hili kwenye Mpangilio wa Ada.'); return; }
     const imported = parseFeeImport(feeImportText);
-    if (!imported.length) { setError('Hakuna mistari iliyosomwa. Hakikisha umeweka vichwa vya safu na data.'); return; }
+    if (!imported.length) { setError('Hakuna mistari ya malipo iliyosomwa.'); return; }
     setFeeImporting(true); setError(''); setMessage('');
     let importedAccounts = 0, importedPayments = 0, skipped = 0;
     const issues: string[] = [];
@@ -842,20 +864,28 @@ export default function FeesModule() {
         : { data: [], error: null };
       if (paymentError) throw paymentError;
       const receiptSet = new Set((paymentData || []).map((x: any) => x.student_fee_account_id + ':' + x.receipt_number));
+
       for (const row of imported) {
-        const studentId = admissionMap.get(row.admissionNo.toLowerCase());
+        const studentId = admissionMap.get(row.admissionNo.trim().toLowerCase());
         const enrollment = studentId ? enrollmentByStudent.get(studentId) : undefined;
-        const total = Number(row.total);
-        const paid = Number(row.paid || 0);
-        if (!enrollment || !row.total || !Number.isFinite(total) || total < 0 || !Number.isFinite(paid) || paid < 0 || paid > total) {
+        const paid = Number(row.paid);
+        const totalProvided = row.total !== '';
+        const total = totalProvided ? Number(row.total) : NaN;
+        if (!enrollment || !Number.isFinite(paid) || paid <= 0 ||
+            (totalProvided && (!Number.isFinite(total) || total < paid))) {
           skipped++; issues.push('Mstari ' + row.line + ': namba ya usajili haipo kwenye darasa hili au kiasi si sahihi.'); continue;
         }
+
         let account = accountByEnrollment.get(enrollment.id);
-        if (account) {
-          const { error: updateError } = await supabase.from('student_fee_accounts').update({ total_amount: total }).eq('id', account.id);
+        if (!account && !totalProvided) {
+          skipped++; issues.push('Mstari ' + row.line + ': akaunti ya ada haijafunguliwa kwa mwanafunzi huyu. Fungua akaunti kwanza.'); continue;
+        }
+        if (account && totalProvided) {
+          const { error: updateError } = await supabase.from('student_fee_accounts')
+            .update({ total_amount: total }).eq('id', account.id);
           if (updateError) { skipped++; issues.push('Mstari ' + row.line + ': ' + updateError.message); continue; }
           account = { ...account, total_amount: total };
-        } else {
+        } else if (!account && totalProvided) {
           const { data: created, error: createError } = await supabase.from('student_fee_accounts').insert({
             enrollment_id: enrollment.id, fee_structure_id: structure.id,
             school_fee: total, accommodation_fee: 0, transport_fee: 0,
@@ -864,25 +894,28 @@ export default function FeesModule() {
           if (createError) { skipped++; issues.push('Mstari ' + row.line + ': ' + createError.message); continue; }
           account = created as Account;
           accountByEnrollment.set(enrollment.id, account);
+          importedAccounts++;
         }
-        importedAccounts++;
-        if (paid > 0 && account) {
-          const receipt = row.receipt || ('IMPORT-' + Date.now() + '-' + row.line);
-          const key = account.id + ':' + receipt;
-          if (receiptSet.has(key)) { skipped++; issues.push('Mstari ' + row.line + ': risiti ' + receipt + ' tayari ipo; malipo hayajarudiwa.'); continue; }
-          const { error: addPaymentError } = await supabase.from('fee_payments').insert({
-            student_fee_account_id: account.id, receipt_number: receipt, amount: paid,
-            payment_date: row.date || today(), payment_method: row.method || 'Import',
-            reference_number: row.reference || null,
-            notes: row.notes || 'Malipo yaliyoingizwa kutoka mfumo mwingine'
-          });
-          if (addPaymentError) { skipped++; issues.push('Mstari ' + row.line + ': ' + addPaymentError.message); }
-          else { importedPayments++; receiptSet.add(key); }
+
+        if (!account) { skipped++; continue; }
+        const receipt = row.receipt || ('IMPORT-' + Date.now() + '-' + row.line);
+        const key = account.id + ':' + receipt;
+        if (receiptSet.has(key)) {
+          skipped++; issues.push('Mstari ' + row.line + ': risiti ' + receipt + ' tayari imeingizwa.'); continue;
         }
+        const { error: addPaymentError } = await supabase.from('fee_payments').insert({
+          student_fee_account_id: account.id, receipt_number: receipt, amount: paid,
+          payment_date: row.date || today(), payment_method: row.method || 'Import',
+          reference_number: row.reference || null,
+          notes: row.notes || 'Malipo yaliyoingizwa kutoka mfumo mwingine'
+        });
+        if (addPaymentError) { skipped++; issues.push('Mstari ' + row.line + ': ' + addPaymentError.message); }
+        else { importedPayments++; receiptSet.add(key); }
       }
-      await refresh(); setFeeImportText(''); setShowFeeImport(false);
-      setMessage('Import imekamilika. Akaunti: ' + importedAccounts + '; malipo: ' + importedPayments + '; mistari iliyorukwa: ' + skipped + '.');
-      if (issues.length) setError(issues.slice(0, 8).join('\n'));
+      await refresh();
+      setFeeImportText(''); setShowFeeImport(false);
+      setMessage('Import imekamilika. Akaunti mpya: ' + importedAccounts + '; malipo: ' + importedPayments + '; mistari iliyorukwa: ' + skipped + '.');
+      if (issues.length) setError(issues.slice(0, 10).join('\\n'));
     } catch (e) { reportError(e); }
     finally { setFeeImporting(false); }
   }
