@@ -86,6 +86,8 @@ function App() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [activeSchoolName, setActiveSchoolName] = useState('Shule yangu');
+  const [schoolAccessLoading, setSchoolAccessLoading] = useState(false);
 
   async function loadDashboardStats() {
     if (!supabase) {
@@ -257,6 +259,39 @@ function App() {
 
   useEffect(() => {
     if (session) void loadDashboardStats();
+  }, [session]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMySchool() {
+      if (!session?.user?.id || !supabase) return;
+      setSchoolAccessLoading(true);
+      const { data: membership, error: membershipError } = await supabase
+        .from('school_members')
+        .select('school_id')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+      if (membershipError || !membership?.school_id) {
+        if (!cancelled) {
+          setActiveSchoolName('Shule haijaunganishwa');
+          setSchoolAccessLoading(false);
+        }
+        return;
+      }
+      const { data: school, error: schoolError } = await supabase
+        .from('schools')
+        .select('school_name')
+        .eq('id', membership.school_id)
+        .maybeSingle();
+      if (!cancelled) {
+        setActiveSchoolName(schoolError ? 'Shule yangu' : (school?.school_name || 'Shule yangu'));
+        setSchoolAccessLoading(false);
+      }
+    }
+    void loadMySchool();
+    return () => { cancelled = true; };
   }, [session]);
 
   async function signIn(e: FormEvent) {
