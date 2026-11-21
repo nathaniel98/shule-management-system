@@ -266,27 +266,15 @@ function App() {
     async function loadMySchool() {
       if (!session?.user?.id || !supabase) return;
       setSchoolAccessLoading(true);
-      const { data: membership, error: membershipError } = await supabase
-        .from('school_members')
-        .select('school_id')
-        .eq('user_id', session.user.id)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-      if (membershipError || !membership?.school_id) {
-        if (!cancelled) {
-          setActiveSchoolName('Shule haijaunganishwa');
-          setSchoolAccessLoading(false);
-        }
-        return;
-      }
-      const { data: school, error: schoolError } = await supabase
-        .from('schools')
-        .select('school_name')
-        .eq('id', membership.school_id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_my_school');
       if (!cancelled) {
-        setActiveSchoolName(schoolError ? 'Shule yangu' : (school?.school_name || 'Shule yangu'));
+        if (error) {
+          console.error('Could not load assigned school:', error.message);
+          setActiveSchoolName('Hitilafu ya kusoma shule');
+        } else {
+          const assignedSchool = Array.isArray(data) ? data[0] : data;
+          setActiveSchoolName(assignedSchool?.school_name || 'Shule haijaunganishwa');
+        }
         setSchoolAccessLoading(false);
       }
     }
