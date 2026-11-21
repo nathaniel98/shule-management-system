@@ -848,6 +848,7 @@ export default function StudentsModule() {
             <thead>
               <tr>
                 {[
+                  'Na.',
                   'Picha',
                   'Namba',
                   'Jina kamili',
@@ -872,8 +873,11 @@ export default function StudentsModule() {
             </thead>
 
             <tbody>
-              {filteredStudents.map(student => (
+              {filteredStudents.map((student, index) => (
                 <tr key={student.id}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', fontWeight: 700 }}>
+                    {index + 1}
+                  </td>
                   <td style={{
                     padding: 10,
                     borderBottom: '1px solid #e2e8f0'
