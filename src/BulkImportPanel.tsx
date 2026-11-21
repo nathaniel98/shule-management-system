@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { supabase } from './supabase';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-import { supabase } from './supabase';
 
 type Kind = 'students' | 'teachers';
 type ImportRow = Record<string, string>;
