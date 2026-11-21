@@ -799,7 +799,7 @@ export default function FeesModule() {
     for (let i = 0; i < Math.min(lines.length, 12); i++) {
       for (const candidate of delimiters) {
         const cells = splitLine(lines[i], candidate).map(normalize);
-        if (cells.some(x => ['admissionno','registrationno','regno','nambayausajili'].includes(x)) &&
+        if (cells.some(x => ['admissionno','registrationno','regno','nambayausajili','payername','payer'].includes(x)) &&
             cells.some(x => ['receiptnumber','receiptno','receipt','risiti'].includes(x)) &&
             cells.some(x => ['amount','amountpaid','paidamount','kiasichalipwa'].includes(x))) {
           headerIndex = i; delimiter = candidate; headers = cells; break;
@@ -823,6 +823,7 @@ export default function FeesModule() {
       return {
         line: headerIndex + index + 2,
         admissionNo: find(row, ['admissionno','admission','registrationno','regno','nambayausajili','namba']),
+        payerName: find(row, ['payername','payer','studentname','name','jinalamlipaji','jinalamwanafunzi']),
         total: number(find(row, ['totalamount','totalfee','fee','ada','adajumla','amountdue','jumlayada'])),
         paid: number(amount),
         date: find(row, ['paymentdate','date','tarehe','tareheyalipo']),
@@ -832,7 +833,7 @@ export default function FeesModule() {
         notes: [find(row, ['payername','payer','jinalamlipaji']), find(row, ['notes','maelezo'])]
           .filter(Boolean).join(' | ')
       };
-    }).filter(row => row.admissionNo || row.total || row.paid);
+    }).filter(row => row.admissionNo || row.payerName || row.total || row.paid);
   }
 
   async function importFeeData() {
@@ -850,10 +851,18 @@ export default function FeesModule() {
       const yearEnrollments = (enrollmentData || []) as Enrollment[];
       const studentIds = [...new Set(yearEnrollments.map(x => x.student_id))];
       const { data: studentData, error: studentError } = studentIds.length
-        ? await supabase.from('students').select('id, admission_no').in('id', studentIds)
+        ? await supabase.from('students').select('id, admission_no, first_name, middle_name, last_name').in('id', studentIds)
         : { data: [], error: null };
       if (studentError) throw studentError;
+      const normalizeStudentName = (value: string) => value.toLowerCase()
+        .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
       const admissionMap = new Map((studentData || []).map((s: any) => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
+      const nameMap = new Map<string, string[]>();
+      (studentData || []).forEach((s: any) => {
+        const fullName = normalizeStudentName([s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' '));
+        if (fullName) nameMap.set(fullName, [...(nameMap.get(fullName) || []), s.id]);
+      });
       const enrollmentByStudent = new Map(yearEnrollments.map(x => [x.student_id, x]));
       const yearStructures = structures.filter(x => x.academic_year_id === yearId);
       const structureByClass = new Map(yearStructures.map(x => [x.class_id, x]));
@@ -871,7 +880,9 @@ export default function FeesModule() {
       const receiptSet = new Set((paymentData || []).map((x: any) => x.student_fee_account_id + ':' + x.receipt_number));
 
       for (const row of imported) {
-        const studentId = admissionMap.get(row.admissionNo.trim().toLowerCase());
+        const byAdmission = row.admissionNo ? admissionMap.get(row.admissionNo.trim().toLowerCase()) : undefined;
+        const matchingNames = row.payerName ? nameMap.get(normalizeStudentName(row.payerName)) || [] : [];
+        const studentId = byAdmission || (matchingNames.length === 1 ? matchingNames[0] : undefined);
         const enrollment = studentId ? enrollmentByStudent.get(studentId) : undefined;
         const classStructure = enrollment ? structureByClass.get(enrollment.class_id) : undefined;
         const paid = Number(row.paid);
@@ -879,7 +890,7 @@ export default function FeesModule() {
         const total = totalProvided ? Number(row.total) : NaN;
         if (!enrollment || !Number.isFinite(paid) || paid <= 0 ||
             (totalProvided && (!Number.isFinite(total) || total < paid))) {
-          skipped++; issues.push('Mstari ' + row.line + ': namba ya usajili haipo kwenye darasa hili au kiasi si sahihi.'); continue;
+          skipped++; issues.push('Mstari ' + row.line + ': mwanafunzi hakupatikana kwa namba/jina, jina linafanana na wanafunzi zaidi ya mmoja, au kiasi si sahihi.'); continue;
         }
 
         let account = accountByEnrollment.get(enrollment.id);
@@ -1747,8 +1758,8 @@ export default function FeesModule() {
             </label>
             <div style={{ background: '#f1f5f9', borderRadius: 10, padding: 12, marginTop: 12, fontSize: 13, color: '#334155' }}>
               <b>Safu zinazotumika:</b>
-              <p style={{ margin: '6px 0' }}>admission_no, total_amount, paid_amount, payment_date, payment_method, receipt_number, reference_number, notes</p>
-              <p style={{ margin: 0 }}>Namba ya usajili na ada jumla ni muhimu. paid_amount inaweza kuwa 0. Ikiwa mwanafunzi amelipa kwa awamu nyingi, weka kila malipo kwenye mstari wake na risiti tofauti.</p>
+              <p style={{ margin: '6px 0' }}>admission_no au payer_name, amount, payment_date, receipt_number, control_no, account</p>
+              <p style={{ margin: 0 }}>Mfumo hutambua mwanafunzi kwa namba ya usajili au jina lake kamili. Kiasi cha Amount ni malipo yaliyofanyika; kila mstari ni muamala mmoja. Majina yanayojirudia bila namba sahihi yatarukwa ili kuzuia malipo kwenda kwa mwanafunzi asiye sahihi.</p>
             </div>
             <button type="button" style={{ ...button, width: '100%', marginTop: 14 }}
               disabled={feeImporting || !feeImportText.trim() || !structure} onClick={importFeeData}>
