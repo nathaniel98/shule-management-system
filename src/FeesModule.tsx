@@ -503,8 +503,30 @@ export default function FeesModule() {
     setMessage('');
 
     try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+
+      let targetSchoolId = schoolId;
+      const isPlatformAdmin =
+        (authData.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+
+      if (!isPlatformAdmin) {
+        const { data: assignedData, error: assignedError } =
+          await supabase.rpc('get_my_school');
+        if (assignedError) throw assignedError;
+
+        const assigned = Array.isArray(assignedData) ? assignedData[0] : assignedData;
+        if (!assigned?.school_id) {
+          throw new Error('Akaunti hii haina shule iliyounganishwa.');
+        }
+        if (assigned.school_id !== schoolId) {
+          throw new Error('Shule iliyochaguliwa haifanani na shule ya akaunti hii. Tafadhali fungua upya ukurasa.');
+        }
+        targetSchoolId = assigned.school_id;
+      }
+
       const payload = {
-        school_id: schoolId,
+        school_id: targetSchoolId,
         academic_year_id: yearId,
         class_id: classId,
         school_fee: Number(fee.school_fee),
