@@ -843,19 +843,24 @@ export default function FeesModule() {
     let importedAccounts = 0, importedPayments = 0, skipped = 0;
     const issues: string[] = [];
     try {
+      // Import across all classes in the selected school and academic year.
       const { data: enrollmentData, error: enrollmentError } = await supabase.from('student_enrollments')
-        .select('*').eq('academic_year_id', yearId).eq('class_id', classId).eq('status', 'Active');
+        .select('*').eq('academic_year_id', yearId).eq('status', 'Active');
       if (enrollmentError) throw enrollmentError;
-      const classEnrollments = (enrollmentData || []) as Enrollment[];
-      const studentIds = [...new Set(classEnrollments.map(x => x.student_id))];
+      const yearEnrollments = (enrollmentData || []) as Enrollment[];
+      const studentIds = [...new Set(yearEnrollments.map(x => x.student_id))];
       const { data: studentData, error: studentError } = studentIds.length
         ? await supabase.from('students').select('id, admission_no').in('id', studentIds)
         : { data: [], error: null };
       if (studentError) throw studentError;
       const admissionMap = new Map((studentData || []).map((s: any) => [String(s.admission_no || '').trim().toLowerCase(), s.id]));
-      const enrollmentByStudent = new Map(classEnrollments.map(x => [x.student_id, x]));
-      const { data: accountData, error: accountError } = await supabase.from('student_fee_accounts')
-        .select('*').eq('fee_structure_id', structure.id);
+      const enrollmentByStudent = new Map(yearEnrollments.map(x => [x.student_id, x]));
+      const yearStructures = structures.filter(x => x.academic_year_id === yearId);
+      const structureByClass = new Map(yearStructures.map(x => [x.class_id, x]));
+      const feeStructureIds = yearStructures.map(x => x.id);
+      const { data: accountData, error: accountError } = feeStructureIds.length
+        ? await supabase.from('student_fee_accounts').select('*').in('fee_structure_id', feeStructureIds)
+        : { data: [], error: null };
       if (accountError) throw accountError;
       const accountByEnrollment = new Map(((accountData || []) as Account[]).map(x => [x.enrollment_id, x]));
       const accountIds = (accountData || []).map((x: any) => x.id);
@@ -868,6 +873,7 @@ export default function FeesModule() {
       for (const row of imported) {
         const studentId = admissionMap.get(row.admissionNo.trim().toLowerCase());
         const enrollment = studentId ? enrollmentByStudent.get(studentId) : undefined;
+        const classStructure = enrollment ? structureByClass.get(enrollment.class_id) : undefined;
         const paid = Number(row.paid);
         const totalProvided = row.total !== '';
         const total = totalProvided ? Number(row.total) : NaN;
@@ -880,6 +886,9 @@ export default function FeesModule() {
         if (!account && !totalProvided) {
           skipped++; issues.push('Mstari ' + row.line + ': akaunti ya ada haijafunguliwa kwa mwanafunzi huyu. Fungua akaunti kwanza.'); continue;
         }
+        if (!account && totalProvided && !classStructure) {
+          skipped++; issues.push('Mstari ' + row.line + ': hakuna mpangilio wa ada kwa darasa la mwanafunzi huyu.'); continue;
+        }
         if (account && totalProvided) {
           const { error: updateError } = await supabase.from('student_fee_accounts')
             .update({ total_amount: total }).eq('id', account.id);
@@ -887,7 +896,7 @@ export default function FeesModule() {
           account = { ...account, total_amount: total };
         } else if (!account && totalProvided) {
           const { data: created, error: createError } = await supabase.from('student_fee_accounts').insert({
-            enrollment_id: enrollment.id, fee_structure_id: structure.id,
+            enrollment_id: enrollment.id, fee_structure_id: classStructure!.id,
             school_fee: total, accommodation_fee: 0, transport_fee: 0,
             other_charges_total: 0, total_amount: total
           }).select('*').single();
