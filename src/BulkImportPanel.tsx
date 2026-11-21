@@ -86,7 +86,7 @@ function rowsFromHtmlTable(html: string): ImportRow[] {
     const row: ImportRow = {};
     headerMap.forEach(({ field, index }) => { row[field] = record[index] || ''; });
     if (!row.first_name && row.full_name) {
-      const names = row.full_name.trim().split(/\\s+/).filter(Boolean);
+      const names = row.full_name.trim().split(/\s+/).filter(Boolean);
       row.first_name = names[0] || '';
       row.middle_name = names.length > 2 ? names.slice(1, -1).join(' ') : '';
       row.last_name = names.length > 1 ? names[names.length - 1] : '';
@@ -95,8 +95,8 @@ function rowsFromHtmlTable(html: string): ImportRow[] {
     if (gender) row.gender = gender;
     if (row.date_of_birth) {
       const rawDate = row.date_of_birth.trim();
-      const iso = rawDate.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
-      const short = rawDate.match(/^(\\d{1,2})-(\\d{1,2})-(\\d{2,4})$/);
+      const iso = rawDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      const short = rawDate.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
       if (iso) row.date_of_birth = iso[1] + '-' + iso[2].padStart(2, '0') + '-' + iso[3].padStart(2, '0');
       else if (short) {
         const year = short[3].length === 2 ? '20' + short[3] : short[3];
@@ -234,7 +234,16 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
     setOcrProgress('');
     try {
       let extracted = '';
-      if (/\.(xls|html)$/i.test(file.name)) {\n        const source = await file.text();\n        const parsed = rowsFromHtmlTable(source);\n        if (parsed.length) {\n          setText(''); setRows(parsed); setError(''); setMessage('');\n          setOcrProgress('Jedwali limesomwa: ' + parsed.length + ' wanafunzi. Kagua kabla ya kuingiza.');\n          return;\n        }\n        extracted = source;\n      } else if (/\\.pdf$/i.test(file.name)) {
+      if (/\.(xls|html)$/i.test(file.name)) {
+        const source = await file.text();
+        const parsed = rowsFromHtmlTable(source);
+        if (parsed.length) {
+          setText(''); setRows(parsed); setError(''); setMessage('');
+          setOcrProgress('Jedwali limesomwa: ' + parsed.length + ' wanafunzi. Kagua kabla ya kuingiza.');
+          return;
+        }
+        extracted = source;
+      } else if (/\.pdf$/i.test(file.name)) {
         extracted = await extractPdfText(file, setOcrProgress);
       } else if (/\.(png|jpe?g|webp)$/i.test(file.name)) {
         extracted = await extractImageText(file, setOcrProgress);
