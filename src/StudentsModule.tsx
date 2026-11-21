@@ -81,6 +81,8 @@ export default function StudentsModule() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
@@ -434,6 +436,57 @@ export default function StudentsModule() {
       setError(err.message || 'Imeshindikana kufuta mwanafunzi.');
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function deleteSelectedStudents() {
+    const selected = students.filter(student => selectedStudentIds.includes(student.id));
+    if (!selected.length) {
+      setError('Chagua angalau mwanafunzi mmoja wa kufuta.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Una uhakika unataka kufuta wanafunzi ${selected.length} waliochaguliwa? Taarifa zao zitafutwa kwenye shule hii. Kitendo hiki hakiwezi kurejeshwa.`
+    );
+    if (!confirmed) return;
+
+    setBulkDeleting(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .in('id', selected.map(student => student.id))
+        .eq('school_id', schoolId);
+
+      if (error) throw error;
+
+      const photoPaths = selected
+        .map(student => student.photo_url)
+        .filter((path): path is string =>
+          Boolean(path) &&
+          !path!.startsWith('http://') &&
+          !path!.startsWith('https://')
+        );
+
+      if (photoPaths.length) {
+        const { error: photoError } = await supabase.storage
+          .from(BUCKET)
+          .remove(photoPaths);
+        if (photoError) console.error('Bulk photo deletion error:', photoError.message);
+      }
+
+      setStudents(current => current.filter(student => !selectedStudentIds.includes(student.id)));
+      setSelectedStudentIds([]);
+      setMessage(`Wanafunzi ${selected.length} wamefutwa kikamilifu.`);
+    } catch (e) {
+      const err = e as { message?: string };
+      setError(err.message || 'Imeshindikana kufuta wanafunzi waliochaguliwa.');
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -828,6 +881,20 @@ export default function StudentsModule() {
           </button>
         </div>
 
+        {selectedStudentIds.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: 12, background: '#fff1f0', borderRadius: 10 }}>
+            <strong>{selectedStudentIds.length} wamechaguliwa</strong>
+            <button
+              type="button"
+              onClick={deleteSelectedStudents}
+              disabled={bulkDeleting}
+              style={{ ...buttonStyle, background: '#b42318' }}
+            >
+              {bulkDeleting ? 'Inafuta...' : `Futa waliochaguliwa (${selectedStudentIds.length})`}
+            </button>
+          </div>
+        )}
+
         <input
           style={{ ...inputStyle, marginBottom: 16 }}
           placeholder="Tafuta kwa jina, namba ya usajili au simu..."
@@ -847,7 +914,19 @@ export default function StudentsModule() {
           }}>
             <thead>
               <tr>
+                <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Chagua wanafunzi wote wanaoonekana"
+                    checked={filteredStudents.length > 0 && filteredStudents.every(student => selectedStudentIds.includes(student.id))}
+                    onChange={event => setSelectedStudentIds(current => event.target.checked
+                      ? Array.from(new Set([...current, ...filteredStudents.map(student => student.id)]))
+                      : current.filter(id => !filteredStudents.some(student => student.id === id))
+                    )}
+                  />
+                </th>
                 {[
+                  'Chagua',
                   'Na.',
                   'Picha',
                   'Namba',
@@ -875,6 +954,18 @@ export default function StudentsModule() {
             <tbody>
               {filteredStudents.map((student, index) => (
                 <tr key={student.id}>
+                  <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Chagua ${student.first_name} ${student.last_name}`}
+                      checked={selectedStudentIds.includes(student.id)}
+                      onChange={event => setSelectedStudentIds(current =>
+                        event.target.checked
+                          ? [...current, student.id]
+                          : current.filter(id => id !== student.id)
+                      )}
+                    />
+                  </td>
                   <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0', fontWeight: 700 }}>
                     {index + 1}
                   </td>
