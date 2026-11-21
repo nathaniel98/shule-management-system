@@ -199,10 +199,7 @@ export default function EnrollmentModule() {
     void loadInitial();
   }, []);
 
-  async function loadClassData(
-    selectedSchoolId = schoolId,
-    selectedClassId = classId
-  ) {
+  async function loadClassData(selectedSchoolId = schoolId) {
     if (!selectedSchoolId || !selectedClassId) {
       setStudents([]);
       setEnrollments([]);
@@ -279,7 +276,7 @@ export default function EnrollmentModule() {
     setSelectedIds([]);
     setEditing(null);
     setMessage('');
-    void loadClassData(schoolId, id);
+    void loadClassData(schoolId);
   }
 
   function toggleStudent(id: string, checked: boolean) {
