@@ -729,9 +729,9 @@ export default function FeesModule() {
   }
 
   function parseFeeImport(text: string) {
-    const lines = text.replace(/^\\uFEFF/, '').split(/\\r?\\n/).filter(line => line.trim());
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
     if (lines.length < 2) return [];
-    const delimiter = lines[0].includes('\\t') ? '\\t' : ',';
+    const delimiter = lines[0].includes('\t') ? '\t' : ',';
     const splitLine = (line: string) => {
       const values: string[] = [];
       let value = '', quoted = false;
@@ -835,7 +835,7 @@ export default function FeesModule() {
       }
       await refresh(); setFeeImportText(''); setShowFeeImport(false);
       setMessage('Import imekamilika. Akaunti: ' + importedAccounts + '; malipo: ' + importedPayments + '; mistari iliyorukwa: ' + skipped + '.');
-      if (issues.length) setError(issues.slice(0, 8).join('\\n'));
+      if (issues.length) setError(issues.slice(0, 8).join('\n'));
     } catch (e) { reportError(e); }
     finally { setFeeImporting(false); }
   }
