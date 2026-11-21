@@ -393,11 +393,36 @@ export default function FeesModule() {
         if (!active) return;
 
         const list = (data || []) as School[];
-        setSchools(list);
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
 
-        if (list.length) {
-          setSchoolId(list[0].id);
-          await loadSchoolData(list[0].id);
+        const isPlatformAdmin =
+          (authData.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+
+        if (isPlatformAdmin) {
+          setSchools(list);
+          if (list.length) {
+            setSchoolId(list[0].id);
+            await loadSchoolData(list[0].id);
+          }
+        } else {
+          const { data: assignedData, error: assignedError } =
+            await supabase.rpc('get_my_school');
+          if (assignedError) throw assignedError;
+
+          const assigned = Array.isArray(assignedData) ? assignedData[0] : assignedData;
+          if (!assigned?.school_id) {
+            throw new Error('Akaunti hii haijaunganishwa na shule.');
+          }
+
+          const assignedSchool = list.find(x => x.id === assigned.school_id);
+          if (!assignedSchool) {
+            throw new Error('Shule ya akaunti hii haipatikani kwenye orodha ya shule.');
+          }
+
+          setSchools([assignedSchool]);
+          setSchoolId(assignedSchool.id);
+          await loadSchoolData(assignedSchool.id);
         }
       } catch (e) {
         if (active) reportError(e);
