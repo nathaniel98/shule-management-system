@@ -14,11 +14,11 @@ const aliases: Record<string, string[]> = {
   middle_name: ['middle_name', 'middlename', 'jina la kati', 'middle name'],
   last_name: ['last_name', 'lastname', 'jina la mwisho', 'surname', 'last name'],
   full_name: ['full_name', 'name', 'majina kamili', 'jina kamili', 'full name'],
-  gender: ['gender', 'jinsia', 'sex'],
-  phone: ['phone', 'simu', 'namba ya simu', 'telephone'],
+  gender: ['gender', 'gnder', 'jinsia', 'sex'],
+  phone: ['phone', 'mobile', 'mobile number', 'simu', 'namba ya simu', 'telephone'],
   email: ['email', 'barua pepe'],
-  address: ['address', 'anwani'],
-  date_of_birth: ['date_of_birth', 'tarehe ya kuzaliwa', 'dob'],
+  address: ['address', 'living place', 'livingplace', 'anwani'],
+  date_of_birth: ['date_of_birth', 'birth date', 'birthdate', 'tarehe ya kuzaliwa', 'dob'],
   admission_date: ['admission_date', 'tarehe ya kujiunga'],
   employment_date: ['employment_date', 'tarehe ya ajira']
 };
@@ -65,6 +65,49 @@ function parseDelimited(text: string): string[][] {
   row.push(cell.trim());
   if (row.some(value => value !== '')) rows.push(row);
   return rows;
+}
+
+
+function rowsFromHtmlTable(html: string): ImportRow[] {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const table = doc.querySelector('table');
+  if (!table) return [];
+  const headers = Array.from(table.querySelectorAll('th')).map(cell => normalize(cell.textContent || ''));
+  const cells = Array.from(table.querySelectorAll('td')).map(cell => (cell.textContent || '').trim());
+  if (!headers.length || !cells.length) return [];
+  const headerMap = Object.entries(aliases).map(([field, names]) => ({
+    field, index: headers.findIndex(name => names.includes(name))
+  })).filter(item => item.index >= 0);
+  const nameIndex = headers.findIndex(name => ['name', 'full name', 'majina kamili'].includes(name));
+  if (nameIndex >= 0 && !headerMap.some(item => item.field === 'full_name')) headerMap.push({ field: 'full_name', index: nameIndex });
+  const result: ImportRow[] = [];
+  for (let offset = 0; offset + headers.length <= cells.length; offset += headers.length) {
+    const record = cells.slice(offset, offset + headers.length);
+    const row: ImportRow = {};
+    headerMap.forEach(({ field, index }) => { row[field] = record[index] || ''; });
+    if (!row.first_name && row.full_name) {
+      const names = row.full_name.trim().split(/\\s+/).filter(Boolean);
+      row.first_name = names[0] || '';
+      row.middle_name = names.length > 2 ? names.slice(1, -1).join(' ') : '';
+      row.last_name = names.length > 1 ? names[names.length - 1] : '';
+    }
+    const gender = normalizeGender(row.gender);
+    if (gender) row.gender = gender;
+    if (row.date_of_birth) {
+      const rawDate = row.date_of_birth.trim();
+      const iso = rawDate.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+      const short = rawDate.match(/^(\\d{1,2})-(\\d{1,2})-(\\d{2,4})$/);
+      if (iso) row.date_of_birth = iso[1] + '-' + iso[2].padStart(2, '0') + '-' + iso[3].padStart(2, '0');
+      else if (short) {
+        const year = short[3].length === 2 ? '20' + short[3] : short[3];
+        const month = Number(short[1]), day = Number(short[2]);
+        row.date_of_birth = month >= 1 && month <= 12 && day >= 1 && day <= 31
+          ? year + '-' + short[1].padStart(2, '0') + '-' + short[2].padStart(2, '0') : '';
+      } else row.date_of_birth = '';
+    }
+    if (row.first_name || row.last_name) result.push(row);
+  }
+  return result;
 }
 
 function rowsFromText(text: string): ImportRow[] {
@@ -183,15 +226,15 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
 
   async function chooseFile(file?: File) {
     if (!file) return;
-    if (!/\.(csv|txt|pdf|png|jpe?g|webp)$/i.test(file.name)) {
-      setError('Pakia CSV, TXT, PDF au picha (JPG, PNG, WEBP). Excel (.xlsx) ihifadhiwe kwanza kama CSV.');
+    if (!/\.(csv|txt|xls|html|pdf|png|jpe?g|webp)$/i.test(file.name)) {
+      setError('Pakia Excel (.xls), CSV, TXT, PDF au picha (JPG, PNG, WEBP).');
       return;
     }
     setFileName(file.name);
     setOcrProgress('');
     try {
       let extracted = '';
-      if (/\.pdf$/i.test(file.name)) {
+      if (/\.(xls|html)$/i.test(file.name)) {\n        const source = await file.text();\n        const parsed = rowsFromHtmlTable(source);\n        if (parsed.length) {\n          setText(''); setRows(parsed); setError(''); setMessage('');\n          setOcrProgress('Jedwali limesomwa: ' + parsed.length + ' wanafunzi. Kagua kabla ya kuingiza.');\n          return;\n        }\n        extracted = source;\n      } else if (/\\.pdf$/i.test(file.name)) {
         extracted = await extractPdfText(file, setOcrProgress);
       } else if (/\.(png|jpe?g|webp)$/i.test(file.name)) {
         extracted = await extractImageText(file, setOcrProgress);
@@ -291,12 +334,12 @@ export default function BulkImportPanel({ kind, schoolId, onComplete }: {
       <div>
         <h3 style={{ margin: '0 0 6px' }}>Import {kind === 'students' ? 'Wanafunzi' : 'Walimu'} (Excel/CSV au Copy-Paste)</h3>
         <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-          Pakia CSV, PDF au picha ya orodha; OCR itasoma maandishi hata kwenye PDF iliyoskaniwa. Unaweza pia kupaste kutoka Excel. {fieldHint}.
+          Pakia Excel (.xls), CSV, PDF au picha ya orodha; OCR itasoma maandishi hata kwenye PDF iliyoskaniwa. Unaweza pia kupaste kutoka Excel. {fieldHint}.
         </p>
       </div>
       <label style={{ display: 'grid', gap: 6, fontWeight: 600, fontSize: 14 }}>
-        Chagua CSV, PDF au picha (OCR)
-        <input type="file" accept=".csv,.txt,.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
+        Chagua Excel/XLS, CSV, PDF au picha (OCR)
+        <input type="file" accept=".xls,.html,.csv,.txt,.pdf,.png,.jpg,.jpeg,.webp,application/vnd.ms-excel,text/html,application/pdf,image/png,image/jpeg,image/webp,text/csv,text/plain" onChange={e => void chooseFile(e.target.files?.[0])} />
       </label>
       {fileName && <small style={{ color: '#475569' }}>Faili: {fileName}</small>}
       {ocrProgress && <p style={{ margin: 0, color: '#1d4ed8', fontSize: 13 }}>{ocrProgress}</p>}
