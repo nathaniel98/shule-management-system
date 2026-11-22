@@ -332,6 +332,31 @@ export default function SubjectsModule() {
           background: #b42318;
         }
 
+        .subjects-table-wrap {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          margin-top: 14px;
+        }
+
+        .subjects-table {
+          min-width: 720px;
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .subjects-table th,
+        .subjects-table td {
+          white-space: nowrap;
+        }
+
+        .subject-name-cell {
+          min-width: 190px;
+        }
+
         @media (max-width: 600px) {
           .subjects-card {
             padding: 15px;
@@ -343,69 +368,54 @@ export default function SubjectsModule() {
             line-height: 1.35;
           }
 
-          .subjects-table,
-          .subjects-table tbody {
-            display: block;
-            width: 100%;
+          /* Keep each subject on one horizontal row; swipe left/right to see all columns. */
+          .subjects-table-wrap {
+            margin-left: -2px;
+            width: calc(100% + 4px);
+            padding-bottom: 8px;
+          }
+
+          .subjects-table {
+            display: table;
+            width: max-content;
+            min-width: 720px;
+            table-layout: auto;
           }
 
           .subjects-table thead {
-            display: none;
+            display: table-header-group;
+          }
+
+          .subjects-table tbody {
+            display: table-row-group;
           }
 
           .subjects-table tr {
-            display: block;
-            width: 100%;
-            box-sizing: border-box;
-            margin: 12px 0;
-            padding: 10px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            background: #fff;
+            display: table-row;
           }
 
+          .subjects-table th,
           .subjects-table td {
-            display: grid;
-            grid-template-columns: 105px minmax(0, 1fr);
-            gap: 10px;
-            align-items: start;
-            width: 100%;
-            box-sizing: border-box;
-            padding: 10px 0;
-            border-bottom: 1px solid #edf0f4;
-            overflow-wrap: anywhere;
-            white-space: normal;
-          }
-
-          .subjects-table td:last-child {
-            border-bottom: 0;
+            display: table-cell;
+            padding: 13px 15px;
+            white-space: nowrap;
+            vertical-align: middle;
           }
 
           .subjects-table td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            color: #475569;
-          }
-
-          .subjects-table td.subject-actions-cell {
-            display: block;
-          }
-
-          .subjects-table td.subject-actions-cell::before {
-            display: block;
-            margin-bottom: 9px;
+            content: none;
           }
 
           .subject-actions {
             display: flex;
-            width: 100%;
-            gap: 10px;
+            flex-wrap: nowrap;
+            gap: 8px;
           }
 
           .subject-action-btn {
-            flex: 1;
-            min-width: 0;
-            padding: 11px 8px;
+            flex: 0 0 auto;
+            min-width: 86px;
+            padding: 10px 12px;
             font-size: 14px;
           }
         }
@@ -538,6 +548,7 @@ export default function SubjectsModule() {
 
         {loading ? <p>Inapakia...</p> :
           visible.length === 0 ? <p>Hakuna masomo yaliyopatikana.</p> : (
+          <div className="subjects-table-wrap" role="region" aria-label="Masomo yaliyosajiliwa; telezesha kushoto au kulia kuona safu zote" tabIndex={0}>
           <table className="subjects-table">
             <thead>
               <tr>
@@ -577,6 +588,7 @@ export default function SubjectsModule() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>
