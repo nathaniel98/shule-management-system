@@ -85,7 +85,7 @@ export default function SchoolSettingsModule({ isSuperAdmin }: { isSuperAdmin: b
         <div style={{display:'grid',gap:10}}><strong>Logo / Nembo ya shule</strong>{url(branding?.logo_path)&&<img src={url(branding?.logo_path)} alt="Logo ya shule" style={{width:112,height:112,objectFit:'contain',border:'1px solid #e2e8f0',borderRadius:10,padding:8}}/>}{uploadField('Pakia logo mpya',setLogo)}{logo&&<small>{logo.name}</small>}</div>
         <div style={{display:'grid',gap:10}}><strong>Letterhead / Kichwa rasmi cha shule</strong>{url(branding?.letterhead_path)&&<img src={url(branding?.letterhead_path)} alt="Letterhead ya shule" style={{width:'100%',maxHeight:150,objectFit:'contain',border:'1px solid #e2e8f0',borderRadius:10,padding:8}}/>}{uploadField('Pakia picha ya Letterhead',setLetterhead)}{letterhead&&<small>{letterhead.name}</small>}</div>
       </div>
-      <button type="button" disabled={saving||(!logo&&!letterhead)} onClick={()=>void save()} style={{marginTop:20,border:0,borderRadius:9,padding:'12px 18px',background:'#173b5e',color:'#fff',fontWeight:700,opacity:saving?.65:1}}>{saving?'Inahifadhi...':'Hifadhi Mipangilio'}</button>
+      <button type="button" disabled={saving||(!logo&&!letterhead)} onClick={()=>void save()} style={{marginTop:20,border:0,borderRadius:9,padding:'12px 18px',background:'#173b5e',color:'#fff',fontWeight:700,opacity:saving ? 0.65 : 1}}>{saving?'Inahifadhi...':'Hifadhi Mipangilio'}</button>
     </>}
   </div></section>;
 }
