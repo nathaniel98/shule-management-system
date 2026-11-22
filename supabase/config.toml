@@ -1,0 +1,8 @@
+[functions.school-admin-login]
+verify_jwt = false
+
+[functions.create-school-admin]
+verify_jwt = true
+
+[functions.reset-school-admin-password]
+verify_jwt = true
