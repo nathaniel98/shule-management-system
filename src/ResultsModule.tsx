@@ -538,13 +538,49 @@ export default function ResultsModule() {
           display: none;
         }
 
-        .results-student-card {
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 13px;
+        .results-mobile-wrap {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
           margin-top: 12px;
-          display: grid;
-          gap: 11px;
+          padding-bottom: 8px;
+        }
+
+        .results-mobile-table {
+          width: max-content;
+          min-width: 1050px;
+          border-collapse: collapse;
+        }
+
+        .results-mobile-table th,
+        .results-mobile-table td {
+          padding: 12px 14px;
+          border-bottom: 1px solid #e2e8f0;
+          text-align: left;
+          vertical-align: middle;
+          white-space: nowrap;
+        }
+
+        .results-mobile-table th {
+          background: #f8fafc;
+        }
+
+        .results-mobile-table input[type="number"] {
+          width: 85px;
+          box-sizing: border-box;
+          padding: 9px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+        }
+
+        .results-mobile-table .results-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: nowrap;
+          align-items: center;
         }
 
         .results-actions {
@@ -772,92 +808,106 @@ export default function ResultsModule() {
                 </div>
 
                 <div className="results-mobile">
-                  {visibleStudents.map((student, index) => {
-                    const enrollment = enrollments.find(
-                      e => e.student_id === student.id
-                    );
-                    if (!enrollment) return null;
+                  <div className="results-mobile-wrap" role="region" aria-label="Matokeo ya wanafunzi; telezesha kushoto au kulia kuona safu zote" tabIndex={0}>
+                    <table className="results-mobile-table">
+                      <thead>
+                        <tr>
+                          <th>Na.</th>
+                          <th>Jina la mwanafunzi</th>
+                          <th>Admission No.</th>
+                          <th>Alama / {selectedSubject.maximum_marks}</th>
+                          <th>Grade</th>
+                          <th>Hayupo</th>
+                          <th>Maoni</th>
+                          <th>Vitendo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleStudents.map((student, index) => {
+                          const enrollment = enrollments.find(
+                            e => e.student_id === student.id
+                          );
+                          if (!enrollment) return null;
 
-                    const value = marks[enrollment.id] || '';
-                    const isAbsent = Boolean(absent[enrollment.id]);
-                    const saved = results.some(
-                      r => r.enrollment_id === enrollment.id
-                    );
+                          const value = marks[enrollment.id] || '';
+                          const isAbsent = Boolean(absent[enrollment.id]);
+                          const saved = results.some(
+                            r => r.enrollment_id === enrollment.id
+                          );
 
-                    return (
-                      <div className="results-student-card" key={student.id}>
-                        <strong>{index + 1}. {studentName(student)}</strong>
-                        <span>Admission: {student.admission_no}</span>
-
-                        <label>
-                          Alama / {selectedSubject.maximum_marks}
-                          <input
-                            type="number"
-                            min="0"
-                            max={selectedSubject.maximum_marks}
-                            disabled={isAbsent || (saved && !editing[enrollment.id])}
-                            value={value}
-                            onChange={e => setMarks(current => ({
-                              ...current,
-                              [enrollment.id]: e.target.value
-                            }))}
-                          />
-                        </label>
-
-                        <label>
-                          <input
-                            type="checkbox"
-                            disabled={saved && !editing[enrollment.id]}
-                            checked={isAbsent}
-                            onChange={e => setAbsent(current => ({
-                              ...current,
-                              [enrollment.id]: e.target.checked
-                            }))}
-                          />
-                          Mwanafunzi hayupo
-                        </label>
-
-                        <label>
-                          Maoni
-                          <input
-                            style={{ ...inputStyle, width: '100%' }}
-                            disabled={saved && !editing[enrollment.id]}
-                            value={remarks[enrollment.id] || ''}
-                            onChange={e => setRemarks(current => ({
-                              ...current,
-                              [enrollment.id]: e.target.value
-                            }))}
-                          />
-                        </label>
-
-                        <div>
-                          <strong>Grade: </strong>
-                          {isAbsent ? 'ABS' : value !== ''
-                            ? grade(Number(value), Number(selectedSubject.maximum_marks))
-                            : '-'}
-                        </div>
-
-                        {saved && (
-                          <div className="results-actions">
-                          <button
-                            style={{ ...buttonStyle, background: '#2563eb' }}
-                            onClick={() => setEditing(current => ({ ...current, [enrollment.id]: !current[enrollment.id] }))}
-                          >
-                            {editing[enrollment.id] ? 'Acha kuhariri' : 'Hariri'}
-                          </button>
-                          <button
-                            style={{ ...buttonStyle, background: '#b42318' }}
-                            onClick={() => deleteResult(enrollment.id)}
-                          >
-                            Futa matokeo
-                          </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          return (
+                            <tr key={student.id}>
+                              <td>{index + 1}</td>
+                              <td><strong>{studentName(student)}</strong></td>
+                              <td>{student.admission_no}</td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={selectedSubject.maximum_marks}
+                                  disabled={isAbsent || (saved && !editing[enrollment.id])}
+                                  value={value}
+                                  onChange={e => setMarks(current => ({
+                                    ...current,
+                                    [enrollment.id]: e.target.value
+                                  }))}
+                                />
+                              </td>
+                              <td>
+                                {isAbsent ? 'ABS' : value !== ''
+                                  ? grade(Number(value), Number(selectedSubject.maximum_marks))
+                                  : '-'}
+                              </td>
+                              <td>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                                  <input
+                                    type="checkbox"
+                                    disabled={saved && !editing[enrollment.id]}
+                                    checked={isAbsent}
+                                    onChange={e => setAbsent(current => ({
+                                      ...current,
+                                      [enrollment.id]: e.target.checked
+                                    }))}
+                                  />
+                                  Hayupo
+                                </label>
+                              </td>
+                              <td>
+                                <input
+                                  style={{ ...inputStyle, width: 180 }}
+                                  disabled={saved && !editing[enrollment.id]}
+                                  value={remarks[enrollment.id] || ''}
+                                  onChange={e => setRemarks(current => ({
+                                    ...current,
+                                    [enrollment.id]: e.target.value
+                                  }))}
+                                />
+                              </td>
+                              <td>
+                                {saved && (
+                                  <div className="results-actions">
+                                    <button
+                                      style={{ ...buttonStyle, background: '#2563eb' }}
+                                      onClick={() => setEditing(current => ({ ...current, [enrollment.id]: !current[enrollment.id] }))}
+                                    >
+                                      {editing[enrollment.id] ? 'Acha kuhariri' : 'Hariri'}
+                                    </button>
+                                    <button
+                                      style={{ ...buttonStyle, background: '#b42318' }}
+                                      onClick={() => deleteResult(enrollment.id)}
+                                    >
+                                      Futa matokeo
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
                 <div className="results-actions" style={{ marginTop: 18 }}>
                   <button
                     style={buttonStyle}
