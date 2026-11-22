@@ -676,10 +676,15 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
           .reports-root {
             display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 210mm !important;
             max-width: 210mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            z-index: 2147483647 !important;
+            overflow: visible !important;
           }
 
           .reports-root > * {
