@@ -21,6 +21,9 @@ type SchoolForm = {
   email: string;
   phone: string;
   address: string;
+  admin_username: string;
+  admin_email: string;
+  admin_password: string;
 };
 
 const emptyForm: SchoolForm = {
@@ -31,6 +34,9 @@ const emptyForm: SchoolForm = {
   email: '',
   phone: '',
   address: '',
+  admin_username: '',
+  admin_email: '',
+  admin_password: '',
 };
 
 const inputStyle = {
@@ -195,7 +201,7 @@ export function SchoolModule() {
       admin_username: '',
       admin_email: '',
       admin_password: '',
-    } as SchoolForm);
+    });
     setShowForm(true);
     setError('');
     setMessage('Hariri taarifa za shule. Username na password za admin hazibadilishwi hapa.');
