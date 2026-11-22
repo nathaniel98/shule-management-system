@@ -306,22 +306,38 @@ function App() {
     setAuthLoading(true);
     setNotice('');
 
-    const { data: loginData, error: invokeError } = await supabase.functions.invoke('school-admin-login', {
-      body: { identifier: email.trim(), password }
-    });
+    const identifier = email.trim();
+    let signInError: string | null = null;
 
-    if (invokeError || !loginData?.access_token || !loginData?.refresh_token) {
-      setAuthLoading(false);
-      setNotice(loginData?.error || invokeError?.message || 'Imeshindikana kuingia. Kagua taarifa zako.');
-      return;
+    // Email login goes directly to Supabase Auth. This avoids an unnecessary
+    // Edge Function hop for Super Admin and School Admin email addresses.
+    if (identifier.includes('@')) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: identifier.toLowerCase(),
+        password
+      });
+      signInError = error?.message || null;
+    } else {
+      // Usernames are resolved securely by the server-side login function.
+      const { data: loginData, error: invokeError } = await supabase.functions.invoke('school-admin-login', {
+        body: { identifier, password }
+      });
+
+      if (invokeError) {
+        signInError = invokeError.message;
+      } else if (loginData?.access_token && loginData?.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: loginData.access_token,
+          refresh_token: loginData.refresh_token
+        });
+        signInError = error?.message || null;
+      } else {
+        signInError = loginData?.error || 'Jibu la kuingia halijakamilika. Jaribu tena.';
+      }
     }
 
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: loginData.access_token,
-      refresh_token: loginData.refresh_token
-    });
     setAuthLoading(false);
-    if (sessionError) setNotice(sessionError.message);
+    if (signInError) setNotice(signInError);
   }
 
   async function signOut() {
