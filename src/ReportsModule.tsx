@@ -698,7 +698,10 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
           }
 
           .student-print-page.has-letterhead {
-            padding: 48mm 18mm 24mm;
+            height: 297mm;
+            min-height: 297mm;
+            padding: 59mm 18mm 36mm;
+            overflow: hidden;
           }
 
           .student-print-letterhead-bg {
@@ -724,22 +727,40 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
           .student-print-heading {
             text-align: center;
-            border-bottom: 2px solid #173b5e;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            border-bottom: 1px solid #173b5e;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+          }
+
+          .student-print-page.has-letterhead > h2 {
+            font-size: 19px !important;
+            line-height: 1.15;
+            margin: 5px 0 !important;
+          }
+
+          .student-print-page.has-letterhead p {
+            margin-top: 4px !important;
+            margin-bottom: 4px !important;
+            line-height: 1.2;
+            font-size: 10px;
+          }
+
+          .student-print-page.has-letterhead h3 {
+            margin: 6px 0 !important;
+            font-size: 12px;
           }
 
           .student-print-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
-            font-size: 12px;
+            margin-top: 7px;
+            font-size: 10px;
           }
 
           .student-print-table th,
           .student-print-table td {
             border: 1px solid #94a3b8;
-            padding: 7px;
+            padding: 4px;
             text-align: left;
           }
 
@@ -752,27 +773,32 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
           .student-print-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 14px;
+            gap: 5px;
+            margin-top: 7px;
           }
 
           .student-print-box {
             border: 1px solid #cbd5e1;
-            border-radius: 5px;
-            padding: 9px;
+            border-radius: 4px;
+            padding: 5px;
+            font-size: 10px;
           }
 
           .student-print-box h2 {
-            margin: 6px 0 0;
-            font-size: 19px;
+            margin: 3px 0 0;
+            font-size: 15px;
           }
 
           .student-print-signatures {
             display: flex;
             justify-content: space-between;
-            gap: 10px;
-            margin-top: 20px;
-            font-size: 11px;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 9px;
+          }
+
+          .student-print-page.has-letterhead > div[style*="margin-top: 16px"] {
+            margin-top: 7px !important;
           }
 
           .no-print {
