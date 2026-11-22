@@ -77,6 +77,7 @@ export function SchoolModule() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
 
   async function loadSchools() {
     if (!supabase) {
@@ -132,6 +133,29 @@ export function SchoolModule() {
     setError('');
     setMessage('');
 
+    if (editingSchoolId) {
+      const { error: updateError } = await supabase.from('schools').update({
+        school_name: form.school_name.trim(),
+        school_type: form.school_type,
+        education_system: form.education_system,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+      }).eq('id', editingSchoolId);
+
+      if (updateError) {
+        setError(`Imeshindikana kuhariri shule: ${updateError.message}`);
+      } else {
+        setMessage('Taarifa za shule zimehaririwa kikamilifu.');
+        setForm({ ...emptyForm });
+        setEditingSchoolId(null);
+        setShowForm(false);
+        await loadSchools();
+      }
+      setSaving(false);
+      return;
+    }
+
     const { data: result, error: createError } = await supabase.functions.invoke('create-school-admin', {
       body: {
         school_name: form.school_name.trim(),
@@ -156,6 +180,26 @@ export function SchoolModule() {
     }
 
     setSaving(false);
+  }
+
+  function editSchool(school: School) {
+    setEditingSchoolId(school.id);
+    setForm({
+      school_name: school.school_name || '',
+      school_code: school.school_code || '',
+      school_type: school.school_type || 'Private',
+      education_system: school.education_system || 'Zanzibar',
+      email: school.email || '',
+      phone: school.phone || '',
+      address: school.address || '',
+      admin_username: '',
+      admin_email: '',
+      admin_password: '',
+    } as SchoolForm);
+    setShowForm(true);
+    setError('');
+    setMessage('Hariri taarifa za shule. Username na password za admin hazibadilishwi hapa.');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function deleteSchool(school: School) {
@@ -219,7 +263,7 @@ export function SchoolModule() {
           </div>
           <strong style={{ fontSize: 34, color: '#173b5e' }}>{loading ? '...' : schools.length}</strong>
         </div>
-        <button type="button" onClick={() => { setShowForm(value => !value); setError(''); setMessage(''); }}
+        <button type="button" onClick={() => { setShowForm(value => !value); if (showForm) { setEditingSchoolId(null); setForm({ ...emptyForm }); } setError(''); setMessage(''); }}
           style={{ marginTop: 18, padding: '12px 18px', minHeight: 46, border: 0, borderRadius: 10, background: '#173b5e', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
           {showForm ? 'Funga fomu' : '+ Sajili shule mpya'}
         </button>
@@ -227,7 +271,7 @@ export function SchoolModule() {
 
       {showForm && <div style={cardStyle}>
         <h2 style={{ margin: '0 0 8px', color: '#173b5e', fontSize: 'clamp(22px, 5vw, 30px)' }}>
-          Usajili wa Shule
+          {editingSchoolId ? 'Hariri Taarifa za Shule' : 'Usajili wa Shule'}
         </h2>
 
         <p style={{ margin: '0 0 20px', color: '#64748b', lineHeight: 1.6 }}>
@@ -297,7 +341,7 @@ export function SchoolModule() {
                 lineHeight: 1.5,
               }}
             >
-              <strong>Namba ya shule:</strong> Itatengenezwa na mfumo moja kwa moja baada ya kusajili shule.
+              <strong>Namba ya shule:</strong> {editingSchoolId ? 'Namba ya shule haiwezi kubadilishwa hapa.' : 'Itatengenezwa na mfumo moja kwa moja baada ya kusajili shule.'}
               <br />
               Mfano: {form.education_system === 'Tanzania Mainland' ? 'TZA' : 'ZNZ'}/SCH/{new Date().getFullYear()}/0001
             </div>
@@ -339,25 +383,25 @@ export function SchoolModule() {
               />
             </label>
 
-            <label style={labelStyle}>
+            {!editingSchoolId && <label style={labelStyle}>
               Username ya msimamizi wa shule *
               <input style={inputStyle} required minLength={3} maxLength={30} pattern="[a-zA-Z0-9._-]+"
                 value={form.admin_username}
                 onChange={(event) => setForm({ ...form, admin_username: event.target.value })}
                 placeholder="mfano: brightfuture" autoComplete="username" />
-            </label>
-            <label style={labelStyle}>
+            </label>}
+            {!editingSchoolId && <label style={labelStyle}>
               Barua pepe ya msimamizi *
               <input style={inputStyle} required type="email" value={form.admin_email}
                 onChange={(event) => setForm({ ...form, admin_email: event.target.value })}
                 placeholder="admin@shule.co.tz" autoComplete="email" />
-            </label>
-            <label style={labelStyle}>
+            </label>}
+            {!editingSchoolId && <label style={labelStyle}>
               Nenosiri la mwanzo * (angalau herufi/namba 10)
               <input style={inputStyle} required type="password" minLength={10} value={form.admin_password}
                 onChange={(event) => setForm({ ...form, admin_password: event.target.value })}
                 placeholder="Tengeneza nenosiri salama" autoComplete="new-password" />
-            </label>
+            </label>}
             <label style={labelStyle}>
               Namba ya simu
               <input
@@ -400,7 +444,7 @@ export function SchoolModule() {
               cursor: saving ? 'wait' : 'pointer',
             }}
           >
-            {saving ? 'Inasajili...' : 'Sajili Shule'}
+            {saving ? 'Inahifadhi...' : editingSchoolId ? 'Hifadhi Mabadiliko' : 'Sajili Shule'}
           </button>
         </form>
       </div>}
@@ -501,6 +545,22 @@ export function SchoolModule() {
                       {school.phone || '—'}
                     </td>
                     <td style={{ padding: 11, borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => editSchool(school)}
+                        style={{
+                          padding: '8px 12px',
+                          border: '1px solid #bfdbfe',
+                          borderRadius: 8,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Hariri
+                      </button>
                       <button
                         type="button"
                         onClick={() => void deleteSchool(school)}
@@ -516,6 +576,7 @@ export function SchoolModule() {
                       >
                         Futa
                       </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
