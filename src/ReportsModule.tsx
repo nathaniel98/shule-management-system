@@ -660,7 +660,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
         @media print {
           @page {
             size: A4;
-            margin: 10mm;
+            margin: 0;
           }
 
           body * {
@@ -677,19 +677,43 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%;
+            width: 210mm;
             background: #fff;
             color: #172b3d;
           }
 
           .student-print-page {
             display: block;
-            width: 100%;
-            min-height: 0;
+            position: relative;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 10mm 15mm;
+            overflow: hidden;
+            background: #fff;
+            box-sizing: border-box;
             break-inside: avoid;
             page-break-inside: avoid;
             break-after: auto;
             page-break-after: auto;
+          }
+
+          .student-print-page.has-letterhead {
+            padding: 48mm 18mm 24mm;
+          }
+
+          .student-print-letterhead-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            display: block;
+            width: 210mm;
+            height: 297mm;
+            object-fit: fill;
+          }
+
+          .student-print-page > *:not(.student-print-letterhead-bg) {
+            position: relative;
+            z-index: 1;
           }
 
           /* Add a new page only between reports, never after the final report. */
@@ -1063,11 +1087,10 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             {rows
               .filter(r => printingId === null || r.enrollment.id === printingId)
               .map(r => (
-                <section key={r.enrollment.id} className={`student-print-page${printingId !== null ? ' single-report' : ''}`}>
+                <section key={r.enrollment.id} className={`student-print-page${printingId !== null ? ' single-report' : ''}${schoolLetterheadUrl ? ' has-letterhead' : ''}`}>
+                  {schoolLetterheadUrl && <img className="student-print-letterhead-bg" src={schoolLetterheadUrl} alt="" />}
                   <header className="student-print-heading">
-                    {schoolLetterheadUrl ? (
-                      <img src={schoolLetterheadUrl} alt="Letterhead ya shule" style={{ display: 'block', width: '100%', maxHeight: 125, objectFit: 'contain', margin: '0 auto 8px' }} />
-                    ) : (
+                    {schoolLetterheadUrl ? null : (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
                         {schoolLogoUrl && <img src={schoolLogoUrl} alt="Logo ya shule" style={{ width: 76, height: 76, objectFit: 'contain' }} />}
                         <div>
