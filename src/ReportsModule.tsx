@@ -533,6 +533,27 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
           overflow-x: auto;
           overflow-y: hidden;
           -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+        }
+
+        /* Keep every student-summary field on one line; swipe horizontally on phones. */
+        .reports-root .report-table {
+          width: max-content !important;
+          min-width: 1050px;
+          table-layout: auto;
+        }
+
+        .reports-root .report-table th,
+        .reports-root .report-table td {
+          white-space: nowrap;
+          overflow-wrap: normal !important;
+          word-break: normal;
+          vertical-align: middle;
+        }
+
+        .reports-root .report-table th:nth-child(3),
+        .reports-root .report-table td:nth-child(3) {
+          min-width: 220px;
         }
 
         .reports-root .subject-card {
