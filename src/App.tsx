@@ -306,14 +306,22 @@ function App() {
     setAuthLoading(true);
     setNotice('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    const { data: loginData, error: invokeError } = await supabase.functions.invoke('school-admin-login', {
+      body: { identifier: email.trim(), password }
     });
 
-    setAuthLoading(false);
+    if (invokeError || !loginData?.access_token || !loginData?.refresh_token) {
+      setAuthLoading(false);
+      setNotice(loginData?.error || invokeError?.message || 'Imeshindikana kuingia. Kagua taarifa zako.');
+      return;
+    }
 
-    if (error) setNotice(error.message);
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: loginData.access_token,
+      refresh_token: loginData.refresh_token
+    });
+    setAuthLoading(false);
+    if (sessionError) setNotice(sessionError.message);
   }
 
   async function signOut() {
@@ -383,13 +391,14 @@ function App() {
           </p>
 
           <form onSubmit={signIn}>
-            <label>Barua pepe</label>
+            <label>Username au barua pepe</label>
 
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="jina@shule.co.tz"
+              placeholder="Username au jina@shule.co.tz"
+autoComplete="username"
               required
             />
 
