@@ -688,19 +688,14 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             min-height: 0;
             break-inside: avoid;
             page-break-inside: avoid;
-            break-after: page;
-            page-break-after: always;
-          }
-
-          .student-print-page:last-child {
             break-after: auto;
             page-break-after: auto;
           }
 
-          /* A single selected student must never force an extra trailing page. */
-          .student-print-page.single-report {
-            break-after: auto !important;
-            page-break-after: auto !important;
+          /* Add a new page only between reports, never after the final report. */
+          .student-print-page:not(:last-child) {
+            break-after: page;
+            page-break-after: always;
           }
 
           .student-print-heading {
