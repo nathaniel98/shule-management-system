@@ -654,20 +654,33 @@ export default function ExamsModule() {
         );
       }
 
-      // Confirm the exact user in the live browser session is the
-      // super-admin recorded in system_admins before attempting the INSERT.
-      const { data: isSuperAdmin, error: adminCheckError } =
-        await supabase.rpc('is_super_admin');
+      // Super Admin may manage every school. An active School Admin may
+      // create exams only for the school linked to their membership.
+      const [
+        { data: isSuperAdmin, error: adminCheckError },
+        { data: canManageSchool, error: schoolAccessError },
+      ] = await Promise.all([
+        supabase.rpc('is_super_admin'),
+        supabase.rpc('is_active_school_admin_for_school', {
+          p_school_id: form.school_id,
+        }),
+      ]);
 
       if (adminCheckError) {
         throw new Error(
-          `Imeshindikana kuthibitisha ruhusa za Super Admin. User ID: ${authenticatedUser.id}. ${adminCheckError.message}`
+          `Imeshindikana kuthibitisha ruhusa za Super Admin: ${adminCheckError.message}`
         );
       }
 
-      if (isSuperAdmin !== true) {
+      if (schoolAccessError) {
         throw new Error(
-          `Akaunti hii haina ruhusa ya Super Admin kwenye session ya sasa. User ID ya akaunti iliyoingia: ${authenticatedUser.id}. Hakikisha UUID hii ndiyo iliyopo kwenye system_admins.user_id na role='super_admin' pamoja na is_active=true. Usitumie UUID ya akaunti nyingine.`
+          `Imeshindikana kuthibitisha ruhusa za shule hii: ${schoolAccessError.message}`
+        );
+      }
+
+      if (isSuperAdmin !== true && canManageSchool !== true) {
+        throw new Error(
+          'Akaunti hii haina ruhusa ya kusajili mtihani katika shule uliyochagua. Hakikisha umeunganishwa na shule hiyo kama School Admin.'
         );
       }
 
