@@ -28,5 +28,25 @@ CREATE POLICY school_admin_profiles_owner_update
   USING (user_id = auth.uid() OR public.is_super_admin())
   WITH CHECK (user_id = auth.uid() OR public.is_super_admin());
 
+-- Authenticated users may change only the username, not school_id or user_id.
 REVOKE ALL ON public.school_admin_profiles FROM anon;
-GRANT SELECT, UPDATE ON public.school_admin_profiles TO authenticated;
+REVOKE UPDATE ON public.school_admin_profiles FROM authenticated;
+GRANT SELECT ON public.school_admin_profiles TO authenticated;
+GRANT UPDATE (username) ON public.school_admin_profiles TO authenticated;
+
+-- Keep updated_at current whenever a username is changed.
+CREATE OR REPLACE FUNCTION public.set_school_admin_profile_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS school_admin_profiles_set_updated_at ON public.school_admin_profiles;
+CREATE TRIGGER school_admin_profiles_set_updated_at
+  BEFORE UPDATE OF username ON public.school_admin_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_school_admin_profile_updated_at();
