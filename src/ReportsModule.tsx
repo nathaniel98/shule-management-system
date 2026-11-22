@@ -1002,10 +1002,10 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                 </thead>
                 <tbody>
                   {subjects.map((subject, index) => {
-                    const enteredMarks = rows
+                    const numericMarks = rows
                       .map(row => row.marks[subject.id])
-                      .filter((mark): mark is number | string => mark !== null && mark !== undefined && mark !== '');
-                    const numericMarks = enteredMarks.map(Number).filter(Number.isFinite);
+                      .filter((mark): mark is number => mark !== null && mark !== undefined)
+                      .filter(Number.isFinite);
                     const averageMark = numericMarks.length
                       ? numericMarks.reduce((sum, mark) => sum + mark, 0) / numericMarks.length
                       : null;
