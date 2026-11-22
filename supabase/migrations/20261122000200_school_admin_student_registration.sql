@@ -1,6 +1,28 @@
 -- Allow an active school_admin to register students only in their own school.
 -- This is additive: existing SELECT/UPDATE/DELETE policies and student data remain unchanged.
 
+-- SECURITY DEFINER keeps membership verification independent of school_members RLS,
+-- while auth.uid() still binds the check to the signed-in user.
+CREATE OR REPLACE FUNCTION public.is_active_school_admin_for_school(p_school_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.school_members AS sm
+    WHERE sm.user_id = auth.uid()
+      AND sm.school_id = p_school_id
+      AND sm.role = 'school_admin'
+      AND sm.is_active IS TRUE
+  );
+$function$;
+
+REVOKE ALL ON FUNCTION public.is_active_school_admin_for_school(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_active_school_admin_for_school(uuid) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.assign_internal_student_admission_number()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -16,14 +38,7 @@ BEGIN
   -- A school administrator is authorized only for their active school membership.
   IF COALESCE(auth.role(), '') <> 'service_role'
      AND NOT public.is_system_admin()
-     AND NOT EXISTS (
-       SELECT 1
-       FROM public.school_members AS sm
-       WHERE sm.user_id = auth.uid()
-         AND sm.school_id = NEW.school_id
-         AND sm.role = 'school_admin'
-         AND sm.is_active IS TRUE
-     )
+     AND NOT public.is_active_school_admin_for_school(NEW.school_id)
   THEN
     RAISE EXCEPTION 'Not authorized to register students for this school'
       USING ERRCODE = '42501';
@@ -73,12 +88,5 @@ CREATE POLICY students_insert_school_admin_own_school
   TO authenticated
   WITH CHECK (
     public.is_system_admin()
-    OR EXISTS (
-      SELECT 1
-      FROM public.school_members AS sm
-      WHERE sm.user_id = auth.uid()
-        AND sm.school_id = students.school_id
-        AND sm.role = 'school_admin'
-        AND sm.is_active IS TRUE
-    )
+    OR public.is_active_school_admin_for_school(students.school_id)
   );
