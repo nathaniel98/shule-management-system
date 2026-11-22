@@ -177,7 +177,36 @@ export function SchoolModule() {
     });
 
     if (createError || !result?.success) {
-      setError(result?.error || createError?.message || 'Usajili wa shule na akaunti umeshindikana.');
+      let detail = result?.error || '';
+      let stage = result?.stage || '';
+      const responseContext = (createError as any)?.context;
+      if ((!detail || !stage) && responseContext && typeof responseContext.clone === 'function') {
+        try {
+          const responseBody = await responseContext.clone().json();
+          detail = responseBody?.error || detail;
+          stage = responseBody?.stage || stage;
+        } catch {
+          // Keep the SDK error below when the response has no JSON body.
+        }
+      }
+      const stageNames: Record<string, string> = {
+        server_configuration: 'Mipangilio ya seva',
+        authentication: 'Uthibitishaji wa akaunti',
+        super_admin_check: 'Uhakiki wa Super Admin',
+        request_body: 'Taarifa zilizotumwa',
+        validation: 'Ukaguzi wa taarifa',
+        username_check: 'Ukaguzi wa username',
+        create_school: 'Kutengeneza shule kwenye database',
+        create_auth_user: 'Kutengeneza akaunti ya Admin',
+        create_school_member: 'Kuunganisha Admin na shule',
+        create_admin_profile: 'Kutengeneza profile ya Admin',
+      };
+      const stageText = stageNames[stage] || stage;
+      setError(
+        detail
+          ? `Usajili umeshindikana${stageText ? ` — ${stageText}` : ''}: ${detail}`
+          : createError?.message || 'Usajili wa shule na akaunti umeshindikana. Tafadhali kagua Logs za Edge Function.'
+      );
     } else {
       setMessage(`Shule imesajiliwa. Username ya msimamizi: ${result.username}. Barua pepe ya kuingia: ${result.admin_email}`);
       setForm({ ...emptyForm });
