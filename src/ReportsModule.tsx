@@ -673,6 +673,12 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             page-break-after: auto;
           }
 
+          /* A single selected student must never force an extra trailing page. */
+          .student-print-page.single-report {
+            break-after: auto !important;
+            page-break-after: auto !important;
+          }
+
           .student-print-heading {
             text-align: center;
             border-bottom: 2px solid #173b5e;
@@ -1038,7 +1044,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             {rows
               .filter(r => printingId === null || r.enrollment.id === printingId)
               .map(r => (
-                <section key={r.enrollment.id} className="student-print-page">
+                <section key={r.enrollment.id} className={`student-print-page${printingId !== null ? ' single-report' : ''}`}>
                   <header className="student-print-heading">
                     <h1 style={{ margin: 0, color: '#173b5e' }}>
                       {selectedSchool?.school_name || 'SHULE'}
