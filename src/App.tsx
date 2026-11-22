@@ -10,6 +10,7 @@ import SubjectsModule from './SubjectsModule';
 import ExamsModule from './ExamsModule';
 import ResultsModule from './ResultsModule';
 import ReportsModule from './ReportsModule';
+import SchoolSettingsModule from './SchoolSettingsModule';
 import AcademicYearsModule from './AcademicYearsModule';
 
 import {
@@ -661,6 +662,8 @@ autoComplete="username"
             <ReportsModule onEditResults={() => setSection('results')} />
           ) : section === 'fees' ? (
             <FeesModule />
+          ) : section === 'settings' ? (
+            <SchoolSettingsModule isSuperAdmin={isSuperAdmin} />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
