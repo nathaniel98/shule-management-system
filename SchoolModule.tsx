@@ -132,31 +132,24 @@ export function SchoolModule() {
     setError('');
     setMessage('');
 
-    // Do not request a returned row here: INSERT ... RETURNING also requires
-    // SELECT permission and can fail even when the INSERT policy allows the write.
-    const { error: insertError } = await supabase
-      .from('schools')
-      .insert({
+    const { data: result, error: createError } = await supabase.functions.invoke('create-school-admin', {
+      body: {
         school_name: form.school_name.trim(),
         school_type: form.school_type,
         education_system: form.education_system,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        address: form.address.trim() || null,
-      });
-
-    if (insertError) {
-      if (insertError.code === '42501') {
-        setError(`Ruhusa imekataliwa na Supabase (RLS): ${insertError.message}`);
-      } else if (insertError.code === '23505') {
-        setError('Namba hii ya usajili tayari imetumika. Mfumo haujaweza kutengeneza namba mpya.');
-      } else if (insertError.code === '23502') {
-        setError(`Kuna taarifa ya lazima haijatumwa: ${insertError.message}`);
-      } else {
-        setError(`Usajili umeshindikana [${insertError.code ?? 'unknown'}]: ${insertError.message}`);
+        school_email: form.email.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        username: form.admin_username.trim().toLowerCase(),
+        admin_email: form.admin_email.trim().toLowerCase(),
+        password: form.admin_password
       }
+    });
+
+    if (createError || !result?.success) {
+      setError(result?.error || createError?.message || 'Usajili wa shule na akaunti umeshindikana.');
     } else {
-      setMessage('Shule imesajiliwa kikamilifu. Namba ya shule imetengenezwa na mfumo.');
+      setMessage(`Shule imesajiliwa. Username ya msimamizi: ${result.username}. Barua pepe ya kuingia: ${result.admin_email}`);
       setForm({ ...emptyForm });
       setShowForm(false);
       await loadSchools();
@@ -346,6 +339,25 @@ export function SchoolModule() {
               />
             </label>
 
+            <label style={labelStyle}>
+              Username ya msimamizi wa shule *
+              <input style={inputStyle} required minLength={3} maxLength={30} pattern="[a-zA-Z0-9._-]+"
+                value={form.admin_username}
+                onChange={(event) => setForm({ ...form, admin_username: event.target.value })}
+                placeholder="mfano: brightfuture" autoComplete="username" />
+            </label>
+            <label style={labelStyle}>
+              Barua pepe ya msimamizi *
+              <input style={inputStyle} required type="email" value={form.admin_email}
+                onChange={(event) => setForm({ ...form, admin_email: event.target.value })}
+                placeholder="admin@shule.co.tz" autoComplete="email" />
+            </label>
+            <label style={labelStyle}>
+              Nenosiri la mwanzo * (angalau herufi/namba 10)
+              <input style={inputStyle} required type="password" minLength={10} value={form.admin_password}
+                onChange={(event) => setForm({ ...form, admin_password: event.target.value })}
+                placeholder="Tengeneza nenosiri salama" autoComplete="new-password" />
+            </label>
             <label style={labelStyle}>
               Namba ya simu
               <input
