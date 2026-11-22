@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
   if (!schoolName || !email || !password || !/^[a-z0-9._-]{3,30}$/.test(username)) {
     return json({ error: "School name, valid username, admin email and password are required" }, 400);
   }
-  if (password.length < 10) return json({ error: "Password must contain at least 10 characters" }, 400);
+  if (password.length < 4) return json({ error: "Password must contain at least 4 characters" }, 400);
 
   const { data: existingUsername } = await admin
     .from("school_admin_profiles").select("id").eq("username", username).maybeSingle();
