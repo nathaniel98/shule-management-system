@@ -1040,17 +1040,22 @@ export default function FeesModule() {
       console.error('Imeshindikana kupakia branding ya shule kwenye risiti:', error);
     }
 
-    const header = letterheadUrl
-      ? `<img class="letterhead" src="${letterheadUrl}" alt="Letterhead ya shule">`
-      : `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<h2>${school?.school_name || 'SHULE'}</h2></div>`;
+    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}${!letterheadUrl ? `<h2>${school?.school_name || 'SHULE'}</h2>` : ''}</div>`;
+    const letterheadBackground = letterheadUrl
+      ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
+      : '';
 
     const content = `
       <html>
       <head>
         <title>Risiti ${p.receipt_number}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 25px; color: #222; }
-          .receipt { max-width: 650px; margin: auto; border: 1px solid #999; padding: 25px; }
+          @page { size: A4; margin: 0; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #222; }
+          .receipt-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; padding: ${letterheadUrl ? '48mm 18mm 24mm' : '18mm'}; overflow: hidden; }
+          .letterhead-background { position: absolute; inset: 0; z-index: 0; width: 210mm; height: 297mm; object-fit: fill; }
+          .receipt-content { position: relative; z-index: 1; max-width: 100%; margin: 0 auto; }
+          .receipt { border: 1px solid #999; padding: 18px; }
           .school-header { text-align:center; }
           .school-header h2 { margin: 6px 0 14px; }
           .logo { display:block; width:90px; height:90px; object-fit:contain; margin:0 auto 8px; }
@@ -1060,11 +1065,13 @@ export default function FeesModule() {
           .row { display: flex; justify-content: space-between; gap: 20px; margin: 12px 0; }
           .amount { font-size: 22px; font-weight: bold; }
           .footer { text-align: center; margin-top: 35px; font-size: 12px; }
-          @media print { body { padding:0; } .receipt { border:0; } }
+          @media print { body { padding:0; margin:0; } .receipt-page { break-inside:avoid; page-break-inside:avoid; } .receipt { border:0; } }
         </style>
       </head>
       <body>
-        <div class="receipt">
+        <div class="receipt-page">
+          ${letterheadBackground}
+          <div class="receipt-content">
           ${header}
           <h3>RISITI YA MALIPO YA ADA</h3>
           <div class="line"></div>
@@ -1078,8 +1085,9 @@ export default function FeesModule() {
           <div class="row amount"><span>Kiasi Kilicholipwa</span><span>TSh ${money(p.amount)}</span></div>
           <div class="row"><span>Maelezo</span><b>${p.notes || '—'}</b></div>
           <div class="footer">Asante kwa kufanya malipo.</div>
+          </div>
         </div>
-        <script>window.onload = () => window.print();</script>
+        <script>window.onload = () => { const images = Array.from(document.images); Promise.all(images.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve())).then(() => window.print()); };</script>
       </body>
       </html>
     `;
