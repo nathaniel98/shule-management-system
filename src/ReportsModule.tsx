@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 
-type School = { id: string; school_name: string };
+type School = { id: string; school_name: string; email?: string | null; phone?: string | null; address?: string | null };
 type Exam = {
   id: string;
   school_id: string;
@@ -104,6 +104,8 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [schoolLogoUrl, setSchoolLogoUrl] = useState('');
+  const [schoolLetterheadUrl, setSchoolLetterheadUrl] = useState('');
 
   const selectedExam = exams.find(e => e.id === examId);
   const selectedSchool = schools.find(s => s.id === schoolId);
@@ -146,7 +148,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
     try {
       const { data, error } = await supabase
         .from('schools')
-        .select('id,school_name')
+        .select('id,school_name,email,phone,address')
         .order('school_name');
 
       if (error) throw error;
@@ -156,13 +158,35 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
       if (list.length) {
         setSchoolId(list[0].id);
-        await loadExams(list[0].id);
+        await Promise.all([loadExams(list[0].id), loadSchoolBranding(list[0].id)]);
       }
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadSchoolBranding(id: string) {
+    if (!id) {
+      setSchoolLogoUrl('');
+      setSchoolLetterheadUrl('');
+      return;
+    }
+    const { data, error } = await supabase
+      .from('school_branding')
+      .select('logo_path,letterhead_path')
+      .eq('school_id', id)
+      .maybeSingle();
+    if (error) {
+      console.error('School branding could not be loaded:', error.message);
+      setSchoolLogoUrl('');
+      setSchoolLetterheadUrl('');
+      return;
+    }
+    const storage = supabase.storage.from('school-branding');
+    setSchoolLogoUrl(data?.logo_path ? storage.getPublicUrl(data.logo_path).data.publicUrl : '');
+    setSchoolLetterheadUrl(data?.letterhead_path ? storage.getPublicUrl(data.letterhead_path).data.publicUrl : '');
   }
 
   async function loadExams(id: string) {
@@ -194,7 +218,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
     setLoading(true);
 
     try {
-      await loadExams(id);
+      await Promise.all([loadExams(id), loadSchoolBranding(id)]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1046,18 +1070,24 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
               .map(r => (
                 <section key={r.enrollment.id} className={`student-print-page${printingId !== null ? ' single-report' : ''}`}>
                   <header className="student-print-heading">
-                    <h1 style={{ margin: 0, color: '#173b5e' }}>
-                      {selectedSchool?.school_name || 'SHULE'}
-                    </h1>
-                    <h2 style={{ margin: '10px 0 5px' }}>
-                      RIPOTI YA MATOKEO YA MWANAFUNZI
-                    </h2>
-                    <p style={{ margin: 4 }}>
-                      {selectedExam.exam_name} | {selectedExam.academic_year}
-                    </p>
-                    <p style={{ margin: 4 }}>
-                      {selectedExam.exam_type} | {selectedExam.term}
-                    </p>
+                    {schoolLetterheadUrl ? (
+                      <img src={schoolLetterheadUrl} alt="Letterhead ya shule" style={{ display: 'block', width: '100%', maxHeight: 125, objectFit: 'contain', margin: '0 auto 8px' }} />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
+                        {schoolLogoUrl && <img src={schoolLogoUrl} alt="Logo ya shule" style={{ width: 76, height: 76, objectFit: 'contain' }} />}
+                        <div>
+                          <h1 style={{ margin: 0, color: '#173b5e' }}>{selectedSchool?.school_name || 'SHULE'}</h1>
+                          {(selectedSchool?.address || selectedSchool?.phone || selectedSchool?.email) && (
+                            <p style={{ margin: '4px 0', fontSize: 11 }}>
+                              {[selectedSchool?.address, selectedSchool?.phone, selectedSchool?.email].filter(Boolean).join(' | ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <h2 style={{ margin: '10px 0 5px' }}>RIPOTI YA MATOKEO YA MWANAFUNZI</h2>
+                    <p style={{ margin: 4 }}>{selectedExam.exam_name} | {selectedExam.academic_year}</p>
+                    <p style={{ margin: 4 }}>{selectedExam.exam_type} | {selectedExam.term}</p>
                   </header>
 
                   <h2 style={{ color: '#173b5e' }}>
