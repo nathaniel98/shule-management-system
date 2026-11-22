@@ -544,11 +544,27 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
           background: #fff;
         }
 
+        .reports-root .subject-marks-wrap {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          padding-bottom: 5px;
+        }
+
         .reports-root .subject-marks {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr));
           gap: 9px;
           min-width: 0;
+        }
+
+        .reports-root .subject-mark-item {
+          min-width: 0;
+          overflow-wrap: anywhere;
         }
 
         .student-print-only {
@@ -562,6 +578,37 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
           .reports-root .report-summary {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          /* Two readable rows of subject tiles; swipe horizontally for more subjects. */
+          .reports-root .subject-marks {
+            display: grid;
+            grid-auto-flow: column;
+            grid-template-rows: repeat(2, auto);
+            grid-auto-columns: minmax(138px, 155px);
+            grid-template-columns: none;
+            width: max-content;
+            min-width: 0;
+            gap: 8px;
+            align-items: stretch;
+          }
+
+          .reports-root .subject-mark-item {
+            width: 100%;
+            min-width: 138px;
+            padding: 9px !important;
+          }
+
+          .reports-root .subject-mark-item .subject-mark-name {
+            font-size: 13px;
+            line-height: 1.3;
+            min-height: 34px;
+            overflow-wrap: anywhere;
+          }
+
+          .reports-root .subject-mark-item .subject-mark-score {
+            font-size: 17px !important;
+            line-height: 1.3;
           }
         }
 
@@ -853,31 +900,33 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                 <article key={r.enrollment.id} className="subject-card">
                   <strong>{index + 1}. {studentName(r.student)}</strong>
 
-                  <div className="subject-marks" style={{ marginTop: 12 }}>
-                    {subjects.map(s => (
-                      <div key={s.id} style={{
-                        background: '#f1f5f9',
-                        borderRadius: 9,
-                        padding: 10,
-                      }}>
-                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                          {s.subject_name}
-                        </div>
-                        <strong style={{ fontSize: 18 }}>
-                          {r.marks[s.id] === null ? '—' : r.marks[s.id]}
-                          <span style={{ fontSize: 12, color: '#64748b' }}>
-                            {' '} / {s.maximum_marks}
-                          </span>
-                        </strong>
-                        <div style={{ marginTop: 4 }}>
-                          Grade: <strong>
-                            {r.marks[s.id] === null
-                              ? '—'
-                              : grade((Number(r.marks[s.id]) / s.maximum_marks) * 100)}
+                  <div className="subject-marks-wrap" style={{ marginTop: 12 }}>
+                    <div className="subject-marks">
+                      {subjects.map(s => (
+                        <div key={s.id} className="subject-mark-item" style={{
+                          background: '#f1f5f9',
+                          borderRadius: 9,
+                          padding: 10,
+                        }}>
+                          <div className="subject-mark-name" style={{ color: '#64748b', fontSize: 13 }}>
+                            {s.subject_name}
+                          </div>
+                          <strong className="subject-mark-score" style={{ fontSize: 18 }}>
+                            {r.marks[s.id] === null ? '—' : r.marks[s.id]}
+                            <span style={{ fontSize: 12, color: '#64748b' }}>
+                              {' '} / {s.maximum_marks}
+                            </span>
                           </strong>
+                          <div style={{ marginTop: 4 }}>
+                            Grade: <strong>
+                              {r.marks[s.id] === null
+                                ? '—'
+                                : grade((Number(r.marks[s.id]) / s.maximum_marks) * 100)}
+                            </strong>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   <div style={{ marginTop: 12, lineHeight: 1.8 }}>
