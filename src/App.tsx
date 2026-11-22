@@ -389,7 +389,16 @@ function App() {
     }
   ];
 
+  const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+  const visibleNav = isSuperAdmin ? nav : nav.filter(item => item.id !== 'schools');
   const current = nav.find(n => n.id === section)!;
+
+  // School registration is a platform-owner function, never a school-admin function.
+  useEffect(() => {
+    if (session && !isSuperAdmin && section === 'schools') {
+      setSection('dashboard');
+    }
+  }, [session, section, isSuperAdmin]);
 
   if (!session) {
     return (
@@ -499,7 +508,7 @@ autoComplete="username"
             paddingBottom: '16px'
           }}
         >
-          {nav.map(n => (
+          {visibleNav.map(n => (
             <button
               key={n.id}
               className={`nav-item ${section === n.id ? 'active' : ''}`}
@@ -628,7 +637,7 @@ autoComplete="username"
                 
               </div>
             </>
-          ) : section === 'schools' ? (
+          ) : section === 'schools' && isSuperAdmin ? (
             <SchoolModule />
           ) : section === 'students' ? (
             <StudentsModule />
