@@ -27,7 +27,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.is_active_school_admin_for_school(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_active_school_admin_for_school(uuid) TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.get_my_school()
+CREATE OR REPLACE FUNCTION public.get_my_school_for_branding()
 RETURNS SETOF public.schools
 LANGUAGE sql
 STABLE
@@ -51,5 +51,5 @@ AS $function$
   LIMIT 1;
 $function$;
 
-REVOKE ALL ON FUNCTION public.get_my_school() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_my_school() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_my_school_for_branding() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_school_for_branding() TO authenticated;

@@ -1014,13 +1014,36 @@ export default function FeesModule() {
     (sum, x) => sum + Number(x.amount), 0
   );
 
-  function printReceipt(p: Payment, account: Account) {
-    const enrollment = enrollmentMap.get(account.enrollment_id);
-    const student = enrollment
-      ? studentMap.get(enrollment.student_id)
-      : undefined;
+  async function printReceipt(p: Payment, account: Account) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setError('Ruhusu popup kwenye browser ili kuchapisha risiti.');
+      return;
+    }
 
+    const enrollment = enrollmentMap.get(account.enrollment_id);
+    const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
     const school = schools.find(x => x.id === schoolId);
+    let logoUrl = '';
+    let letterheadUrl = '';
+
+    try {
+      const { data } = await supabase
+        .from('school_branding')
+        .select('logo_path,letterhead_path')
+        .eq('school_id', schoolId)
+        .maybeSingle();
+      const storage = supabase.storage.from('school-branding');
+      if (data?.logo_path) logoUrl = storage.getPublicUrl(data.logo_path).data.publicUrl;
+      if (data?.letterhead_path) letterheadUrl = storage.getPublicUrl(data.letterhead_path).data.publicUrl;
+    } catch (error) {
+      console.error('Imeshindikana kupakia branding ya shule kwenye risiti:', error);
+    }
+
+    const header = letterheadUrl
+      ? `<img class="letterhead" src="${letterheadUrl}" alt="Letterhead ya shule">`
+      : `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<h2>${school?.school_name || 'SHULE'}</h2></div>`;
+
     const content = `
       <html>
       <head>
@@ -1028,16 +1051,21 @@ export default function FeesModule() {
         <style>
           body { font-family: Arial, sans-serif; padding: 25px; color: #222; }
           .receipt { max-width: 650px; margin: auto; border: 1px solid #999; padding: 25px; }
-          h2, h3 { text-align: center; margin: 5px; }
+          .school-header { text-align:center; }
+          .school-header h2 { margin: 6px 0 14px; }
+          .logo { display:block; width:90px; height:90px; object-fit:contain; margin:0 auto 8px; }
+          .letterhead { display:block; width:100%; max-height:145px; object-fit:contain; margin:0 auto 12px; }
+          h3 { text-align: center; margin: 8px 0; }
           .line { border-bottom: 1px dashed #999; margin: 15px 0; }
           .row { display: flex; justify-content: space-between; gap: 20px; margin: 12px 0; }
           .amount { font-size: 22px; font-weight: bold; }
           .footer { text-align: center; margin-top: 35px; font-size: 12px; }
+          @media print { body { padding:0; } .receipt { border:0; } }
         </style>
       </head>
       <body>
         <div class="receipt">
-          <h2>${school?.school_name || 'SHULE'}</h2>
+          ${header}
           <h3>RISITI YA MALIPO YA ADA</h3>
           <div class="line"></div>
           <div class="row"><span>Namba ya Risiti</span><b>${p.receipt_number}</b></div>
@@ -1056,16 +1084,9 @@ export default function FeesModule() {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      setError('Ruhusu popup kwenye browser ili kuchapisha risiti.');
-      return;
-    }
-
     printWindow.document.write(content);
     printWindow.document.close();
   }
-
   const page: React.CSSProperties = {
     width: '100%',
     maxWidth: '100%',
