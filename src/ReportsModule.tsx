@@ -663,23 +663,55 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             margin: 0;
           }
 
+          /* Remove the application interface from print layout entirely.
+             visibility:hidden alone keeps its height and creates blank PDF pages. */
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
           body * {
             visibility: hidden !important;
+          }
+
+          .reports-root {
+            display: block !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .reports-root > * {
+            display: none !important;
+          }
+
+          .reports-root > .school-report {
+            display: block !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .school-report > * {
+            display: none !important;
+          }
+
+          .school-report > .student-print-only {
+            display: block !important;
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff;
+            color: #172b3d;
           }
 
           .student-print-only,
           .student-print-only * {
             visibility: visible !important;
-          }
-
-          .student-print-only {
-            display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm;
-            background: #fff;
-            color: #172b3d;
           }
 
           .student-print-page {
