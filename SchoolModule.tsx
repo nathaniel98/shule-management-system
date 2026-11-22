@@ -403,8 +403,8 @@ export function SchoolModule() {
                 placeholder="admin@shule.co.tz" autoComplete="email" />
             </label>}
             {!editingSchoolId && <label style={labelStyle}>
-              Nenosiri la mwanzo * (angalau herufi/namba 10)
-              <input style={inputStyle} required type="password" minLength={10} value={form.admin_password}
+              Nenosiri la mwanzo * (angalau herufi/namba 4)
+              <input style={inputStyle} required type="password" minLength={4} value={form.admin_password}
                 onChange={(event) => setForm({ ...form, admin_password: event.target.value })}
                 placeholder="Tengeneza nenosiri salama" autoComplete="new-password" />
             </label>}
