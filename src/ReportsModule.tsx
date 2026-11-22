@@ -915,79 +915,122 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
           <section className="no-print" style={card}>
             <h3 style={{ marginTop: 0 }}>Alama kwa Kila Somo</h3>
+            <p style={{ color: '#64748b', marginTop: 0 }}>
+              Jedwali linaonyesha alama za kila mwanafunzi kwa kila somo.
+              Telezesha kushoto au kulia kuona masomo na taarifa zote.
+            </p>
 
-            <div style={{ display: 'grid', gap: 12 }}>
-              {rows.map((r, index) => (
-                <article key={r.enrollment.id} className="subject-card">
-                  <strong>{index + 1}. {studentName(r.student)}</strong>
-
-                  <div className="subject-marks-wrap" style={{ marginTop: 12 }}>
-                    <div className="subject-marks">
-                      {subjects.map(s => (
-                        <div key={s.id} className="subject-mark-item" style={{
-                          background: '#f1f5f9',
-                          borderRadius: 9,
-                          padding: 10,
-                        }}>
-                          <div className="subject-mark-name" style={{ color: '#64748b', fontSize: 13 }}>
-                            {s.subject_name}
-                          </div>
-                          <strong className="subject-mark-score" style={{ fontSize: 18 }}>
-                            {r.marks[s.id] === null ? '—' : r.marks[s.id]}
-                            <span style={{ fontSize: 12, color: '#64748b' }}>
-                              {' '} / {s.maximum_marks}
-                            </span>
-                          </strong>
-                          <div style={{ marginTop: 4 }}>
-                            Grade: <strong>
-                              {r.marks[s.id] === null
-                                ? '—'
-                                : grade((Number(r.marks[s.id]) / s.maximum_marks) * 100)}
-                            </strong>
-                          </div>
-                        </div>
+            <div className="report-table-wrap" style={tableWrap} role="region" aria-label="Jedwali la alama za wanafunzi kwa kila somo" tabIndex={0}>
+              <table className="report-table" style={{ ...tableStyle, minWidth: Math.max(850, 260 + subjects.length * 135) }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <th style={cell}>Na.</th>
+                    <th style={cell}>Jina la Mwanafunzi</th>
+                    {subjects.map(subject => (
+                      <th key={subject.id} style={cell}>{subject.subject_name}</th>
+                    ))}
+                    <th style={cell}>Jumla</th>
+                    <th style={cell}>Wastani %</th>
+                    <th style={cell}>Grade</th>
+                    <th style={cell}>Vitendo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, index) => (
+                    <tr key={r.enrollment.id}>
+                      <td style={cell}>{index + 1}</td>
+                      <td style={{ ...cell, minWidth: 210, whiteSpace: 'nowrap' }}>
+                        {studentName(r.student)}
+                      </td>
+                      {subjects.map(subject => (
+                        <td key={subject.id} style={{ ...cell, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          {r.marks[subject.id] === null || r.marks[subject.id] === undefined
+                            ? '—'
+                            : `${r.marks[subject.id]} / ${subject.maximum_marks} (${grade((Number(r.marks[subject.id]) / subject.maximum_marks) * 100)})`}
+                        </td>
                       ))}
-                    </div>
-                  </div>
+                      <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.total} / {r.maximum}</td>
+                      <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.average.toFixed(2)}%</td>
+                      <td style={cell}>{r.grade}</td>
+                      <td style={cell}>
+                        <div style={{ display: 'flex', gap: 7, flexWrap: 'nowrap' }}>
+                          <button
+                            onClick={onEditResults}
+                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#2563eb', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
+                          >
+                            Hariri
+                          </button>
+                          <button
+                            onClick={() => void deleteStudentReportResults(r.enrollment.id, studentName(r.student))}
+                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#b42318', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
+                          >
+                            Futa
+                          </button>
+                          <button
+                            onClick={() => printOneReport(r.enrollment.id)}
+                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#173b5e', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
+                          >
+                            Chapisha
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-                  <div style={{ marginTop: 12, lineHeight: 1.8 }}>
-                    Jumla: <strong>{r.total}/{r.maximum}</strong>
-                    {' | '}Wastani: <strong>{r.average.toFixed(2)}%</strong>
-                    {' | '}Grade: <strong>{r.grade}</strong>
-                    {' | '}Nafasi mkondo: <strong>{r.position ?? '-'}</strong>
-                    {' | '}Nafasi darasa: <strong>{r.classPosition ?? '-'}</strong>
-                  </div>
+          <section className="no-print" style={card}>
+            <h3 style={{ marginTop: 0 }}>Muhtasari wa Kila Somo</h3>
+            <p style={{ color: '#64748b', marginTop: 0 }}>
+              Wastani, alama ya juu, alama ya chini na idadi ya wanafunzi walioingiziwa alama kwa kila somo.
+            </p>
+            <div className="report-table-wrap" style={tableWrap} role="region" aria-label="Jedwali la muhtasari wa kila somo" tabIndex={0}>
+              <table className="report-table" style={{ ...tableStyle, minWidth: 760 }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <th style={cell}>Na.</th>
+                    <th style={cell}>Jina la Somo</th>
+                    <th style={cell}>Alama za Juu</th>
+                    <th style={cell}>Walioingiziwa</th>
+                    <th style={cell}>Wastani</th>
+                    <th style={cell}>Alama ya Juu Iliyopatikana</th>
+                    <th style={cell}>Alama ya Chini</th>
+                    <th style={cell}>Grade ya Wastani</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subjects.map((subject, index) => {
+                    const numericMarks = rows
+                      .map(row => row.marks[subject.id])
+                      .filter((mark): mark is number => mark !== null && mark !== undefined)
+                      .filter(Number.isFinite);
+                    const averageMark = numericMarks.length
+                      ? numericMarks.reduce((sum, mark) => sum + mark, 0) / numericMarks.length
+                      : null;
+                    const highestMark = numericMarks.length ? Math.max(...numericMarks) : null;
+                    const lowestMark = numericMarks.length ? Math.min(...numericMarks) : null;
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-                  <button
-                    onClick={onEditResults}
-                    style={{ padding: '11px 15px', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 700 }}
-                  >
-                    Hariri Matokeo
-                  </button>
-                  <button
-                    onClick={() => void deleteStudentReportResults(r.enrollment.id, studentName(r.student))}
-                    style={{ padding: '11px 15px', border: 0, borderRadius: 8, background: '#b42318', color: '#fff', fontWeight: 700 }}
-                  >
-                    Futa Matokeo
-                  </button>
-                  <button
-                    onClick={() => printOneReport(r.enrollment.id)}
-                    style={{
-                      marginTop: 14,
-                      padding: '11px 15px',
-                      border: 0,
-                      borderRadius: 8,
-                      background: '#173b5e',
-                      color: '#fff',
-                      fontWeight: 700,
-                    }}
-                  >
-                    Chapisha Ripoti ya {studentName(r.student)}
-                  </button>
-                  </div>
-                </article>
-              ))}
+                    return (
+                      <tr key={subject.id}>
+                        <td style={cell}>{index + 1}</td>
+                        <td style={{ ...cell, whiteSpace: 'nowrap' }}>{subject.subject_name}</td>
+                        <td style={cell}>{subject.maximum_marks}</td>
+                        <td style={cell}>{numericMarks.length} / {rows.length}</td>
+                        <td style={cell}>{averageMark === null ? '—' : averageMark.toFixed(2)}</td>
+                        <td style={cell}>{highestMark === null ? '—' : highestMark}</td>
+                        <td style={cell}>{lowestMark === null ? '—' : lowestMark}</td>
+                        <td style={cell}>
+                          {averageMark === null
+                            ? '—'
+                            : grade((averageMark / subject.maximum_marks) * 100)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
 
