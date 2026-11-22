@@ -32,7 +32,7 @@ export default function SchoolSettingsModule({ isSuperAdmin }: { isSuperAdmin: b
         const list=(data||[]) as School[];setSchools(list);
         if(list.length)setSchoolId(old=>old&&list.some(s=>s.id===old)?old:list[0].id);
       } else {
-        const {data,error}=await supabase.rpc('get_my_school');if(error)throw error;
+        const {data,error}=await supabase.rpc('get_my_school_for_branding');if(error)throw error;
         const own=(Array.isArray(data)?data[0]:data) as School|null;
         if(!own?.id)throw new Error('Akaunti hii haijaunganishwa na shule hai.');
         setSchools([own]);setSchoolId(own.id);
