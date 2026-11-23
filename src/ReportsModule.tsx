@@ -26,6 +26,11 @@ type Enrollment = {
   stream_id: string | null;
   academic_year_id: string;
 };
+type Stream = {
+  id: string;
+  class_id: string;
+  stream_name: string;
+};
 type Student = {
   id: string;
   admission_no: string;
@@ -97,6 +102,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
   const [schools, setSchools] = useState<School[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [schoolId, setSchoolId] = useState('');
   const [examId, setExamId] = useState('');
@@ -109,6 +115,25 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
 
   const selectedExam = exams.find(e => e.id === examId);
   const selectedSchool = schools.find(s => s.id === schoolId);
+
+  const streamName = (id: string | null) =>
+    id ? streams.find(stream => stream.id === id)?.stream_name || 'Chumba kisichotajwa' : 'Chumba kisichotajwa';
+
+  const roomGroups = useMemo(() => {
+    const groups = new Map<string, { streamId: string | null; name: string; rows: ReportRow[] }>();
+    rows.forEach(row => {
+      const key = row.enrollment.stream_id || 'no-stream';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          streamId: row.enrollment.stream_id,
+          name: streamName(row.enrollment.stream_id),
+          rows: [],
+        });
+      }
+      groups.get(key)!.rows.push(row);
+    });
+    return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows, streams]);
 
   const completed = useMemo(
     () => rows.filter(
@@ -287,6 +312,18 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
       if (enrollmentError) throw enrollmentError;
 
       const enrollments = (enrollmentData || []) as Enrollment[];
+
+      const streamIds = Array.from(new Set(enrollments.map(item => item.stream_id).filter((id): id is string => Boolean(id))));
+      if (streamIds.length) {
+        const { data: streamRows, error: streamError } = await supabase
+          .from('streams')
+          .select('id,class_id,stream_name')
+          .in('id', streamIds);
+        if (streamError) throw streamError;
+        setStreams((streamRows || []) as Stream[]);
+      } else {
+        setStreams([]);
+      }
 
       if (!enrollments.length) {
         setNotice('Hakuna wanafunzi waliosajiliwa kwenye darasa hili.');
@@ -1065,29 +1102,30 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   </tr>
                 </thead>
                 <tbody>
-                  {[...rows]
-                    .sort((a, b) => {
-                      if (a.classPosition === null) return 1;
-                      if (b.classPosition === null) return -1;
-                      return a.classPosition - b.classPosition;
-                    })
-                    .map((r, i) => (
-                      <tr key={r.enrollment.id}>
-                        <td style={cell}>{i + 1}</td>
-                        <td style={cell}>{r.student.admission_no}</td>
-                        <td style={cell}>{studentName(r.student)}</td>
-                        <td style={cell}>{r.total} / {r.maximum}</td>
-                        <td style={cell}>{r.average.toFixed(2)}</td>
-                        <td style={cell}>{r.grade}</td>
-                        <td style={cell}>{r.position ?? '-'}</td>
-                        <td style={cell}>{r.classPosition ?? '-'}</td>
-                        <td style={cell}>
-                          {r.entered === subjects.length
-                            ? 'Imekamilika'
-                            : `${r.entered}/${subjects.length} masomo`}
-                        </td>
+                  {roomGroups.map(group => (
+                    <>
+                      <tr key={`room-summary-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
+                        <td style={{ ...cell, fontWeight: 800 }} colSpan={9}>Chumba: {group.name}</td>
                       </tr>
-                    ))}
+                      {[...group.rows]
+                        .sort((a, b) => (a.classPosition ?? Number.MAX_SAFE_INTEGER) - (b.classPosition ?? Number.MAX_SAFE_INTEGER))
+                        .map((r, i) => (
+                          <tr key={r.enrollment.id}>
+                            <td style={cell}>{i + 1}</td>
+                            <td style={cell}>{r.student.admission_no}</td>
+                            <td style={cell}>{studentName(r.student)}</td>
+                            <td style={cell}>{r.total} / {r.maximum}</td>
+                            <td style={cell}>{r.average.toFixed(2)}</td>
+                            <td style={cell}>{r.grade}</td>
+                            <td style={cell}>{r.position ?? '-'}</td>
+                            <td style={cell}>{r.classPosition ?? '-'}</td>
+                            <td style={cell}>
+                              {r.entered === subjects.length ? 'Imekamilika' : `${r.entered}/${subjects.length} masomo`}
+                            </td>
+                          </tr>
+                        ))}
+                    </>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1116,45 +1154,35 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, index) => (
-                    <tr key={r.enrollment.id}>
-                      <td style={cell}>{index + 1}</td>
-                      <td style={{ ...cell, minWidth: 210, whiteSpace: 'nowrap' }}>
-                        {studentName(r.student)}
-                      </td>
-                      {subjects.map(subject => (
-                        <td key={subject.id} style={{ ...cell, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {r.marks[subject.id] === null || r.marks[subject.id] === undefined
-                            ? '—'
-                            : `${r.marks[subject.id]} / ${subject.maximum_marks} (${grade((Number(r.marks[subject.id]) / subject.maximum_marks) * 100)})`}
-                        </td>
+                  {roomGroups.map(group => (
+                    <>
+                      <tr key={`room-marks-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
+                        <td style={{ ...cell, fontWeight: 800 }} colSpan={subjects.length + 6}>Chumba: {group.name}</td>
+                      </tr>
+                      {group.rows.map((r, index) => (
+                        <tr key={r.enrollment.id}>
+                          <td style={cell}>{index + 1}</td>
+                          <td style={{ ...cell, minWidth: 210, whiteSpace: 'nowrap' }}>{studentName(r.student)}</td>
+                          {subjects.map(subject => (
+                            <td key={subject.id} style={{ ...cell, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              {r.marks[subject.id] === null || r.marks[subject.id] === undefined
+                                ? '—'
+                                : `${r.marks[subject.id]} / ${subject.maximum_marks} (${grade((Number(r.marks[subject.id]) / subject.maximum_marks) * 100)})`}
+                            </td>
+                          ))}
+                          <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.total} / {r.maximum}</td>
+                          <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.average.toFixed(2)}%</td>
+                          <td style={cell}>{r.grade}</td>
+                          <td style={cell}>
+                            <div style={{ display: 'flex', gap: 7, flexWrap: 'nowrap' }}>
+                              <button onClick={onEditResults} style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#2563eb', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>Hariri</button>
+                              <button onClick={() => void deleteStudentReportResults(r.enrollment.id, studentName(r.student))} style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#b42318', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>Futa</button>
+                              <button onClick={() => printOneReport(r.enrollment.id)} style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#173b5e', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>Chapisha</button>
+                            </div>
+                          </td>
+                        </tr>
                       ))}
-                      <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.total} / {r.maximum}</td>
-                      <td style={{ ...cell, whiteSpace: 'nowrap' }}>{r.average.toFixed(2)}%</td>
-                      <td style={cell}>{r.grade}</td>
-                      <td style={cell}>
-                        <div style={{ display: 'flex', gap: 7, flexWrap: 'nowrap' }}>
-                          <button
-                            onClick={onEditResults}
-                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#2563eb', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
-                          >
-                            Hariri
-                          </button>
-                          <button
-                            onClick={() => void deleteStudentReportResults(r.enrollment.id, studentName(r.student))}
-                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#b42318', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
-                          >
-                            Futa
-                          </button>
-                          <button
-                            onClick={() => printOneReport(r.enrollment.id)}
-                            style={{ padding: '9px 11px', border: 0, borderRadius: 7, background: '#173b5e', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}
-                          >
-                            Chapisha
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    </>
                   ))}
                 </tbody>
               </table>
