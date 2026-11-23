@@ -466,14 +466,78 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
     }
   }
 
+  function printReportsInCleanWindow(enrollmentId: string | null) {
+    // Open the print window directly from the user's click to avoid popup blocking.
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setError('Ruhusu popup kwenye browser ili kuchapisha ripoti.');
+      return;
+    }
+
+    setPrintingId(enrollmentId);
+
+    window.setTimeout(async () => {
+      try {
+        const report = document.querySelector('.reports-root .student-print-only');
+        const style = document.querySelector('.reports-root > style');
+        if (!report || !style) {
+          throw new Error('Ripoti haijapatikana kwa ajili ya kuchapishwa. Jaribu tena.');
+        }
+
+        const selectedReport = report.cloneNode(true) as HTMLElement;
+        if (enrollmentId) {
+          selectedReport.querySelectorAll('.student-print-page').forEach(page => {
+            if (!page.classList.contains('single-report')) page.remove();
+          });
+        }
+
+        const printCss = style.textContent || '';
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Ripoti ya Matokeo</title>
+              <style>
+                html, body { margin: 0 !important; padding: 0 !important; width: 210mm; background: #fff; }
+                ${printCss}
+                @media screen { body { background: #e5e7eb; } }
+              </style>
+            </head>
+            <body>
+              <div class="reports-root">
+                <div class="school-report">
+                  ${selectedReport.outerHTML}
+                </div>
+              </div>
+            </body>
+          </html>`);
+        printWindow.document.close();
+
+        const images = Array.from(printWindow.document.images);
+        await Promise.all(images.map(img =>
+          img.decode ? img.decode().catch(() => undefined) : Promise.resolve()
+        ));
+
+        printWindow.focus();
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+      } catch (error) {
+        printWindow.close();
+        setError((error as Error).message || 'Imeshindikana kuandaa ripoti kwa uchapishaji.');
+      } finally {
+        setPrintingId(null);
+      }
+    }, 350);
+  }
+
   function printAllReports() {
-    setPrintingId(null);
-    window.setTimeout(() => window.print(), 300);
+    printReportsInCleanWindow(null);
   }
 
   function printOneReport(enrollmentId: string) {
-    setPrintingId(enrollmentId);
-    window.setTimeout(() => window.print(), 300);
+    printReportsInCleanWindow(enrollmentId);
   }
 
   const tableWrap: React.CSSProperties = {
