@@ -407,15 +407,16 @@ export default function FeesModule() {
           }
         } else {
           const { data: assignedData, error: assignedError } =
-            await supabase.rpc('get_my_school');
+            await supabase.rpc('get_my_school_for_branding');
           if (assignedError) throw assignedError;
 
           const assigned = Array.isArray(assignedData) ? assignedData[0] : assignedData;
-          if (!assigned?.school_id) {
+          const assignedSchoolId = assigned?.id || assigned?.school_id;
+          if (!assignedSchoolId) {
             throw new Error('Akaunti hii haijaunganishwa na shule.');
           }
 
-          const assignedSchool = list.find(x => x.id === assigned.school_id);
+          const assignedSchool = list.find(x => x.id === assignedSchoolId);
           if (!assignedSchool) {
             throw new Error('Shule ya akaunti hii haipatikani kwenye orodha ya shule.');
           }
