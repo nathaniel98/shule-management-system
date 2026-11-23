@@ -1105,7 +1105,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   {roomGroups.map(group => (
                     <>
                       <tr key={`room-summary-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
-                        <td style={{ ...cell, fontWeight: 800 }} colSpan={9}>Chumba: {group.name}</td>
+                        <td style={{ ...cell, fontWeight: 800, position: 'sticky', left: 0, zIndex: 3, background: '#e2e8f0', textAlign: 'left' }} colSpan={9}>Chumba: {group.name}</td>
                       </tr>
                       {[...group.rows]
                         .sort((a, b) => (a.classPosition ?? Number.MAX_SAFE_INTEGER) - (b.classPosition ?? Number.MAX_SAFE_INTEGER))
@@ -1157,7 +1157,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   {roomGroups.map(group => (
                     <>
                       <tr key={`room-marks-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
-                        <td style={{ ...cell, fontWeight: 800 }} colSpan={subjects.length + 6}>Chumba: {group.name}</td>
+                        <td style={{ ...cell, fontWeight: 800, position: 'sticky', left: 0, zIndex: 3, background: '#e2e8f0', textAlign: 'left' }} colSpan={subjects.length + 6}>Chumba: {group.name}</td>
                       </tr>
                       {group.rows.map((r, index) => (
                         <tr key={r.enrollment.id}>
@@ -1212,7 +1212,7 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   {roomGroups.map(group => (
                     <>
                       <tr key={`room-subject-summary-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
-                        <td style={{ ...cell, fontWeight: 800 }} colSpan={8}>Chumba: {group.name}</td>
+                        <td style={{ ...cell, fontWeight: 800, position: 'sticky', left: 0, zIndex: 3, background: '#e2e8f0', textAlign: 'left' }} colSpan={8}>Chumba: {group.name}</td>
                       </tr>
                       {subjects.map((subject, index) => {
                         const numericMarks = group.rows
