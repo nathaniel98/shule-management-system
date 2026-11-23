@@ -1209,34 +1209,39 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                   </tr>
                 </thead>
                 <tbody>
-                  {subjects.map((subject, index) => {
-                    const numericMarks = rows
-                      .map(row => row.marks[subject.id])
-                      .filter((mark): mark is number => mark !== null && mark !== undefined)
-                      .filter(Number.isFinite);
-                    const averageMark = numericMarks.length
-                      ? numericMarks.reduce((sum, mark) => sum + mark, 0) / numericMarks.length
-                      : null;
-                    const highestMark = numericMarks.length ? Math.max(...numericMarks) : null;
-                    const lowestMark = numericMarks.length ? Math.min(...numericMarks) : null;
-
-                    return (
-                      <tr key={subject.id}>
-                        <td style={cell}>{index + 1}</td>
-                        <td style={{ ...cell, whiteSpace: 'nowrap' }}>{subject.subject_name}</td>
-                        <td style={cell}>{subject.maximum_marks}</td>
-                        <td style={cell}>{numericMarks.length} / {rows.length}</td>
-                        <td style={cell}>{averageMark === null ? '—' : averageMark.toFixed(2)}</td>
-                        <td style={cell}>{highestMark === null ? '—' : highestMark}</td>
-                        <td style={cell}>{lowestMark === null ? '—' : lowestMark}</td>
-                        <td style={cell}>
-                          {averageMark === null
-                            ? '—'
-                            : grade((averageMark / subject.maximum_marks) * 100)}
-                        </td>
+                  {roomGroups.map(group => (
+                    <>
+                      <tr key={`room-subject-summary-${group.streamId || 'none'}`} style={{ background: '#e2e8f0' }}>
+                        <td style={{ ...cell, fontWeight: 800 }} colSpan={8}>Chumba: {group.name}</td>
                       </tr>
-                    );
-                  })}
+                      {subjects.map((subject, index) => {
+                        const numericMarks = group.rows
+                          .map(row => row.marks[subject.id])
+                          .filter((mark): mark is number => mark !== null && mark !== undefined)
+                          .filter(Number.isFinite);
+                        const averageMark = numericMarks.length
+                          ? numericMarks.reduce((sum, mark) => sum + mark, 0) / numericMarks.length
+                          : null;
+                        const highestMark = numericMarks.length ? Math.max(...numericMarks) : null;
+                        const lowestMark = numericMarks.length ? Math.min(...numericMarks) : null;
+
+                        return (
+                          <tr key={`${group.streamId || 'none'}-${subject.id}`}>
+                            <td style={cell}>{index + 1}</td>
+                            <td style={{ ...cell, whiteSpace: 'nowrap' }}>{subject.subject_name}</td>
+                            <td style={cell}>{subject.maximum_marks}</td>
+                            <td style={cell}>{numericMarks.length} / {group.rows.length}</td>
+                            <td style={cell}>{averageMark === null ? '—' : averageMark.toFixed(2)}</td>
+                            <td style={cell}>{highestMark === null ? '—' : highestMark}</td>
+                            <td style={cell}>{lowestMark === null ? '—' : lowestMark}</td>
+                            <td style={cell}>
+                              {averageMark === null ? '—' : grade((averageMark / subject.maximum_marks) * 100)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  ))}
                 </tbody>
               </table>
             </div>
