@@ -1044,7 +1044,8 @@ export default function FeesModule() {
       console.error('Imeshindikana kupakia branding ya shule kwenye risiti:', error);
     }
 
-    const isThermal = format === '80mm';\n    const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;\n    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
+    const isThermal = format === '80mm';
+    const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;\n    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
     const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong></div>`;
     const letterheadBackground = !isThermal && letterheadUrl
       ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
@@ -1074,7 +1075,11 @@ export default function FeesModule() {
           .row b, .row span:last-child { text-align:right; overflow-wrap:anywhere; }
           .amount { font-size:${isThermal ? '13px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; padding:3mm 0; }
           .footer { text-align:center; margin-top:5mm; font-size:${isThermal ? '9px' : '12px'}; }
-          .verify { text-align:center; margin-top:3mm; font-size:${isThermal ? '8px' : '10px'}; overflow-wrap:anywhere; }\n          .qr-wrap { text-align:center; margin:4mm auto 0; }\n          .qr-code { width:${isThermal ? '25mm' : '28mm'}; height:${isThermal ? '25mm' : '28mm'}; display:block; margin:0 auto 1mm; image-rendering:pixelated; }\n          .qr-caption { font-size:${isThermal ? '7px' : '9px'}; text-align:center; }\n          @media print { @page { margin:0; } }
+          .verify { text-align:center; margin-top:3mm; font-size:${isThermal ? '8px' : '10px'}; overflow-wrap:anywhere; }
+          .qr-wrap { text-align:center; margin:4mm auto 0; }
+          .qr-code { width:${isThermal ? '25mm' : '28mm'}; height:${isThermal ? '25mm' : '28mm'}; display:block; margin:0 auto 1mm; image-rendering:pixelated; }
+          .qr-caption { font-size:${isThermal ? '7px' : '9px'}; text-align:center; }
+          @media print { @page { margin:0; } }
           @media print { body { margin:0; } .receipt-page { break-inside:avoid; page-break-inside:avoid; } .receipt { border-color:#555; } }
         </style>
       </head>
@@ -1099,7 +1104,8 @@ export default function FeesModule() {
               <div class="row"><span>Salio</span><b>TSh ${money(balance)}</b></div>
               <div class="row"><span>Maelezo</span><b>${p.notes || '—'}</b></div>
               <div class="footer">Asante kwa kufanya malipo.</div>
-              <div class="verify">Hifadhi risiti hii kwa kumbukumbu. Namba ya uthibitisho: ${p.receipt_number}</div>\n              <div class="qr-wrap"><img class="qr-code" src="${qrUrl}" alt="QR code ya kuthibitisha risiti"><div class="qr-caption">Changanua QR code kuthibitisha risiti</div></div>
+              <div class="verify">Hifadhi risiti hii kwa kumbukumbu. Namba ya uthibitisho: ${p.receipt_number}</div>
+              <div class="qr-wrap"><img class="qr-code" src="${qrUrl}" alt="QR code ya kuthibitisha risiti"><div class="qr-caption">Changanua QR code kuthibitisha risiti</div></div>
             </div>
           </div>
         </div>
