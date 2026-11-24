@@ -38,7 +38,7 @@ export default function StaffUsersModule() {
     let active = true;
     async function load() {
       try {
-        const { data, error } = await supabase!.rpc('get_my_school');
+        const { data, error } = await supabase!.rpc('get_my_school_for_staff');
         if (error) throw error;
         const school = Array.isArray(data) ? data[0] : data;
         const id = school?.id || school?.school_id;
