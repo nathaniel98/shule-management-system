@@ -36,6 +36,8 @@ import {
 
 import { isSupabaseConfigured, supabase } from './supabase';
 
+type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
+
 type Section =
   | 'dashboard'
   | 'schools'
@@ -77,6 +79,8 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [session, setSession] = useState<any>(null);
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -266,6 +270,39 @@ function App() {
   }, [session]);
 
   useEffect(() => {
+    let active = true;
+    async function loadStaffRole() {
+      if (!session?.user?.id || !supabase) {
+        setStaffRole(null);
+        return;
+      }
+      const userEmail = (session.user.email || '').toLowerCase();
+      if (userEmail === 'goodlucknoel19@gmail.com') {
+        setStaffRole(null);
+        return;
+      }
+      setRoleLoading(true);
+      const { data, error } = await supabase
+        .from('school_staff_accounts')
+        .select('role, is_active')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (!active) return;
+      if (error) {
+        console.error('Could not load staff role:', error.message);
+        setStaffRole(null);
+      } else if (data?.is_active) {
+        setStaffRole(data.role as StaffRole);
+      } else {
+        setStaffRole(null);
+      }
+      setRoleLoading(false);
+    }
+    void loadStaffRole();
+    return () => { active = false; };
+  }, [session]);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadMySchool() {
       if (!session?.user?.id || !supabase) return;
@@ -394,17 +431,27 @@ function App() {
   ];
 
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
-  const visibleNav = isSuperAdmin
-    ? nav.filter(item => item.id !== 'users')
-    : nav.filter(item => item.id !== 'schools');
-  const current = nav.find(n => n.id === section)!;
+  const roleSections: Record<StaffRole, Section[]> = {
+    head_teacher: ['dashboard', 'students', 'enrollment', 'teachers', 'classes', 'streams', 'subjects', 'academic-years', 'exams', 'results', 'reports'],
+    accountant: ['dashboard', 'students', 'teachers', 'classes', 'exams', 'results', 'reports', 'fees'],
+    class_teacher: ['dashboard', 'students', 'results'],
+    teacher: ['dashboard', 'classes', 'subjects', 'exams', 'results']
+  };
+  const allowedSections = isSuperAdmin
+    ? nav.map(item => item.id).filter(id => id !== 'users')
+    : staffRole
+      ? roleSections[staffRole]
+      : nav.map(item => item.id).filter(id => id !== 'schools');
+  const visibleNav = nav.filter(item => allowedSections.includes(item.id));
+  const current = nav.find(n => n.id === section) || nav[0];
 
-  // School registration is a platform-owner function, never a school-admin function.
+  // Restrict navigation and direct section state to the user's assigned role.
   useEffect(() => {
-    if (session && !isSuperAdmin && section === 'schools') {
-      setSection('dashboard');
-    }
-  }, [session, section, isSuperAdmin]);
+    if (!session || roleLoading) return;
+    if (!allowedSections.includes(section)) setSection('dashboard');
+  }, [session, roleLoading, staffRole, section, isSuperAdmin]);
+
+  // School registration is a platform-owner function, never a school user function.
 
   if (!session) {
     return (
@@ -548,7 +595,7 @@ autoComplete="username"
 
             <div className="user-info">
               <b>{session.user.email}</b>
-              <span>Mtumiaji wa mfumo</span>
+              <span>{isSuperAdmin ? 'Super Admin' : staffRole ? ({ class_teacher: 'Mwalimu wa darasa', head_teacher: 'Mwalimu Mkuu', accountant: 'Mhasibu', teacher: 'Mwalimu' } as Record<StaffRole, string>)[staffRole] : 'School Admin'}</span>
             </div>
 
             <button
