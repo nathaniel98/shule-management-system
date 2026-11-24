@@ -931,6 +931,20 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
             font-size: 15px;
           }
 
+          .student-print-comments {
+            height: 34mm;
+            margin-top: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            background-image: repeating-linear-gradient(
+              to bottom,
+              transparent 0,
+              transparent 8mm,
+              #94a3b8 8.2mm,
+              transparent 8.5mm
+            );
+          }
+
           .student-print-signatures {
             display: flex;
             justify-content: space-between;
@@ -1338,10 +1352,9 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
                     <strong>Masomo yaliyokamilika:</strong> {r.entered} / {subjects.length}
                   </p>
 
-                  <div style={{ marginTop: 16 }}>
+                  <div className="student-print-comments-wrap" style={{ marginTop: 16 }}>
                     <strong>Maoni ya Mwalimu wa Darasa:</strong>
-                    <p>________________________________________________________</p>
-                    <p>________________________________________________________</p>
+                    <div className="student-print-comments" aria-label="Sehemu ya kuandika maoni ya mwalimu" />
                   </div>
 
                   <div className="student-print-signatures">
