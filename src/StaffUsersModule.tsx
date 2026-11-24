@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type CSSProperties } from 'react';
 import { supabase } from './supabase';
 
 type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
@@ -78,7 +78,7 @@ export default function StaffUsersModule() {
     setSaving(false);
   }
 
-  const input: React.CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
+  const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
   const label: React.CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
 
   return <div style={{ display: 'grid', gap: 20, color: '#243447' }}>
