@@ -1015,7 +1015,7 @@ export default function FeesModule() {
     (sum, x) => sum + Number(x.amount), 0
   );
 
-  async function printReceipt(p: Payment, account: Account) {
+  async function printReceipt(p: Payment, account: Account, format: '80mm' | 'A4') {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       setError('Ruhusu popup kwenye browser ili kuchapisha risiti.');
@@ -1025,6 +1025,9 @@ export default function FeesModule() {
     const enrollment = enrollmentMap.get(account.enrollment_id);
     const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
     const school = schools.find(x => x.id === schoolId);
+    const accountPayments = payments.filter(x => x.student_fee_account_id === account.id);
+    const totalPaid = accountPayments.reduce((sum, item) => sum + Number(item.amount), 0);
+    const balance = Math.max(0, Number(account.total_amount) - totalPaid);
     let logoUrl = '';
     let letterheadUrl = '';
 
@@ -1041,51 +1044,63 @@ export default function FeesModule() {
       console.error('Imeshindikana kupakia branding ya shule kwenye risiti:', error);
     }
 
-    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}${!letterheadUrl ? `<h2>${school?.school_name || 'SHULE'}</h2>` : ''}</div>`;
-    const letterheadBackground = letterheadUrl
+    const isThermal = format === '80mm';
+    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong></div>`;
+    const letterheadBackground = !isThermal && letterheadUrl
       ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
       : '';
 
     const content = `
+      <!doctype html>
       <html>
       <head>
+        <meta charset="utf-8">
         <title>Risiti ${p.receipt_number}</title>
         <style>
-          @page { size: A4; margin: 0; }
-          body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #222; }
-          .receipt-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; padding: ${letterheadUrl ? '48mm 18mm 24mm' : '18mm'}; overflow: hidden; }
+          @page { size: ${isThermal ? '80mm auto' : 'A4'}; margin: ${isThermal ? '3mm' : '0'}; }
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; }
+          .receipt-page { position: relative; width: ${isThermal ? '74mm' : '210mm'}; ${isThermal ? '' : 'min-height:297mm;'} box-sizing: border-box; padding: ${isThermal ? '2mm' : letterheadUrl ? '48mm 18mm 24mm' : '18mm'}; overflow: hidden; }
           .letterhead-background { position: absolute; inset: 0; z-index: 0; width: 210mm; height: 297mm; object-fit: fill; }
-          .receipt-content { position: relative; z-index: 1; max-width: 100%; margin: 0 auto; }
-          .receipt { border: 1px solid #999; padding: 18px; }
-          .school-header { text-align:center; }
-          .school-header h2 { margin: 6px 0 14px; }
-          .logo { display:block; width:90px; height:90px; object-fit:contain; margin:0 auto 8px; }
-          .letterhead { display:block; width:100%; max-height:145px; object-fit:contain; margin:0 auto 12px; }
-          h3 { text-align: center; margin: 8px 0; }
-          .line { border-bottom: 1px dashed #999; margin: 15px 0; }
-          .row { display: flex; justify-content: space-between; gap: 20px; margin: 12px 0; }
-          .amount { font-size: 22px; font-weight: bold; }
-          .footer { text-align: center; margin-top: 35px; font-size: 12px; }
-          @media print { body { padding:0; margin:0; } .receipt-page { break-inside:avoid; page-break-inside:avoid; } .receipt { border:0; } }
+          .receipt-content { position: relative; z-index: 1; width: 100%; }
+          .receipt { ${isThermal ? 'border:1px dashed #555; padding:3mm;' : 'border:1px solid #999; padding:18px;'} }
+          .school-header { text-align:center; font-size:${isThermal ? '12px' : '18px'}; font-weight:bold; }
+          .school-header strong { display:block; }
+          .logo { display:block; width:${isThermal ? '18mm' : '24mm'}; height:${isThermal ? '18mm' : '24mm'}; object-fit:contain; margin:0 auto 2mm; }
+          h3 { text-align:center; font-size:${isThermal ? '11px' : '16px'}; margin:4mm 0; }
+          .line { border-bottom:1px dashed #555; margin:3mm 0; }
+          .row { display:flex; justify-content:space-between; align-items:flex-start; gap:3mm; margin:2.2mm 0; font-size:${isThermal ? '10px' : '13px'}; }
+          .row span:first-child { flex:0 0 42%; }
+          .row b, .row span:last-child { text-align:right; overflow-wrap:anywhere; }
+          .amount { font-size:${isThermal ? '13px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; padding:3mm 0; }
+          .footer { text-align:center; margin-top:5mm; font-size:${isThermal ? '9px' : '12px'}; }
+          .verify { text-align:center; margin-top:3mm; font-size:${isThermal ? '8px' : '10px'}; overflow-wrap:anywhere; }
+          @media print { body { margin:0; } .receipt-page { break-inside:avoid; page-break-inside:avoid; } .receipt { border-color:#555; } }
         </style>
       </head>
       <body>
         <div class="receipt-page">
           ${letterheadBackground}
           <div class="receipt-content">
-          ${header}
-          <h3>RISITI YA MALIPO YA ADA</h3>
-          <div class="line"></div>
-          <div class="row"><span>Namba ya Risiti</span><b>${p.receipt_number}</b></div>
-          <div class="row"><span>Tarehe</span><b>${p.payment_date}</b></div>
-          <div class="row"><span>Mwanafunzi</span><b>${student ? `${student.first_name} ${student.middle_name || ''} ${student.last_name}` : '—'}</b></div>
-          <div class="row"><span>Namba ya Usajili</span><b>${student?.admission_no || '—'}</b></div>
-          <div class="row"><span>Njia ya Malipo</span><b>${p.payment_method}</b></div>
-          <div class="row"><span>Namba ya Muamala</span><b>${p.reference_number || '—'}</b></div>
-          <div class="line"></div>
-          <div class="row amount"><span>Kiasi Kilicholipwa</span><span>TSh ${money(p.amount)}</span></div>
-          <div class="row"><span>Maelezo</span><b>${p.notes || '—'}</b></div>
-          <div class="footer">Asante kwa kufanya malipo.</div>
+            <div class="receipt">
+              ${header}
+              <h3>RISITI YA MALIPO YA ADA</h3>
+              <div class="line"></div>
+              <div class="row"><span>Namba ya Risiti</span><b>${p.receipt_number}</b></div>
+              <div class="row"><span>Tarehe</span><b>${p.payment_date}</b></div>
+              <div class="row"><span>Mwanafunzi</span><b>${student ? `${student.first_name} ${student.middle_name || ''} ${student.last_name}` : '—'}</b></div>
+              <div class="row"><span>Namba ya Usajili</span><b>${student?.admission_no || '—'}</b></div>
+              <div class="row"><span>Njia ya Malipo</span><b>${p.payment_method}</b></div>
+              <div class="row"><span>Namba ya Muamala</span><b>${p.reference_number || '—'}</b></div>
+              <div class="line"></div>
+              <div class="row amount"><span>Kiasi Kilicholipwa</span><span>TSh ${money(p.amount)}</span></div>
+              <div class="row"><span>Jumla ya Ada</span><b>TSh ${money(account.total_amount)}</b></div>
+              <div class="row"><span>Jumla Iliyolipwa</span><b>TSh ${money(totalPaid)}</b></div>
+              <div class="row"><span>Salio</span><b>TSh ${money(balance)}</b></div>
+              <div class="row"><span>Maelezo</span><b>${p.notes || '—'}</b></div>
+              <div class="footer">Asante kwa kufanya malipo.</div>
+              <div class="verify">Hifadhi risiti hii kwa kumbukumbu. Namba ya uthibitisho: ${p.receipt_number}</div>
+            </div>
           </div>
         </div>
         <script>window.onload = () => { const images = Array.from(document.images); Promise.all(images.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve())).then(() => window.print()); };</script>
@@ -1945,12 +1960,20 @@ export default function FeesModule() {
                       <td style={cell}>TSh {money(p.amount)}</td>
                       <td style={cell}>{p.reference_number || '—'}</td>
                       <td style={cell}>
-                        <button
-                          style={smallButton}
-                          onClick={() => printReceipt(p, historyAccount)}
-                        >
-                          Chapisha
-                        </button>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          <button
+                            style={{ ...smallButton, padding: '7px 9px' }}
+                            onClick={() => printReceipt(p, historyAccount, '80mm')}
+                          >
+                            80mm
+                          </button>
+                          <button
+                            style={{ ...smallButton, padding: '7px 9px', background: '#2563eb' }}
+                            onClick={() => printReceipt(p, historyAccount, 'A4')}
+                          >
+                            A4
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
