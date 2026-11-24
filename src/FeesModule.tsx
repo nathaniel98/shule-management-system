@@ -1045,7 +1045,8 @@ export default function FeesModule() {
     }
 
     const isThermal = format === '80mm';
-    const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;\n    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
+    const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
     const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong></div>`;
     const letterheadBackground = !isThermal && letterheadUrl
       ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
@@ -1058,10 +1059,10 @@ export default function FeesModule() {
         <meta charset="utf-8">
         <title>Risiti ${p.receipt_number}</title>
         <style>
-          @page { size: ${isThermal ? '80mm 160mm' : 'A4'}; margin: ${isThermal ? '0' : '0'}; }
+          @page { size: ${isThermal ? '80mm auto' : 'A4'}; margin: 0; }
           * { box-sizing: border-box; }
           body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; }
-          .receipt-page { position: relative; width: ${isThermal ? '80mm' : '210mm'}; ${isThermal ? 'min-height:160mm;' : 'min-height:297mm;'} box-sizing: border-box; padding: ${isThermal ? '3mm' : letterheadUrl ? '48mm 18mm 24mm' : '18mm'}; overflow: hidden; }
+          .receipt-page { position: relative; width: ${isThermal ? '80mm' : '210mm'}; ${isThermal ? '' : 'min-height:297mm;'} box-sizing: border-box; padding: ${isThermal ? '3mm' : letterheadUrl ? '48mm 18mm 24mm' : '18mm'}; overflow: visible; }
           .letterhead-background { position: absolute; inset: 0; z-index: 0; width: 210mm; height: 297mm; object-fit: fill; }
           .receipt-content { position: relative; z-index: 1; width: 100%; }
           .receipt { ${isThermal ? 'border:1px dashed #555; padding:3mm;' : 'border:1px solid #999; padding:18px;'} }
@@ -1080,7 +1081,7 @@ export default function FeesModule() {
           .qr-code { width:${isThermal ? '25mm' : '28mm'}; height:${isThermal ? '25mm' : '28mm'}; display:block; margin:0 auto 1mm; image-rendering:pixelated; }
           .qr-caption { font-size:${isThermal ? '7px' : '9px'}; text-align:center; }
           @media print { @page { margin:0; } }
-          @media print { body { margin:0; } .receipt-page { break-inside:avoid; page-break-inside:avoid; } .receipt { border-color:#555; } }
+          @media print { html, body { margin:0; padding:0; width:${isThermal ? '80mm' : '210mm'}; } .receipt-page { break-inside:auto; page-break-inside:auto; } .receipt { border-color:#555; } }
         </style>
       </head>
       <body>
