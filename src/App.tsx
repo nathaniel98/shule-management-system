@@ -282,17 +282,14 @@ function App() {
         return;
       }
       setRoleLoading(true);
-      const { data, error } = await supabase
-        .from('school_staff_accounts')
-        .select('role, is_active')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_my_staff_role');
       if (!active) return;
+      const staff = Array.isArray(data) ? data[0] : data;
       if (error) {
         console.error('Could not load staff role:', error.message);
         setStaffRole(null);
-      } else if (data?.is_active) {
-        setStaffRole(data.role as StaffRole);
+      } else if (staff?.is_active) {
+        setStaffRole(staff.role as StaffRole);
       } else {
         setStaffRole(null);
       }
