@@ -11,6 +11,7 @@ import ExamsModule from './ExamsModule';
 import ResultsModule from './ResultsModule';
 import ReportsModule from './ReportsModule';
 import SchoolSettingsModule from './SchoolSettingsModule';
+import StaffUsersModule from './StaffUsersModule';
 import AcademicYearsModule from './AcademicYearsModule';
 
 import {
@@ -49,7 +50,8 @@ type Section =
   | 'results'
   | 'reports'
   | 'fees'
-  | 'settings';
+  | 'settings'
+  | 'users';
 
 const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -65,7 +67,8 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'results', label: 'Matokeo', icon: ClipboardList },
   { id: 'reports', label: 'Ripoti', icon: Activity },
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
-  { id: 'settings', label: 'Mipangilio', icon: Settings }
+  { id: 'settings', label: 'Mipangilio', icon: Settings },
+  { id: 'users', label: 'Watumiaji', icon: ShieldCheck }
 ];
 
 function App() {
@@ -391,7 +394,9 @@ function App() {
   ];
 
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
-  const visibleNav = isSuperAdmin ? nav : nav.filter(item => item.id !== 'schools');
+  const visibleNav = isSuperAdmin
+    ? nav.filter(item => item.id !== 'users')
+    : nav.filter(item => item.id !== 'schools');
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
@@ -664,6 +669,8 @@ autoComplete="username"
             <FeesModule />
           ) : section === 'settings' ? (
             <SchoolSettingsModule isSuperAdmin={isSuperAdmin} />
+          ) : section === 'users' && !isSuperAdmin ? (
+            <StaffUsersModule />
           ) : (
             <section className="panel module-panel">
               <div className="module-icon">
