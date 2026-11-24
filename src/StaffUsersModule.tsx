@@ -79,7 +79,7 @@ export default function StaffUsersModule() {
   }
 
   const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
-  const label: React.CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
+  const label: CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
 
   return <div style={{ display: 'grid', gap: 20, color: '#243447' }}>
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
