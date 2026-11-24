@@ -1074,10 +1074,10 @@ export default function FeesModule() {
           .row { display:flex; justify-content:space-between; align-items:flex-start; gap:${isThermal ? '1.5mm' : '3mm'}; margin:${isThermal ? '1mm' : '2.2mm'} 0; font-size:${isThermal ? '8px' : '13px'}; }
           .row span:first-child { flex:0 0 42%; }
           .row b, .row span:last-child { text-align:right; overflow-wrap:anywhere; }
-          .amount { font-size:${isThermal ? '13px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; .amount { font-size:${isThermal ? '11px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; padding:${isThermal ? '1.5mm' : '3mm'} 0; }
+          .amount { font-size:${isThermal ? '11px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; padding:${isThermal ? '1.5mm' : '3mm'} 0; }; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; .amount { font-size:${isThermal ? '11px' : '20px'}; font-weight:bold; border-top:1px dashed #555; border-bottom:1px dashed #555; padding:${isThermal ? '1.5mm' : '3mm'} 0; }
           .footer { text-align:center; margin-top:${isThermal ? '2mm' : '5mm'}; font-size:${isThermal ? '8px' : '12px'}; }
           .verify { text-align:center; margin-top:${isThermal ? '1.5mm' : '3mm'}; font-size:${isThermal ? '7px' : '10px'}; overflow-wrap:anywhere; }
-          .qr-wrap { text-align:center; .qr-wrap { text-align:center; margin:${isThermal ? '2mm' : '4mm'} auto 0; }
+          .qr-wrap { text-align:center; margin:${isThermal ? '2mm' : '4mm'} auto 0; } auto 0; }
           .qr-code { width:${isThermal ? '17mm' : '28mm'}; height:${isThermal ? '17mm' : '28mm'}; display:block; margin:0 auto 1mm; image-rendering:pixelated; }
           .qr-caption { font-size:${isThermal ? '6px' : '9px'}; text-align:center; }
           @media print { @page { margin:0; } }
