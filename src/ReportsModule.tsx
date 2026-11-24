@@ -903,6 +903,12 @@ export default function ReportsModule({ onEditResults }: { onEditResults: () => 
           .student-print-table td {
             border: 1px solid #94a3b8;
             padding: 4px;
+            text-align: center;
+            vertical-align: middle;
+          }
+
+          .student-print-table th:nth-child(2),
+          .student-print-table td:nth-child(2) {
             text-align: left;
           }
 
