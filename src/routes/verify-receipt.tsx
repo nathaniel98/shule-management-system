@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
 import { supabase } from '../supabase';
-
-export const Route = createFileRoute('/verify-receipt')({
-  component: VerifyReceiptPage,
-});
 
 type Receipt = {
   receipt_number: string;
@@ -76,3 +71,5 @@ function VerifyReceiptPage() {
     </main>
   );
 }
+
+export default VerifyReceiptPage;
