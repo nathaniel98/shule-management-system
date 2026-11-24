@@ -434,10 +434,11 @@ function App() {
     class_teacher: ['dashboard', 'students', 'results'],
     teacher: ['dashboard', 'classes', 'subjects', 'exams', 'results']
   };
+  const isStaffAccount = session?.user?.user_metadata?.account_type === 'school_staff';
   const allowedSections = isSuperAdmin
     ? nav.map(item => item.id).filter(id => id !== 'users')
-    : staffRole
-      ? roleSections[staffRole]
+    : isStaffAccount
+      ? (staffRole ? roleSections[staffRole] : ['dashboard'])
       : nav.map(item => item.id).filter(id => id !== 'schools');
   const visibleNav = nav.filter(item => allowedSections.includes(item.id));
   const current = nav.find(n => n.id === section) || nav[0];
