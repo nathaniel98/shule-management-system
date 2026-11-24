@@ -281,7 +281,7 @@ function App() {
         return;
       }
 
-      const { data, error } = await supabase.rpc('get_my_school');
+      const { data, error } = await supabase.rpc('get_my_school_for_staff');
       if (!cancelled) {
         if (error) {
           console.error('Could not load assigned school:', error.message);
