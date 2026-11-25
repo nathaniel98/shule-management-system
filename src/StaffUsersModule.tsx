@@ -129,7 +129,7 @@ export default function StaffUsersModule() {
       <p style={{ color: '#64748b' }}>School Admin anaweza kutengeneza akaunti za wafanyakazi wa shule yake na kuwapa majukumu.</p>
       {error && <div role="alert" style={{ background: '#fff1f0', color: '#b42318', padding: 12, borderRadius: 9, marginBottom: 12 }}>{error}</div>}
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
-      <form onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
+      <form onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 14, width: '100%', minWidth: 0 }}>
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe ya kuingia<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
         <label style={label}>Nenosiri la mwanzo (angalau herufi 8)<input style={input} type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required /></label>
