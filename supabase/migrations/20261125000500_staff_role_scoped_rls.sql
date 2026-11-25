@@ -118,6 +118,112 @@ $$;
 REVOKE ALL ON FUNCTION public.staff_can_access_subject(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_can_access_subject(uuid, uuid) TO authenticated;
 
+
+-- SECURITY DEFINER scope helpers avoid recursive RLS evaluation when a
+-- policy needs to inspect enrollment/student/result relationships.
+CREATE OR REPLACE FUNCTION public.staff_can_access_student(p_student_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $
+  SELECT EXISTS (
+    SELECT 1 FROM public.students st
+    JOIN public.student_enrollments e ON e.student_id = st.id
+    WHERE st.id = p_student_id
+      AND (
+        EXISTS (
+          SELECT 1 FROM public.school_staff_accounts ssa
+          WHERE ssa.user_id = (SELECT auth.uid())
+            AND ssa.school_id = st.school_id
+            AND ssa.is_active IS TRUE
+            AND ssa.role = 'head_teacher'
+        )
+        OR public.staff_can_access_class(st.school_id, e.class_id)
+      )
+  );
+$;
+REVOKE ALL ON FUNCTION public.staff_can_access_student(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_can_access_student(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.staff_can_access_enrollment(p_enrollment_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $
+  SELECT EXISTS (
+    SELECT 1 FROM public.student_enrollments e
+    JOIN public.students st ON st.id = e.student_id
+    WHERE e.id = p_enrollment_id
+      AND (
+        EXISTS (
+          SELECT 1 FROM public.school_staff_accounts ssa
+          WHERE ssa.user_id = (SELECT auth.uid())
+            AND ssa.school_id = st.school_id
+            AND ssa.is_active IS TRUE
+            AND ssa.role = 'head_teacher'
+        )
+        OR public.staff_can_access_class(st.school_id, e.class_id)
+      )
+  );
+$;
+REVOKE ALL ON FUNCTION public.staff_can_access_enrollment(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_can_access_enrollment(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.staff_can_access_result(p_exam_subject_id uuid, p_enrollment_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.student_enrollments e
+    JOIN public.students st ON st.id = e.student_id
+    JOIN public.exam_subjects es ON es.id = p_exam_subject_id
+    JOIN public.exams ex ON ex.id = es.exam_id
+    JOIN public.school_staff_accounts ssa
+      ON ssa.user_id = (SELECT auth.uid())
+     AND ssa.school_id = st.school_id
+     AND ssa.is_active IS TRUE
+    WHERE e.id = p_enrollment_id
+      AND ex.school_id = st.school_id
+      AND ex.class_id = e.class_id
+      AND (
+        ssa.role = 'head_teacher'
+        OR (ssa.role = 'class_teacher' AND ssa.class_id = e.class_id)
+        OR (
+          ssa.role = 'teacher'
+          AND EXISTS (
+            SELECT 1 FROM public.school_staff_teaching_assignments a
+            WHERE a.staff_account_id = ssa.id
+              AND a.school_id = st.school_id
+              AND a.class_id = e.class_id
+              AND a.subject_id = es.subject_id
+          )
+        )
+      )
+  );
+$;
+REVOKE ALL ON FUNCTION public.staff_can_access_result(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_can_access_result(uuid, uuid) TO authenticated;
+
+DROP POLICY IF EXISTS staff_read_assigned_exam_subjects ON public.exam_subjects;
+CREATE POLICY staff_read_assigned_exam_subjects ON public.exam_subjects
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.exams ex
+      WHERE ex.id = exam_subjects.exam_id
+        AND (
+          public.staff_can_access_class(ex.school_id, ex.class_id)
+          AND (
+            public.staff_can_access_subject(ex.school_id, exam_subjects.subject_id)
+            OR EXISTS (
+              SELECT 1 FROM public.school_staff_accounts ssa
+              WHERE ssa.user_id = (SELECT auth.uid())
+                AND ssa.school_id = ex.school_id
+                AND ssa.is_active IS TRUE
+                AND ssa.role IN ('head_teacher', 'class_teacher')
+                AND (ssa.role = 'head_teacher' OR ssa.class_id = ex.class_id)
+            )
+          )
+        )
+    )
+  );
+
 -- Own staff row and own assignment visibility.
 DROP POLICY IF EXISTS school_staff_read_own_account ON public.school_staff_accounts;
 CREATE POLICY school_staff_read_own_account
@@ -183,21 +289,7 @@ CREATE POLICY staff_read_assigned_subjects ON public.subjects
 DROP POLICY IF EXISTS staff_read_scoped_students ON public.students;
 CREATE POLICY staff_read_scoped_students ON public.students
   FOR SELECT TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.school_staff_accounts ssa
-      WHERE ssa.user_id = (SELECT auth.uid())
-        AND ssa.school_id = students.school_id
-        AND ssa.is_active IS TRUE
-        AND ssa.role = 'head_teacher'
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM public.student_enrollments e
-      WHERE e.student_id = students.id
-        AND public.staff_can_access_class(students.school_id, e.class_id)
-    )
-  );
+  USING (public.staff_can_access_student(id));
 
 DROP POLICY IF EXISTS staff_read_scoped_enrollments ON public.student_enrollments;
 CREATE POLICY staff_read_scoped_enrollments ON public.student_enrollments
@@ -231,49 +323,18 @@ CREATE POLICY staff_read_scoped_exams ON public.exams
 DROP POLICY IF EXISTS staff_read_scoped_results ON public.student_results;
 CREATE POLICY staff_read_scoped_results ON public.student_results
   FOR SELECT TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.student_enrollments e
-      JOIN public.students st ON st.id = e.student_id
-      JOIN public.exam_subjects es ON es.id = student_results.exam_subject_id
-      JOIN public.exams ex ON ex.id = es.exam_id
-      WHERE e.id = student_results.enrollment_id
-        AND public.staff_can_access_class(st.school_id, e.class_id)
-        AND (
-          EXISTS (
-            SELECT 1 FROM public.school_staff_accounts ssa
-            WHERE ssa.user_id = (SELECT auth.uid())
-              AND ssa.school_id = st.school_id
-              AND ssa.is_active IS TRUE
-              AND ssa.role IN ('head_teacher', 'class_teacher')
-          )
-          OR public.staff_can_access_subject(st.school_id, es.subject_id)
-        )
-    )
-  );
+  USING (public.staff_can_access_result(exam_subject_id, enrollment_id));
 
--- Only head teachers and class teachers may enter/edit results, and only
--- within their school/class. Subject teachers are read-only at this stage.
 DROP POLICY IF EXISTS staff_insert_scoped_results ON public.student_results;
 CREATE POLICY staff_insert_scoped_results ON public.student_results
   FOR INSERT TO authenticated
   WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.student_enrollments e
-      JOIN public.students st ON st.id = e.student_id
-      JOIN public.exam_subjects es ON es.id = student_results.exam_subject_id
-      JOIN public.exams ex ON ex.id = es.exam_id
-      JOIN public.school_staff_accounts ssa
-        ON ssa.user_id = (SELECT auth.uid())
-       AND ssa.school_id = st.school_id
-       AND ssa.is_active IS TRUE
-      WHERE e.id = student_results.enrollment_id
-        AND ex.school_id = st.school_id
-        AND ex.class_id = e.class_id
+    public.staff_can_access_result(exam_subject_id, enrollment_id)
+    AND EXISTS (
+      SELECT 1 FROM public.school_staff_accounts ssa
+      WHERE ssa.user_id = (SELECT auth.uid())
+        AND ssa.is_active IS TRUE
         AND ssa.role IN ('head_teacher', 'class_teacher')
-        AND public.staff_can_access_class(st.school_id, e.class_id)
     )
   );
 
@@ -281,39 +342,21 @@ DROP POLICY IF EXISTS staff_update_scoped_results ON public.student_results;
 CREATE POLICY staff_update_scoped_results ON public.student_results
   FOR UPDATE TO authenticated
   USING (
-    EXISTS (
-      SELECT 1
-      FROM public.student_enrollments e
-      JOIN public.students st ON st.id = e.student_id
-      JOIN public.exam_subjects es ON es.id = student_results.exam_subject_id
-      JOIN public.exams ex ON ex.id = es.exam_id
-      JOIN public.school_staff_accounts ssa
-        ON ssa.user_id = (SELECT auth.uid())
-       AND ssa.school_id = st.school_id
-       AND ssa.is_active IS TRUE
-      WHERE e.id = student_results.enrollment_id
-        AND ex.school_id = st.school_id
-        AND ex.class_id = e.class_id
+    public.staff_can_access_result(exam_subject_id, enrollment_id)
+    AND EXISTS (
+      SELECT 1 FROM public.school_staff_accounts ssa
+      WHERE ssa.user_id = (SELECT auth.uid())
+        AND ssa.is_active IS TRUE
         AND ssa.role IN ('head_teacher', 'class_teacher')
-        AND public.staff_can_access_class(st.school_id, e.class_id)
     )
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.student_enrollments e
-      JOIN public.students st ON st.id = e.student_id
-      JOIN public.exam_subjects es ON es.id = student_results.exam_subject_id
-      JOIN public.exams ex ON ex.id = es.exam_id
-      JOIN public.school_staff_accounts ssa
-        ON ssa.user_id = (SELECT auth.uid())
-       AND ssa.school_id = st.school_id
-       AND ssa.is_active IS TRUE
-      WHERE e.id = student_results.enrollment_id
-        AND ex.school_id = st.school_id
-        AND ex.class_id = e.class_id
+    public.staff_can_access_result(exam_subject_id, enrollment_id)
+    AND EXISTS (
+      SELECT 1 FROM public.school_staff_accounts ssa
+      WHERE ssa.user_id = (SELECT auth.uid())
+        AND ssa.is_active IS TRUE
         AND ssa.role IN ('head_teacher', 'class_teacher')
-        AND public.staff_can_access_class(st.school_id, e.class_id)
     )
   );
 
