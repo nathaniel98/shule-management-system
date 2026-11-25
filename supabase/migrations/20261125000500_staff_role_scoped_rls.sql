@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS school_staff_teaching_assignments_staff_idx
 
 ALTER TABLE public.school_staff_teaching_assignments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.school_staff_teaching_assignments FROM anon, authenticated;
-GRANT SELECT ON public.school_staff_teaching_assignments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.school_staff_teaching_assignments TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.get_my_staff_role()
 RETURNS TABLE (
