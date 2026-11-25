@@ -61,21 +61,63 @@ export default function StaffUsersModule() {
     return () => { active = false; };
   }, []);
 
+  async function getFunctionErrorMessage(error: unknown): Promise<string> {
+    const fallback = error instanceof Error ? error.message : 'Imeshindikana kutengeneza akaunti.';
+    if (!error || typeof error !== 'object' || !('context' in error)) return fallback;
+
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as Record<string, unknown>;
+        const message = payload.error ?? payload.message ?? payload.msg;
+        if (typeof message === 'string' && message.trim()) return message;
+      } catch {
+        try {
+          const raw = await context.clone().text();
+          if (raw.trim()) return raw.slice(0, 500);
+        } catch { /* Keep the original error message. */ }
+      }
+      return `Hitilafu ya seva (HTTP ${context.status}). ${fallback}`;
+    }
+    return fallback;
+  }
+
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!schoolId) return;
-    setSaving(true); setError(''); setMessage('');
-    const { data, error } = await supabase!.functions.invoke('create-school-staff-user', {
-      body: { display_name: displayName, email, password, role, class_id: role === 'class_teacher' ? classId : null },
-    });
-    if (error || data?.error) {
-      setError(data?.error || error?.message || 'Imeshindikana kutengeneza akaunti.');
-    } else {
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const { data, error } = await supabase!.functions.invoke('create-school-staff-user', {
+        body: { display_name: displayName, email, password, role, class_id: role === 'class_teacher' ? classId : null },
+      });
+
+      if (error) {
+        setError(await getFunctionErrorMessage(error));
+        return;
+      }
+      if (data?.error) {
+        setError(String(data.error));
+        return;
+      }
+
       setMessage('Akaunti imetengenezwa. Mpe mtumiaji barua pepe na nenosiri uliloweka.');
-      setDisplayName(''); setEmail(''); setPassword(''); setClassId('');
-      try { await loadAccounts(schoolId); } catch (e) { setError(e instanceof Error ? e.message : 'Akaunti imetengenezwa lakini orodha haijapakiwa.'); }
+      setDisplayName('');
+      setEmail('');
+      setPassword('');
+      setClassId('');
+      try {
+        await loadAccounts(schoolId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Akaunti imetengenezwa lakini orodha haijapakiwa.');
+      }
+    } catch (e) {
+      setError(await getFunctionErrorMessage(e));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
