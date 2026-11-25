@@ -123,7 +123,7 @@ GRANT EXECUTE ON FUNCTION public.staff_can_access_subject(uuid, uuid) TO authent
 -- policy needs to inspect enrollment/student/result relationships.
 CREATE OR REPLACE FUNCTION public.staff_can_access_student(p_student_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-AS $
+AS $staff$
   SELECT EXISTS (
     SELECT 1 FROM public.students st
     JOIN public.student_enrollments e ON e.student_id = st.id
@@ -139,13 +139,13 @@ AS $
         OR public.staff_can_access_class(st.school_id, e.class_id)
       )
   );
-$;
+$staff$;
 REVOKE ALL ON FUNCTION public.staff_can_access_student(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_can_access_student(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.staff_can_access_enrollment(p_enrollment_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-AS $
+AS $staff$
   SELECT EXISTS (
     SELECT 1 FROM public.student_enrollments e
     JOIN public.students st ON st.id = e.student_id
@@ -161,13 +161,13 @@ AS $
         OR public.staff_can_access_class(st.school_id, e.class_id)
       )
   );
-$;
+$staff$;
 REVOKE ALL ON FUNCTION public.staff_can_access_enrollment(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_can_access_enrollment(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.staff_can_access_result(p_exam_subject_id uuid, p_enrollment_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-AS $
+AS $staff$
   SELECT EXISTS (
     SELECT 1
     FROM public.student_enrollments e
@@ -196,7 +196,7 @@ AS $
         )
       )
   );
-$;
+$staff$;
 REVOKE ALL ON FUNCTION public.staff_can_access_result(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_can_access_result(uuid, uuid) TO authenticated;
 
