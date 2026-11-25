@@ -294,22 +294,7 @@ CREATE POLICY staff_read_scoped_students ON public.students
 DROP POLICY IF EXISTS staff_read_scoped_enrollments ON public.student_enrollments;
 CREATE POLICY staff_read_scoped_enrollments ON public.student_enrollments
   FOR SELECT TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.students st
-      JOIN public.school_staff_accounts ssa
-        ON ssa.school_id = st.school_id
-      WHERE st.id = student_enrollments.student_id
-        AND ssa.user_id = (SELECT auth.uid())
-        AND ssa.is_active IS TRUE
-        AND ssa.role = 'head_teacher'
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      WHERE c.id = student_enrollments.class_id
-        AND public.staff_can_access_class(c.school_id, c.id)
-    )
-  );
+  USING (public.staff_can_access_enrollment(id));
 
 DROP POLICY IF EXISTS staff_read_scoped_exams ON public.exams;
 CREATE POLICY staff_read_scoped_exams ON public.exams
