@@ -200,6 +200,33 @@ $staff$;
 REVOKE ALL ON FUNCTION public.staff_can_access_result(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_can_access_result(uuid, uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.staff_can_manage_result(p_exam_subject_id uuid, p_enrollment_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO ''
+AS $staff$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.student_enrollments e
+    JOIN public.students st ON st.id = e.student_id
+    JOIN public.exam_subjects es ON es.id = p_exam_subject_id
+    JOIN public.exams ex ON ex.id = es.exam_id
+    JOIN public.school_staff_accounts ssa
+      ON ssa.user_id = (SELECT auth.uid())
+     AND ssa.school_id = st.school_id
+     AND ssa.is_active IS TRUE
+    WHERE e.id = p_enrollment_id
+      AND ex.school_id = st.school_id
+      AND ex.class_id = e.class_id
+      AND (
+        ssa.role = 'head_teacher'
+        OR (ssa.role = 'class_teacher' AND ssa.class_id = e.class_id)
+      )
+  );
+$staff$;
+REVOKE ALL ON FUNCTION public.staff_can_manage_result(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_can_manage_result(uuid, uuid) TO authenticated;
+
 DROP POLICY IF EXISTS staff_read_assigned_exam_subjects ON public.exam_subjects;
 CREATE POLICY staff_read_assigned_exam_subjects ON public.exam_subjects
   FOR SELECT TO authenticated
@@ -321,37 +348,13 @@ CREATE POLICY staff_read_scoped_results ON public.student_results
 DROP POLICY IF EXISTS staff_insert_scoped_results ON public.student_results;
 CREATE POLICY staff_insert_scoped_results ON public.student_results
   FOR INSERT TO authenticated
-  WITH CHECK (
-    public.staff_can_access_result(exam_subject_id, enrollment_id)
-    AND EXISTS (
-      SELECT 1 FROM public.school_staff_accounts ssa
-      WHERE ssa.user_id = (SELECT auth.uid())
-        AND ssa.is_active IS TRUE
-        AND ssa.role IN ('head_teacher', 'class_teacher')
-    )
-  );
+  WITH CHECK (public.staff_can_manage_result(exam_subject_id, enrollment_id));
 
 DROP POLICY IF EXISTS staff_update_scoped_results ON public.student_results;
 CREATE POLICY staff_update_scoped_results ON public.student_results
   FOR UPDATE TO authenticated
-  USING (
-    public.staff_can_access_result(exam_subject_id, enrollment_id)
-    AND EXISTS (
-      SELECT 1 FROM public.school_staff_accounts ssa
-      WHERE ssa.user_id = (SELECT auth.uid())
-        AND ssa.is_active IS TRUE
-        AND ssa.role IN ('head_teacher', 'class_teacher')
-    )
-  )
-  WITH CHECK (
-    public.staff_can_access_result(exam_subject_id, enrollment_id)
-    AND EXISTS (
-      SELECT 1 FROM public.school_staff_accounts ssa
-      WHERE ssa.user_id = (SELECT auth.uid())
-        AND ssa.is_active IS TRUE
-        AND ssa.role IN ('head_teacher', 'class_teacher')
-    )
-  );
+  USING (public.staff_can_manage_result(exam_subject_id, enrollment_id))
+  WITH CHECK (public.staff_can_manage_result(exam_subject_id, enrollment_id));
 
 -- Accountant staff accounts may use the existing fee-management policies.
 -- Existing school_admin membership access is retained.
