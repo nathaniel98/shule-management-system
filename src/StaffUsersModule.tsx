@@ -3,6 +3,8 @@ import { supabase } from './supabase';
 
 type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
 type SchoolClass = { id: string; class_name: string };
+type Subject = { id: string; subject_name: string };
+type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
 type StaffAccount = { id: string; display_name: string; email: string; role: StaffRole; class_id: string | null; is_active: boolean; created_at: string };
 
 const roleLabels: Record<StaffRole, string> = {
@@ -16,6 +18,12 @@ export default function StaffUsersModule() {
   const [schoolId, setSchoolId] = useState('');
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [accounts, setAccounts] = useState<StaffAccount[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
+  const [assignmentStaffId, setAssignmentStaffId] = useState('');
+  const [assignmentClassId, setAssignmentClassId] = useState('');
+  const [assignmentSubjectId, setAssignmentSubjectId] = useState('');
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,16 +51,22 @@ export default function StaffUsersModule() {
         const school = Array.isArray(data) ? data[0] : data;
         const id = school?.id || school?.school_id;
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule.');
-        const [classResult, staffResult] = await Promise.all([
+        const [classResult, staffResult, subjectResult, assignmentResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
           supabase!.from('school_staff_accounts').select('id, display_name, email, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
+          supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
         ]);
         if (classResult.error) throw classResult.error;
         if (staffResult.error) throw staffResult.error;
+        if (subjectResult.error) throw subjectResult.error;
+        if (assignmentResult.error) throw assignmentResult.error;
         if (!active) return;
         setSchoolId(id);
         setClasses((classResult.data || []) as SchoolClass[]);
         setAccounts((staffResult.data || []) as StaffAccount[]);
+        setSubjects((subjectResult.data || []) as Subject[]);
+        setAssignments((assignmentResult.data || []) as TeachingAssignment[]);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Imeshindikana kupakia watumiaji.');
       } finally { if (active) setLoading(false); }
@@ -120,6 +134,42 @@ export default function StaffUsersModule() {
     }
   }
 
+  async function saveTeachingAssignment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!schoolId || !assignmentStaffId || !assignmentClassId || !assignmentSubjectId) return;
+    setAssignmentSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { error } = await supabase!.from('school_staff_teaching_assignments').insert({
+        school_id: schoolId, staff_account_id: assignmentStaffId,
+        class_id: assignmentClassId, subject_id: assignmentSubjectId
+      });
+      if (error) throw error;
+      const { data, error: loadError } = await supabase!.from('school_staff_teaching_assignments')
+        .select('id, staff_account_id, class_id, subject_id').eq('school_id', schoolId);
+      if (loadError) throw loadError;
+      setAssignments((data || []) as TeachingAssignment[]);
+      setMessage('Darasa na somo vimepangiwa mwalimu.');
+      setAssignmentClassId('');
+      setAssignmentSubjectId('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kuhifadhi upangaji.');
+    } finally { setAssignmentSaving(false); }
+  }
+
+  async function removeTeachingAssignment(id: string) {
+    if (!window.confirm('Una uhakika unataka kuondoa upangaji huu?')) return;
+    try {
+      const { error } = await supabase!.from('school_staff_teaching_assignments').delete().eq('id', id);
+      if (error) throw error;
+      setAssignments(current => current.filter(item => item.id !== id));
+      setMessage('Upangaji umeondolewa.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kuondoa upangaji.');
+    }
+  }
+
   const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
   const label: CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
 
@@ -153,6 +203,33 @@ export default function StaffUsersModule() {
           <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Jina</th><th style={{ textAlign: 'left', padding: 10 }}>Barua pepe</th><th style={{ textAlign: 'left', padding: 10 }}>Jukumu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th></tr></thead>
           <tbody>{accounts.map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
             <td style={{ padding: 10 }}>{a.display_name}</td><td style={{ padding: 10 }}>{a.email}</td><td style={{ padding: 10 }}>{roleLabels[a.role]}</td><td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || '—'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </section>
+    <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
+      <h3 style={{ marginTop: 0 }}>Kupanga walimu kwenye madarasa na masomo</h3>
+      <p style={{ color: '#64748b' }}>Chagua mwalimu, darasa na somo. Mwalimu ataona taarifa za madarasa na masomo aliyopangiwa tu.</p>
+      <form onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+        <label style={label}>Mwalimu<select style={input} value={assignmentStaffId} onChange={e => setAssignmentStaffId(e.target.value)} required>
+          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+        </select></label>
+        <label style={label}>Darasa<select style={input} value={assignmentClassId} onChange={e => setAssignmentClassId(e.target.value)} required>
+          <option value="">Chagua darasa</option>{classes.map(item => <option key={item.id} value={item.id}>{item.class_name}</option>)}
+        </select></label>
+        <label style={label}>Somo<select style={input} value={assignmentSubjectId} onChange={e => setAssignmentSubjectId(e.target.value)} required>
+          <option value="">Chagua somo</option>{subjects.map(item => <option key={item.id} value={item.id}>{item.subject_name}</option>)}
+        </select></label>
+        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || !assignmentSubjectId} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : '＋ Panga somo'}</button></div>
+      </form>
+      {assignments.length === 0 ? <p>Hakuna walimu waliopangiwa masomo bado.</p> : <div style={{ overflowX: 'auto', marginTop: 14 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+          <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Mwalimu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th><th style={{ textAlign: 'left', padding: 10 }}>Somo</th><th style={{ textAlign: 'left', padding: 10 }}>Kitendo</th></tr></thead>
+          <tbody>{assignments.map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+            <td style={{ padding: 10 }}>{accounts.find(x => x.id === a.staff_account_id)?.display_name || '—'}</td>
+            <td style={{ padding: 10 }}>{classes.find(x => x.id === a.class_id)?.class_name || '—'}</td>
+            <td style={{ padding: 10 }}>{subjects.find(x => x.id === a.subject_id)?.subject_name || '—'}</td>
+            <td style={{ padding: 10 }}><button type="button" onClick={() => removeTeachingAssignment(a.id)} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#fff1f0', color: '#b42318', fontWeight: 700 }}>Ondoa</button></td>
           </tr>)}</tbody>
         </table>
       </div>}
