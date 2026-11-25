@@ -314,6 +314,16 @@ CREATE POLICY school_admin_manage_teaching_assignments
     )
   );
 
+-- Remove legacy teacher-wide policies. Staff teacher permissions are now
+-- granted only by the scoped policies below (assigned class/subject). The
+-- school_admin/headmaster policies remain in place, and school_members-based
+-- school_select policies continue to serve active school members.
+DROP POLICY IF EXISTS results_enrollments_select ON public.student_enrollments;
+DROP POLICY IF EXISTS results_select ON public.student_results;
+DROP POLICY IF EXISTS results_insert ON public.student_results;
+DROP POLICY IF EXISTS results_update ON public.student_results;
+DROP POLICY IF EXISTS results_delete ON public.student_results;
+
 -- Class and subject catalog access is limited to the staff member's scope.
 DROP POLICY IF EXISTS staff_read_assigned_classes ON public.classes;
 CREATE POLICY staff_read_assigned_classes ON public.classes
