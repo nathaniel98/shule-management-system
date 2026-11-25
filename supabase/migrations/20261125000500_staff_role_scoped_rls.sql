@@ -208,17 +208,25 @@ CREATE POLICY staff_read_assigned_exam_subjects ON public.exam_subjects
       SELECT 1 FROM public.exams ex
       WHERE ex.id = exam_subjects.exam_id
         AND (
-          public.staff_can_access_class(ex.school_id, ex.class_id)
-          AND (
-            public.staff_can_access_subject(ex.school_id, exam_subjects.subject_id)
-            OR EXISTS (
-              SELECT 1 FROM public.school_staff_accounts ssa
-              WHERE ssa.user_id = (SELECT auth.uid())
-                AND ssa.school_id = ex.school_id
-                AND ssa.is_active IS TRUE
-                AND ssa.role IN ('head_teacher', 'class_teacher')
-                AND (ssa.role = 'head_teacher' OR ssa.class_id = ex.class_id)
-            )
+          EXISTS (
+            SELECT 1 FROM public.school_staff_accounts ssa
+            WHERE ssa.user_id = (SELECT auth.uid())
+              AND ssa.school_id = ex.school_id
+              AND ssa.is_active IS TRUE
+              AND (
+                ssa.role = 'head_teacher'
+                OR (ssa.role = 'class_teacher' AND ssa.class_id = ex.class_id)
+                OR (
+                  ssa.role = 'teacher'
+                  AND EXISTS (
+                    SELECT 1 FROM public.school_staff_teaching_assignments a
+                    WHERE a.staff_account_id = ssa.id
+                      AND a.school_id = ex.school_id
+                      AND a.class_id = ex.class_id
+                      AND a.subject_id = exam_subjects.subject_id
+                  )
+                )
+              )
           )
         )
     )
