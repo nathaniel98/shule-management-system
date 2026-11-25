@@ -125,9 +125,15 @@ CREATE OR REPLACE FUNCTION public.staff_can_access_student(p_student_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
 AS $staff$
   SELECT EXISTS (
-    SELECT 1 FROM public.students st
+    SELECT 1
+    FROM public.students st
     JOIN public.student_enrollments e ON e.student_id = st.id
+    JOIN public.academic_years ay
+      ON ay.id = e.academic_year_id
+     AND ay.school_id = st.school_id
+     AND ay.is_current IS TRUE
     WHERE st.id = p_student_id
+      AND e.status = 'Active'
       AND (
         EXISTS (
           SELECT 1 FROM public.school_staff_accounts ssa
@@ -147,9 +153,15 @@ CREATE OR REPLACE FUNCTION public.staff_can_access_enrollment(p_enrollment_id uu
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
 AS $staff$
   SELECT EXISTS (
-    SELECT 1 FROM public.student_enrollments e
+    SELECT 1
+    FROM public.student_enrollments e
     JOIN public.students st ON st.id = e.student_id
+    JOIN public.academic_years ay
+      ON ay.id = e.academic_year_id
+     AND ay.school_id = st.school_id
+     AND ay.is_current IS TRUE
     WHERE e.id = p_enrollment_id
+      AND e.status = 'Active'
       AND (
         EXISTS (
           SELECT 1 FROM public.school_staff_accounts ssa
@@ -181,6 +193,8 @@ AS $staff$
     WHERE e.id = p_enrollment_id
       AND ex.school_id = st.school_id
       AND ex.class_id = e.class_id
+      AND ex.academic_year_id = e.academic_year_id
+      AND ex.stream_id IS NOT DISTINCT FROM e.stream_id
       AND (
         ssa.role = 'head_teacher'
         OR (ssa.role = 'class_teacher' AND ssa.class_id = e.class_id)
@@ -218,6 +232,8 @@ AS $staff$
     WHERE e.id = p_enrollment_id
       AND ex.school_id = st.school_id
       AND ex.class_id = e.class_id
+      AND ex.academic_year_id = e.academic_year_id
+      AND ex.stream_id IS NOT DISTINCT FROM e.stream_id
       AND (
         ssa.role = 'head_teacher'
         OR (ssa.role = 'class_teacher' AND ssa.class_id = e.class_id)
