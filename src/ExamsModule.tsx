@@ -356,6 +356,7 @@ const styles = `
 
 export default function ExamsModule() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [isStaffTeacher, setIsStaffTeacher] = useState(false);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [streams, setStreams] = useState<Stream[]>([]);
@@ -444,11 +445,24 @@ export default function ExamsModule() {
     setError('');
 
     try {
-      const results = await Promise.all([
-        supabase.from('schools')
-          .select('id,school_name')
-          .order('school_name'),
+      const { data: roleData, error: roleError } = await supabase.rpc('get_my_staff_role');
+      if (roleError) throw roleError;
+      const staff = Array.isArray(roleData) ? roleData[0] : roleData;
+      const teacher = !!(staff?.is_active && staff.role === 'teacher');
+      let schoolRows: School[] = [];
+      if (teacher) {
+        const { data: assignedSchool, error: schoolError } = await supabase.rpc('get_my_school_for_staff');
+        if (schoolError) throw schoolError;
+        schoolRows = (Array.isArray(assignedSchool) ? assignedSchool : assignedSchool ? [assignedSchool] : [])
+          .map((school: any) => ({ id: school.id, school_name: school.school_name }));
+      } else {
+        const { data, error } = await supabase.from('schools').select('id,school_name').order('school_name');
+        if (error) throw error;
+        schoolRows = (data || []) as School[];
+      }
+      setIsStaffTeacher(teacher);
 
+      const results = await Promise.all([
         supabase.from('academic_years')
           .select('id,school_id,year_name,is_current')
           .order('year_name', { ascending: false }),
@@ -473,14 +487,13 @@ export default function ExamsModule() {
         if (result.error) throw result.error;
       }
 
-      const schoolRows = (results[0].data || []) as School[];
-      const yearRows = (results[1].data || []) as AcademicYear[];
+      const yearRows = (results[0].data || []) as AcademicYear[];
 
       setSchools(schoolRows);
       setYears(yearRows);
-      setClasses((results[2].data || []) as SchoolClass[]);
-      setStreams((results[3].data || []) as Stream[]);
-      setSubjects((results[4].data || []) as Subject[]);
+      setClasses((results[1].data || []) as SchoolClass[]);
+      setStreams((results[2].data || []) as Stream[]);
+      setSubjects((results[3].data || []) as Subject[]);
 
       setForm(previous => {
         const selectedSchoolId =
@@ -506,7 +519,7 @@ export default function ExamsModule() {
         };
       });
 
-      const examRows = (results[5].data || []) as Omit<
+      const examRows = (results[4].data || []) as Omit<
         Exam,
         'exam_subjects'
       >[];
@@ -902,7 +915,7 @@ export default function ExamsModule() {
         </h3>
 
         <div className="exam-grid">
-          <div className="exam-field">
+          {!isStaffTeacher && <div className="exam-field">
             <label>Shule</label>
             <select
               className="exam-input"
@@ -917,7 +930,7 @@ export default function ExamsModule() {
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
 
           <div className="exam-field">
             <label>Mwaka wa masomo</label>
