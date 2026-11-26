@@ -143,15 +143,39 @@ export default function StudentsModule() {
         setLoading(true);
         setError('');
 
-        const { data, error } = await supabase
-          .from('schools')
-          .select('id, school_name, school_code')
-          .order('school_name');
+        // Staff accounts are not school_members. Resolve their own school
+        // through the SECURITY DEFINER RPC instead of querying the schools
+        // table directly (which is intentionally not readable by staff RLS).
+        const { data: assignedData, error: assignedError } =
+          await supabase.rpc('get_my_school_for_staff');
 
-        if (error) throw error;
+        if (assignedError) throw assignedError;
         if (!active) return;
 
-        const rows = (data || []) as School[];
+        const assignedSchool = Array.isArray(assignedData)
+          ? assignedData[0]
+          : assignedData;
+
+        let rows: School[] = [];
+
+        if (assignedSchool?.id) {
+          rows = [{
+            id: assignedSchool.id,
+            school_name: assignedSchool.school_name || 'Shule yangu'
+          }];
+        } else {
+          // Platform and school administrators retain their existing
+          // multi-school / membership-based school selection.
+          const { data, error } = await supabase
+            .from('schools')
+            .select('id, school_name, school_code')
+            .order('school_name');
+
+          if (error) throw error;
+          rows = (data || []) as School[];
+        }
+
+        if (!active) return;
         setSchools(rows);
 
         if (rows.length) {
