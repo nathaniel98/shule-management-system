@@ -171,10 +171,20 @@ export default function StaffUsersModule() {
     setMessage('');
     try {
       if (editingAssignmentId) {
-        const { error } = await supabase!.from('school_staff_teaching_assignments')
-          .update({ staff_account_id: assignmentStaffId, class_id: assignmentClassId, subject_id: assignmentSubjectIds[0] })
-          .eq('id', editingAssignmentId).eq('school_id', schoolId);
+        const { data: updatedAssignment, error } = await supabase!.from('school_staff_teaching_assignments')
+          .update({
+            staff_account_id: assignmentStaffId,
+            class_id: assignmentClassId,
+            subject_id: assignmentSubjectIds[0],
+          })
+          .eq('id', editingAssignmentId)
+          .eq('school_id', schoolId)
+          .select('id, staff_account_id, class_id, subject_id')
+          .maybeSingle();
         if (error) throw error;
+        if (!updatedAssignment) {
+          throw new Error('Mabadiliko hayajahifadhiwa: rekodi haikupatikana au huna ruhusa ya kuibadilisha.');
+        }
       } else {
         const alreadyAssigned = new Set(
           assignments
