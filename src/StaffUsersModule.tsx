@@ -22,7 +22,7 @@ export default function StaffUsersModule() {
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [assignmentStaffId, setAssignmentStaffId] = useState('');
   const [assignmentClassId, setAssignmentClassId] = useState('');
-  const [assignmentSubjectId, setAssignmentSubjectId] = useState('');
+  const [assignmentSubjectIds, setAssignmentSubjectIds] = useState<string[]>([]);
   const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [classTeacherStaffId, setClassTeacherStaffId] = useState('');
   const [classTeacherClassId, setClassTeacherClassId] = useState('');
@@ -163,23 +163,36 @@ export default function StaffUsersModule() {
 
   async function saveTeachingAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!schoolId || !assignmentStaffId || !assignmentClassId || !assignmentSubjectId) return;
+    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0) return;
     setAssignmentSaving(true);
     setError('');
     setMessage('');
     try {
-      const { error } = await supabase!.from('school_staff_teaching_assignments').insert({
-        school_id: schoolId, staff_account_id: assignmentStaffId,
-        class_id: assignmentClassId, subject_id: assignmentSubjectId
-      });
-      if (error) throw error;
+      const alreadyAssigned = new Set(
+        assignments
+          .filter(a => a.staff_account_id === assignmentStaffId && a.class_id === assignmentClassId)
+          .map(a => a.subject_id)
+      );
+      const newSubjectIds = assignmentSubjectIds.filter(id => !alreadyAssigned.has(id));
+      if (newSubjectIds.length > 0) {
+        const rows = newSubjectIds.map(subjectId => ({
+          school_id: schoolId,
+          staff_account_id: assignmentStaffId,
+          class_id: assignmentClassId,
+          subject_id: subjectId
+        }));
+        const { error } = await supabase!.from('school_staff_teaching_assignments').insert(rows);
+        if (error) throw error;
+      }
       const { data, error: loadError } = await supabase!.from('school_staff_teaching_assignments')
         .select('id, staff_account_id, class_id, subject_id').eq('school_id', schoolId);
       if (loadError) throw loadError;
       setAssignments((data || []) as TeachingAssignment[]);
-      setMessage('Darasa na somo vimepangiwa mwalimu.');
+      setMessage(newSubjectIds.length
+        ? `Masomo ${newSubjectIds.length} yamepangiwa mwalimu kikamilifu.`
+        : 'Masomo uliyochagua tayari yamepangiwa mwalimu huyu.');
       setAssignmentClassId('');
-      setAssignmentSubjectId('');
+      setAssignmentSubjectIds([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Imeshindikana kuhifadhi upangaji.');
     } finally { setAssignmentSaving(false); }
@@ -291,10 +304,18 @@ export default function StaffUsersModule() {
         <label style={label}>Darasa<select style={input} value={assignmentClassId} onChange={e => setAssignmentClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(item => <option key={item.id} value={item.id}>{item.class_name}</option>)}
         </select></label>
-        <label style={label}>Somo<select style={input} value={assignmentSubjectId} onChange={e => setAssignmentSubjectId(e.target.value)} required>
-          <option value="">Chagua somo</option>{subjects.map(item => <option key={item.id} value={item.id}>{item.subject_name}</option>)}
-        </select></label>
-        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || !assignmentSubjectId} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : '＋ Panga somo'}</button></div>
+        <fieldset className="staff-subject-picker" style={{ border: '1px solid #cbd5e1', borderRadius: 9, padding: 12, minWidth: 0, margin: 0 }}>
+          <legend style={{ fontWeight: 600, color: '#334155', fontSize: 14, padding: '0 5px' }}>Masomo (chagua moja au zaidi)</legend>
+          {subjects.length === 0 ? <p style={{ margin: 0, color: '#64748b' }}>Hakuna masomo yaliyosajiliwa kwenye shule hii.</p> :
+            <div className="staff-subject-options">
+              {subjects.map(item => <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 4px', fontWeight: 500, minWidth: 0 }}>
+                <input type="checkbox" checked={assignmentSubjectIds.includes(item.id)} onChange={e => setAssignmentSubjectIds(current => e.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} style={{ width: 18, height: 18, flex: '0 0 auto' }} />
+                <span>{item.subject_name}</span>
+              </label>)}
+            </div>}
+          <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: 12 }}>Yamechaguliwa: {assignmentSubjectIds.length}</p>
+        </fieldset>
+        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : '＋ Panga masomo yaliyochaguliwa'}</button></div>
       </form>
       {assignments.length === 0 ? <p>Hakuna walimu waliopangiwa masomo bado.</p> : <div style={{ overflowX: 'auto', marginTop: 14 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
