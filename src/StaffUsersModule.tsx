@@ -164,8 +164,14 @@ export default function StaffUsersModule() {
 
   async function saveTeachingAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length !== 1 && editingAssignmentId) return;
-    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0) return;
+    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0) {
+      setError('Chagua mwalimu, darasa na angalau somo moja.');
+      return;
+    }
+    if (editingAssignmentId && assignmentSubjectIds.length !== 1) {
+      setError('Unapohariri upangaji mmoja, chagua somo moja tu.');
+      return;
+    }
     setAssignmentSaving(true);
     setError('');
     setMessage('');
@@ -332,6 +338,8 @@ export default function StaffUsersModule() {
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Kupanga walimu kwenye madarasa na masomo</h3>
       <p style={{ color: '#64748b' }}>Chagua mwalimu, darasa na somo. Mwalimu ataona taarifa za madarasa na masomo aliyopangiwa tu.</p>
+      {error && <div role="alert" style={{ background: '#fff1f0', color: '#b42318', padding: 12, borderRadius: 9, marginBottom: 12, overflowWrap: 'anywhere' }}>{error}</div>}
+      {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(180px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu<select style={input} value={assignmentStaffId} onChange={e => setAssignmentStaffId(e.target.value)} required>
           <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
