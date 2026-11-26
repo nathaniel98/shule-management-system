@@ -82,7 +82,7 @@ export default function StaffUsersModule() {
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
         const [classResult, staffResult, subjectResult, assignmentResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
-          supabase!.from('school_staff_accounts').select('id, display_name, email, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
         ]);
