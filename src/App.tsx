@@ -92,6 +92,7 @@ function App() {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [activeSchoolName, setActiveSchoolName] = useState('Shule yangu');
   const [schoolAccessLoading, setSchoolAccessLoading] = useState(false);
+  const [staffRole, setStaffRole] = useState<string | null>(null);
 
   async function loadDashboardStats() {
     if (!supabase) {
@@ -393,18 +394,49 @@ function App() {
     }
   ];
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStaffRole() {
+      if (!session?.user?.id || !supabase) {
+        setStaffRole(null);
+        return;
+      }
+      if ((session.user.email || '').toLowerCase() === 'goodlucknoel19@gmail.com') {
+        setStaffRole(null);
+        return;
+      }
+      const { data, error } = await supabase.rpc('get_my_staff_role');
+      if (cancelled) return;
+      if (error) {
+        console.error('Could not load staff role:', error.message);
+        setStaffRole(null);
+        return;
+      }
+      const staff = Array.isArray(data) ? data[0] : data;
+      setStaffRole(staff?.is_active ? staff.role : null);
+    }
+    void loadStaffRole();
+    return () => { cancelled = true; };
+  }, [session]);
+
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+  const isRegularTeacher = staffRole === 'teacher';
   const visibleNav = isSuperAdmin
     ? nav.filter(item => item.id !== 'users')
-    : nav.filter(item => item.id !== 'schools');
+    : isRegularTeacher
+      ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
+      : nav.filter(item => item.id !== 'schools');
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
   useEffect(() => {
-    if (session && !isSuperAdmin && section === 'schools') {
+    if (!session) return;
+    if (isRegularTeacher && !['dashboard', 'students', 'subjects', 'exams', 'results'].includes(section)) {
+      setSection('dashboard');
+    } else if (!isSuperAdmin && section === 'schools') {
       setSection('dashboard');
     }
-  }, [session, section, isSuperAdmin]);
+  }, [session, section, isSuperAdmin, isRegularTeacher]);
 
   if (!session) {
     return (
