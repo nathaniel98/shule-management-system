@@ -29,3 +29,17 @@
 @media (min-width: 641px) {
   .staff-users-module .staff-users-form { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
 }
+
+/* Fix mobile/tablet widths: stack staff forms at the same breakpoint as the app shell. */
+@media (max-width: 760px) {
+  .staff-users-module { width: 100%; max-width: 100%; min-width: 0; overflow-x: clip; }
+  .staff-users-module .staff-users-card { width: 100%; max-width: 100%; min-width: 0; padding: 14px !important; }
+  .staff-users-module .staff-users-form { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; width: 100%; }
+  .staff-users-module .staff-users-form > label,
+  .staff-users-module .staff-users-form > div { width: 100%; min-width: 0; }
+  .staff-users-module .staff-users-form input,
+  .staff-users-module .staff-users-form select,
+  .staff-users-module .staff-users-form button { width: 100%; max-width: 100%; }
+  .staff-users-module .staff-users-card > div[style*="overflow"] { display: block; width: 100%; max-width: 100%; overflow-x: auto !important; }
+  .staff-users-module table { min-width: 520px; }
+}
