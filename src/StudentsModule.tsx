@@ -925,6 +925,7 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
             >
               {selectMode ? 'Funga Select' : 'Select'}
             </button>
+            )}
             <button
               type="button"
               style={{
@@ -936,7 +937,6 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
             >
               Onyesha upya
             </button>
-            )}
           </div>
         </div>
 
@@ -973,7 +973,7 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
           }}>
             <thead>
               <tr>
-                {selectMode && (
+                {!isStaffTeacher && selectMode && (
                   <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     <input
                       type="checkbox"
@@ -996,7 +996,7 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
                   'Tarehe ya kujiunga',
                   'Hali',
                   'Vitendo'
-                ].map(item => (
+                ].filter((_, index) => !isStaffTeacher || index < 7).map(item => (
                   <th
                     key={item}
                     style={{
