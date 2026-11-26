@@ -145,15 +145,37 @@ export default function TeachersModule() {
         setLoading(true);
         setError('');
 
-        const { data, error } = await supabase
-          .from('schools')
-          .select('id, school_name, school_code')
-          .order('school_name');
+        // Staff users are not school_members. Resolve their assigned
+        // school through the staff RPC instead of querying schools directly.
+        const { data: assignedData, error: assignedError } =
+          await supabase.rpc('get_my_school_for_staff');
 
-        if (error) throw error;
+        if (assignedError) throw assignedError;
         if (!active) return;
 
-        const rows = (data || []) as School[];
+        const assignedSchool = Array.isArray(assignedData)
+          ? assignedData[0]
+          : assignedData;
+
+        let rows: School[] = [];
+
+        if (assignedSchool?.id) {
+          rows = [{
+            id: assignedSchool.id,
+            school_name: assignedSchool.school_name || 'Shule yangu'
+          }];
+        } else {
+          // Preserve the existing school selector for platform and school admins.
+          const { data, error } = await supabase
+            .from('schools')
+            .select('id, school_name, school_code')
+            .order('school_name');
+
+          if (error) throw error;
+          rows = (data || []) as School[];
+        }
+
+        if (!active) return;
         setSchools(rows);
 
         if (rows.length > 0) {
