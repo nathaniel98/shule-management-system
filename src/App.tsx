@@ -678,7 +678,7 @@ autoComplete="username"
           ) : section === 'schools' && isSuperAdmin ? (
             <SchoolModule />
           ) : section === 'students' ? (
-            <StudentsModule />
+            <StudentsModule isStaffTeacher={isRegularTeacher} />
           ) : section === 'enrollment' ? (
             <EnrollmentModule />
           ) : section === 'teachers' ? (

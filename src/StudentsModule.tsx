@@ -69,7 +69,7 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer'
 };
 
-export default function StudentsModule() {
+export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeacher?: boolean }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [schoolId, setSchoolId] = useState('');
@@ -545,6 +545,7 @@ export default function StudentsModule() {
 
   return (
     <div style={{ display: 'grid', gap: 22, color: '#243447' }}>
+      {!isStaffTeacher && (
       <section style={{
         background: '#fff',
         border: '1px solid #e2e8f0',
@@ -892,6 +893,8 @@ export default function StudentsModule() {
         )}
       </section>
 
+      )}
+
       <section style={{
         background: '#fff',
         border: '1px solid #e2e8f0',
@@ -909,6 +912,7 @@ export default function StudentsModule() {
           <h2>Wanafunzi ({filteredStudents.length})</h2>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {!isStaffTeacher && (
             <button
               type="button"
               style={{ ...buttonStyle, background: selectMode ? '#173b5e' : '#eaf1f7', color: selectMode ? '#fff' : '#173b5e' }}
@@ -921,6 +925,7 @@ export default function StudentsModule() {
             >
               {selectMode ? 'Funga Select' : 'Select'}
             </button>
+            )}
             <button
               type="button"
               style={{
@@ -935,7 +940,7 @@ export default function StudentsModule() {
           </div>
         </div>
 
-        {selectMode && selectedStudentIds.length > 0 && (
+        {!isStaffTeacher && selectMode && selectedStudentIds.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: 12, background: '#fff1f0', borderRadius: 10 }}>
             <strong>{selectedStudentIds.length} wamechaguliwa</strong>
             <button
@@ -968,7 +973,7 @@ export default function StudentsModule() {
           }}>
             <thead>
               <tr>
-                {selectMode && (
+                {!isStaffTeacher && selectMode && (
                   <th style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     <input
                       type="checkbox"
@@ -991,7 +996,7 @@ export default function StudentsModule() {
                   'Tarehe ya kujiunga',
                   'Hali',
                   'Vitendo'
-                ].map(item => (
+                ].filter((_, index) => !isStaffTeacher || index < 7).map(item => (
                   <th
                     key={item}
                     style={{
@@ -1082,6 +1087,7 @@ export default function StudentsModule() {
                     {student.admission_date || '—'}
                   </td>
 
+                  {!isStaffTeacher && (
                   <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.status || '—'}
                   </td>
@@ -1116,6 +1122,7 @@ export default function StudentsModule() {
                       {deletingId === student.id ? 'Inafuta...' : 'Delete'}
                     </button>
                   </td>
+                  )}
                 </tr>
               ))}
             </tbody>
