@@ -49,11 +49,35 @@ export default function StaffUsersModule() {
     let active = true;
     async function load() {
       try {
-        const { data, error } = await supabase!.rpc('get_my_school_for_staff');
-        if (error) throw error;
-        const school = Array.isArray(data) ? data[0] : data;
-        const id = school?.id || school?.school_id;
-        if (!id) throw new Error('Akaunti hii haijaunganishwa na shule.');
+        // School Admin accounts are stored in school_members, while staff
+        // accounts are stored in school_staff_accounts. Support both identities.
+        const { data: staffSchoolData, error: staffSchoolError } =
+          await supabase!.rpc('get_my_school_for_staff');
+        if (staffSchoolError) throw staffSchoolError;
+        const staffSchool = Array.isArray(staffSchoolData)
+          ? staffSchoolData[0]
+          : staffSchoolData;
+
+        let id = staffSchool?.id || staffSchool?.school_id || '';
+
+        if (!id) {
+          const { data: { user }, error: userError } = await supabase!.auth.getUser();
+          if (userError) throw userError;
+          if (!user) throw new Error('Tafadhali ingia tena kwenye mfumo.');
+
+          const { data: memberships, error: membershipError } = await supabase!
+            .from('school_members')
+            .select('school_id')
+            .eq('user_id', user.id)
+            .eq('role', 'school_admin')
+            .eq('is_active', true)
+            .order('created_at', { ascending: true })
+            .limit(1);
+          if (membershipError) throw membershipError;
+          id = memberships?.[0]?.school_id || '';
+        }
+
+        if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
         const [classResult, staffResult, subjectResult, assignmentResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
           supabase!.from('school_staff_accounts').select('id, display_name, email, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
