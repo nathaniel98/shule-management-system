@@ -5,7 +5,7 @@ type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
 type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
-type StaffAccount = { id: string; display_name: string; email: string; role: StaffRole; class_id: string | null; is_active: boolean; created_at: string };
+type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; is_active: boolean; created_at: string };
 
 const roleLabels: Record<StaffRole, string> = {
   class_teacher: 'Mwalimu wa darasa',
@@ -30,6 +30,7 @@ export default function StaffUsersModule() {
   const [classTeacherSaving, setClassTeacherSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<StaffRole>('class_teacher');
   const [classId, setClassId] = useState('');
@@ -40,7 +41,7 @@ export default function StaffUsersModule() {
 
   async function loadAccounts(id: string) {
     const { data, error } = await supabase!.from('school_staff_accounts')
-      .select('id, display_name, email, role, class_id, is_active, created_at')
+      .select('id, display_name, email, phone, role, class_id, is_active, created_at')
       .eq('school_id', id).order('created_at', { ascending: false });
     if (error) throw error;
     setAccounts((data || []) as StaffAccount[]);
@@ -81,7 +82,7 @@ export default function StaffUsersModule() {
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
         const [classResult, staffResult, subjectResult, assignmentResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
-          supabase!.from('school_staff_accounts').select('id, display_name, email, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
         ]);
@@ -133,7 +134,7 @@ export default function StaffUsersModule() {
 
     try {
       const { data, error } = await supabase!.functions.invoke('create-school-staff-user', {
-        body: { display_name: displayName, email, password, role, class_id: role === 'class_teacher' ? classId : null },
+        body: { display_name: displayName, email: email.trim(), phone: phone.trim(), password, role, class_id: role === 'class_teacher' ? classId : null },
       });
 
       if (error) {
@@ -148,6 +149,7 @@ export default function StaffUsersModule() {
       setMessage('Akaunti imetengenezwa. Mpe mtumiaji barua pepe na nenosiri uliloweka.');
       setDisplayName('');
       setEmail('');
+      setPhone('');
       setPassword('');
       setClassId('');
       try {
@@ -285,7 +287,8 @@ export default function StaffUsersModule() {
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: 14, minWidth: 0 }}>
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
-        <label style={label}>Barua pepe ya kuingia<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
+        <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jina@shule.co.tz" /></label>
+        <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX au +2557XXXXXXXX" /></label>
         <label style={label}>Nenosiri la mwanzo (angalau herufi 8)<input style={input} type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required /></label>
         <label style={label}>Jukumu<select style={input} value={role} onChange={e => { setRole(e.target.value as StaffRole); setClassId(''); }}>
           <option value="class_teacher">Mwalimu wa darasa</option>
@@ -298,15 +301,15 @@ export default function StaffUsersModule() {
         </select></label>}
         <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={saving || loading || (role === 'class_teacher' && !classId)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{saving ? 'Inatengeneza...' : '＋ Tengeneza Akaunti'}</button></div>
       </form>
-      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 0 }}>Akaunti itatumia barua pepe na nenosiri uliloweka. Mabadiliko ya majukumu na ruhusa za kila sehemu yataunganishwa kulingana na nafasi husika.</p>
+      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 0 }}>Unaweza kutumia barua pepe au namba ya simu kuingia, pamoja na nenosiri. Jaza angalau kimoja kati ya hivyo.</p>
     </section>
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Watumiaji wa shule hii</h3>
       {loading ? <p>Inapakia...</p> : accounts.length === 0 ? <p>Hakuna akaunti za wafanyakazi zilizotengenezwa bado.</p> : <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-          <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Jina</th><th style={{ textAlign: 'left', padding: 10 }}>Barua pepe</th><th style={{ textAlign: 'left', padding: 10 }}>Jukumu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th></tr></thead>
+          <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Jina</th><th style={{ textAlign: 'left', padding: 10 }}>Barua pepe / Simu</th><th style={{ textAlign: 'left', padding: 10 }}>Jukumu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th></tr></thead>
           <tbody>{accounts.map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-            <td style={{ padding: 10 }}>{a.display_name}</td><td style={{ padding: 10 }}>{a.email}</td><td style={{ padding: 10 }}>{roleLabels[a.role]}</td><td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || '—'}</td>
+            <td style={{ padding: 10 }}>{a.display_name}</td><td style={{ padding: 10 }}>{a.email || a.phone || '—'}</td><td style={{ padding: 10 }}>{roleLabels[a.role]}</td><td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || '—'}</td>
           </tr>)}</tbody>
         </table>
       </div>}
