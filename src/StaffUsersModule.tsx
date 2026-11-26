@@ -24,6 +24,7 @@ export default function StaffUsersModule() {
   const [assignmentClassId, setAssignmentClassId] = useState('');
   const [assignmentSubjectIds, setAssignmentSubjectIds] = useState<string[]>([]);
   const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [classTeacherStaffId, setClassTeacherStaffId] = useState('');
   const [classTeacherClassId, setClassTeacherClassId] = useState('');
   const [classTeacherSaving, setClassTeacherSaving] = useState(false);
@@ -163,39 +164,63 @@ export default function StaffUsersModule() {
 
   async function saveTeachingAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length !== 1 && editingAssignmentId) return;
     if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0) return;
     setAssignmentSaving(true);
     setError('');
     setMessage('');
     try {
-      const alreadyAssigned = new Set(
-        assignments
-          .filter(a => a.staff_account_id === assignmentStaffId && a.class_id === assignmentClassId)
-          .map(a => a.subject_id)
-      );
-      const newSubjectIds = assignmentSubjectIds.filter(id => !alreadyAssigned.has(id));
-      if (newSubjectIds.length > 0) {
-        const rows = newSubjectIds.map(subjectId => ({
-          school_id: schoolId,
-          staff_account_id: assignmentStaffId,
-          class_id: assignmentClassId,
-          subject_id: subjectId
-        }));
-        const { error } = await supabase!.from('school_staff_teaching_assignments').insert(rows);
+      if (editingAssignmentId) {
+        const { error } = await supabase!.from('school_staff_teaching_assignments')
+          .update({ staff_account_id: assignmentStaffId, class_id: assignmentClassId, subject_id: assignmentSubjectIds[0] })
+          .eq('id', editingAssignmentId).eq('school_id', schoolId);
         if (error) throw error;
+      } else {
+        const alreadyAssigned = new Set(
+          assignments
+            .filter(a => a.staff_account_id === assignmentStaffId && a.class_id === assignmentClassId)
+            .map(a => a.subject_id)
+        );
+        const newSubjectIds = assignmentSubjectIds.filter(id => !alreadyAssigned.has(id));
+        if (newSubjectIds.length > 0) {
+          const rows = newSubjectIds.map(subjectId => ({
+            school_id: schoolId,
+            staff_account_id: assignmentStaffId,
+            class_id: assignmentClassId,
+            subject_id: subjectId
+          }));
+          const { error } = await supabase!.from('school_staff_teaching_assignments').insert(rows);
+          if (error) throw error;
+        }
       }
       const { data, error: loadError } = await supabase!.from('school_staff_teaching_assignments')
         .select('id, staff_account_id, class_id, subject_id').eq('school_id', schoolId);
       if (loadError) throw loadError;
       setAssignments((data || []) as TeachingAssignment[]);
-      setMessage(newSubjectIds.length
-        ? `Masomo ${newSubjectIds.length} yamepangiwa mwalimu kikamilifu.`
-        : 'Masomo uliyochagua tayari yamepangiwa mwalimu huyu.');
+      setMessage(editingAssignmentId ? 'Upangaji umehaririwa kikamilifu.' : 'Masomo yamepangiwa mwalimu kikamilifu.');
       setAssignmentClassId('');
       setAssignmentSubjectIds([]);
+      setEditingAssignmentId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Imeshindikana kuhifadhi upangaji.');
     } finally { setAssignmentSaving(false); }
+  }
+
+  function startEditTeachingAssignment(a: TeachingAssignment) {
+    setEditingAssignmentId(a.id);
+    setAssignmentStaffId(a.staff_account_id);
+    setAssignmentClassId(a.class_id);
+    setAssignmentSubjectIds([a.subject_id]);
+    setError('');
+    setMessage('Hariri mwalimu, darasa au somo kisha bonyeza Hifadhi mabadiliko.');
+  }
+
+  function cancelEditTeachingAssignment() {
+    setEditingAssignmentId(null);
+    setAssignmentStaffId('');
+    setAssignmentClassId('');
+    setAssignmentSubjectIds([]);
+    setMessage('');
   }
 
   async function removeTeachingAssignment(id: string) {
@@ -315,8 +340,9 @@ export default function StaffUsersModule() {
             </div>}
           <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: 12 }}>Yamechaguliwa: {assignmentSubjectIds.length}</p>
         </fieldset>
-        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : '＋ Panga masomo yaliyochaguliwa'}</button></div>
+        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0 || (!!editingAssignmentId && assignmentSubjectIds.length !== 1)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : editingAssignmentId ? 'Hifadhi mabadiliko' : '＋ Panga masomo yaliyochaguliwa'}</button></div>
       </form>
+      {editingAssignmentId && <button type="button" onClick={cancelEditTeachingAssignment} style={{ marginTop: 8, border: 0, borderRadius: 8, padding: '10px 14px', background: '#eef3f7', color: '#173b5e', fontWeight: 700 }}>Ghairi kuhariri</button>}
       {assignments.length === 0 ? <p>Hakuna walimu waliopangiwa masomo bado.</p> : <div style={{ overflowX: 'auto', marginTop: 14 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
           <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Mwalimu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th><th style={{ textAlign: 'left', padding: 10 }}>Somo</th><th style={{ textAlign: 'left', padding: 10 }}>Kitendo</th></tr></thead>
@@ -324,7 +350,7 @@ export default function StaffUsersModule() {
             <td style={{ padding: 10 }}>{accounts.find(x => x.id === a.staff_account_id)?.display_name || '—'}</td>
             <td style={{ padding: 10 }}>{classes.find(x => x.id === a.class_id)?.class_name || '—'}</td>
             <td style={{ padding: 10 }}>{subjects.find(x => x.id === a.subject_id)?.subject_name || '—'}</td>
-            <td style={{ padding: 10 }}><button type="button" onClick={() => removeTeachingAssignment(a.id)} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#fff1f0', color: '#b42318', fontWeight: 700 }}>Ondoa</button></td>
+            <td style={{ padding: 10, whiteSpace: 'nowrap' }}><button type="button" onClick={() => startEditTeachingAssignment(a)} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#eaf2f8', color: '#173b5e', fontWeight: 700, marginRight: 6 }}>Hariri</button><button type="button" onClick={() => removeTeachingAssignment(a.id)} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#fff1f0', color: '#b42318', fontWeight: 700 }}>Ondoa</button></td>
           </tr>)}</tbody>
         </table>
       </div>}

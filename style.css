@@ -57,3 +57,23 @@
 @media (max-width: 640px) {
   .staff-users-module .staff-subject-options { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Prevent staff management grids and cards from widening the whole page. */
+html, body, #root { max-width: 100%; overflow-x: hidden; }
+.main, .content, .staff-users-module { min-width: 0; width: 100%; max-width: 100%; }
+.staff-users-module { overflow-x: clip !important; }
+.staff-users-module > section { min-width: 0 !important; width: 100% !important; max-width: 100% !important; }
+.staff-users-module .staff-users-form { width: 100% !important; min-width: 0 !important; grid-template-columns: minmax(0, 1fr) !important; }
+.staff-users-module .staff-users-form > * { min-width: 0 !important; max-width: 100% !important; }
+.staff-users-module .staff-subject-picker { width: 100% !important; max-width: 100% !important; }
+.staff-users-module .staff-subject-options { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+.staff-users-module table { min-width: 520px; }
+.staff-users-module section > div[style*="overflow"] { display: block; width: 100%; max-width: 100%; overflow-x: auto !important; }
+@media (max-width: 760px) {
+  .content { padding-left: 12px !important; padding-right: 12px !important; }
+  .staff-users-module { gap: 12px !important; }
+  .staff-users-module > section { padding: 12px !important; }
+  .staff-users-module .staff-users-form { grid-template-columns: minmax(0, 1fr) !important; }
+  .staff-users-module .staff-subject-options { grid-template-columns: minmax(0, 1fr); }
+  .staff-users-module .staff-users-form button { width: 100%; }
+}
