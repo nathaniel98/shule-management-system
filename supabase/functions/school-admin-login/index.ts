@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
   // Accept E.164 and common Tanzanian local formats for phone/password login.
   const digits = identifier.replace(/[^0-9]/g, "");
-  const looksLikePhone = /^\\+?[0-9][0-9\\s()-]{7,}$/.test(identifier) && digits.length >= 9;
+  const looksLikePhone = /^\+?[0-9][0-9\s()-]{7,}$/.test(identifier) && digits.length >= 9;
   let data;
   let error;
 
