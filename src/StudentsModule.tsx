@@ -146,22 +146,45 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
         // Staff accounts are not school_members. Resolve their own school
         // through the SECURITY DEFINER RPC instead of querying the schools
         // table directly (which is intentionally not readable by staff RLS).
+        // Resolve staff accounts using the dedicated school RPC first.
+        // Fall back to the staff-role RPC because some deployed database
+        // versions expose school_id there even if the school RPC is stale.
+        let assignedSchool: { id?: string; school_id?: string; school_name?: string } | null = null;
+
         const { data: assignedData, error: assignedError } =
           await supabase.rpc('get_my_school_for_staff');
 
-        if (assignedError) throw assignedError;
-        if (!active) return;
+        if (!assignedError) {
+          assignedSchool = Array.isArray(assignedData)
+            ? assignedData[0]
+            : assignedData;
+        }
 
-        const assignedSchool = Array.isArray(assignedData)
-          ? assignedData[0]
-          : assignedData;
+        if (!assignedSchool?.id && !assignedSchool?.school_id) {
+          const { data: staffData, error: staffError } =
+            await supabase.rpc('get_my_staff_role');
+
+          if (!staffError) {
+            const staff = Array.isArray(staffData) ? staffData[0] : staffData;
+            if (staff?.is_active && staff?.school_id) {
+              assignedSchool = {
+                id: staff.school_id,
+                school_name: 'Shule yangu'
+              };
+            }
+          }
+        }
+
+        if (!active) return;
 
         let rows: School[] = [];
 
-        if (assignedSchool?.id) {
+        const staffSchoolId = assignedSchool?.id || assignedSchool?.school_id;
+
+        if (staffSchoolId) {
           rows = [{
-            id: assignedSchool.id,
-            school_name: assignedSchool.school_name || 'Shule yangu'
+            id: staffSchoolId,
+            school_name: assignedSchool?.school_name || 'Shule yangu'
           }];
         } else {
           // Platform and school administrators retain their existing
