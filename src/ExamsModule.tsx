@@ -909,6 +909,7 @@ export default function ExamsModule() {
         </div>
       )}
 
+      {!isStaffTeacher ? (
       <form id="exam-form" className="exam-panel" onSubmit={saveExam}>
         <h3>
           {editingId ? 'Hariri Mtihani' : 'Sajili Mtihani Mpya'}
@@ -1197,6 +1198,14 @@ export default function ExamsModule() {
           )}
         </div>
       </form>
+      ) : (
+        <div className="exam-panel">
+          <h3>Mitihani ya shule</h3>
+          <p style={{ color: '#64748b', margin: 0 }}>
+            Unaweza kuona mitihani ya shule yako hapa. Usajili, uhariri na ufutaji wa mitihani unasimamiwa na School Admin.
+          </p>
+        </div>
+      )}
 
       <section>
         <div className="exam-list-head">
