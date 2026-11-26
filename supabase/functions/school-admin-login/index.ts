@@ -22,19 +22,36 @@ Deno.serve(async (req) => {
   const password = String(body.password ?? "");
   if (!identifier || !password) return json({ error: "Weka username/barua pepe na nenosiri." }, 400);
 
-  let email = identifier.toLowerCase();
-  if (!identifier.includes("@")) {
-    const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: profile } = await admin.from("school_admin_profiles")
-      .select("user_id").eq("username", identifier.toLowerCase()).maybeSingle();
-    if (!profile) return json({ error: "Username au nenosiri si sahihi." }, 401);
-    const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.user_id);
-    if (userError || !userData.user?.email) return json({ error: "Username au nenosiri si sahihi." }, 401);
-    email = userData.user.email;
-  }
-
   const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await auth.auth.signInWithPassword({ email, password });
+
+  // Accept E.164 and common Tanzanian local formats for phone/password login.
+  const digits = identifier.replace(/[^0-9]/g, "");
+  const looksLikePhone = /^\\+?[0-9][0-9\\s()-]{7,}$/.test(identifier) && digits.length >= 9;
+  let data;
+  let error;
+
+  if (looksLikePhone) {
+    const phone = identifier.startsWith("+")
+      ? `+${digits}`
+      : digits.startsWith("0") && digits.length === 10
+        ? `+255${digits.slice(1)}`
+        : digits.startsWith("255")
+          ? `+${digits}`
+          : `+${digits}`;
+    ({ data, error } = await auth.auth.signInWithPassword({ phone, password }));
+  } else {
+    let email = identifier.toLowerCase();
+    if (!identifier.includes("@")) {
+      const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: profile } = await admin.from("school_admin_profiles")
+        .select("user_id").eq("username", identifier.toLowerCase()).maybeSingle();
+      if (!profile) return json({ error: "Username, namba ya simu au nenosiri si sahihi." }, 401);
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.user_id);
+      if (userError || !userData.user?.email) return json({ error: "Username au nenosiri si sahihi." }, 401);
+      email = userData.user.email;
+    }
+    ({ data, error } = await auth.auth.signInWithPassword({ email, password }));
+  }
   if (error || !data.session) return json({ error: "Username/barua pepe au nenosiri si sahihi." }, 401);
   return json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
 });
