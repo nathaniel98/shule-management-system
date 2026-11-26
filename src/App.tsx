@@ -454,13 +454,13 @@ function App() {
           </p>
 
           <form onSubmit={signIn}>
-            <label>Username au barua pepe</label>
+            <label>Namba ya simu, username au barua pepe</label>
 
             <input
               type="text"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="Username au jina@shule.co.tz"
+              placeholder="07XXXXXXXX, username au jina@shule.co.tz"
 autoComplete="username"
               required
             />
