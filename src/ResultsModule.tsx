@@ -73,6 +73,7 @@ const buttonStyle: React.CSSProperties = {
 
 export default function ResultsModule() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [isStaffTeacher, setIsStaffTeacher] = useState(false);
   const [schoolId, setSchoolId] = useState('');
   const [exams, setExams] = useState<Exam[]>([]);
   const [examSubjects, setExamSubjects] = useState<ExamSubject[]>([]);
@@ -103,15 +104,23 @@ export default function ResultsModule() {
       try {
         if (!supabase) throw new Error('Supabase haijaunganishwa.');
 
-        const { data, error } = await supabase
-          .from('schools')
-          .select('id,school_name')
-          .order('school_name');
-
-        if (error) throw error;
+        const { data: roleData, error: roleError } = await supabase.rpc('get_my_staff_role');
+        if (roleError) throw roleError;
+        const staff = Array.isArray(roleData) ? roleData[0] : roleData;
+        const teacher = !!(staff?.is_active && staff.role === 'teacher');
+        let rows: School[] = [];
+        if (teacher) {
+          const { data: assignedSchool, error: schoolError } = await supabase.rpc('get_my_school_for_staff');
+          if (schoolError) throw schoolError;
+          rows = (Array.isArray(assignedSchool) ? assignedSchool : assignedSchool ? [assignedSchool] : [])
+            .map((school: any) => ({ id: school.id, school_name: school.school_name }));
+        } else {
+          const { data, error } = await supabase.from('schools').select('id,school_name').order('school_name');
+          if (error) throw error;
+          rows = (data || []) as School[];
+        }
         if (!active) return;
-
-        const rows = (data || []) as School[];
+        setIsStaffTeacher(teacher);
         setSchools(rows);
 
         if (rows.length) {
@@ -617,7 +626,7 @@ export default function ResultsModule() {
         {notice && <p style={{ color: '#16845b', fontWeight: 700 }}>{notice}</p>}
 
         <div className="results-grid">
-          <label>
+          {!isStaffTeacher && <label>
             Shule
             <select
               style={inputStyle}
@@ -629,7 +638,7 @@ export default function ResultsModule() {
                 <option key={s.id} value={s.id}>{s.school_name}</option>
               ))}
             </select>
-          </label>
+          </label>}
 
           <label>
             Mtihani
