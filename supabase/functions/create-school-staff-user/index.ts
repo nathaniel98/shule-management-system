@@ -73,6 +73,11 @@ Deno.serve(async (req) => {
 
   const displayName = String(body.display_name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
+  const rawPhone = String(body.phone ?? "").trim();
+  const phoneDigits = rawPhone.replace(/[^0-9]/g, "");
+  const normalizedPhone = rawPhone
+    ? (rawPhone.startsWith("+") ? `+${phoneDigits}` : phoneDigits.startsWith("0") && phoneDigits.length === 10 ? `+255${phoneDigits.slice(1)}` : phoneDigits.startsWith("255") ? `+${phoneDigits}` : `+${phoneDigits}`)
+    : "";
   const password = String(body.password ?? "");
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
@@ -86,7 +91,9 @@ Deno.serve(async (req) => {
 
   if (
     !displayName ||
-    !email.includes("@") ||
+    (!email && !normalizedPhone) ||
+    (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) ||
+    (normalizedPhone && !/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) ||
     password.length < 8 ||
     !allowedRoles.includes(role)
   ) {
@@ -112,9 +119,8 @@ Deno.serve(async (req) => {
 
   const { data: created, error: createError } =
     await admin.auth.admin.createUser({
-      email,
+      ...(email ? { email, email_confirm: true } : { phone: normalizedPhone, phone_confirm: true }),
       password,
-      email_confirm: true,
       user_metadata: {
         account_type: "school_staff",
         school_id: membership.school_id,
@@ -135,7 +141,8 @@ Deno.serve(async (req) => {
       school_id: membership.school_id,
       user_id: created.user.id,
       display_name: displayName,
-      email,
+      email: email || null,
+      phone: normalizedPhone || null,
       role,
       class_id: classId,
     });
@@ -148,7 +155,8 @@ Deno.serve(async (req) => {
   return json({
     success: true,
     display_name: displayName,
-    email,
+    email: email || null,
+    phone: normalizedPhone || null,
     role,
   });
 });
