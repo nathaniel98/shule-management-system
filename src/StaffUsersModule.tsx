@@ -24,6 +24,9 @@ export default function StaffUsersModule() {
   const [assignmentClassId, setAssignmentClassId] = useState('');
   const [assignmentSubjectId, setAssignmentSubjectId] = useState('');
   const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const [classTeacherStaffId, setClassTeacherStaffId] = useState('');
+  const [classTeacherClassId, setClassTeacherClassId] = useState('');
+  const [classTeacherSaving, setClassTeacherSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -170,6 +173,29 @@ export default function StaffUsersModule() {
     }
   }
 
+  async function assignClassTeacher(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!classTeacherStaffId || !classTeacherClassId) return;
+    setClassTeacherSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { error } = await supabase!.rpc('assign_school_class_teacher', {
+        p_staff_account_id: classTeacherStaffId,
+        p_class_id: classTeacherClassId
+      });
+      if (error) throw error;
+      await loadAccounts(schoolId);
+      setMessage('Darasa limepangiwa mwalimu kikamilifu.');
+      setClassTeacherStaffId('');
+      setClassTeacherClassId('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kumpangia mwalimu darasa.');
+    } finally {
+      setClassTeacherSaving(false);
+    }
+  }
+
   const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
   const label: CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
 
@@ -206,6 +232,30 @@ export default function StaffUsersModule() {
           </tr>)}</tbody>
         </table>
       </div>}
+    </section>
+    <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
+      <h3 style={{ marginTop: 0 }}>Kupanga mwalimu wa darasa</h3>
+      <p style={{ color: '#64748b' }}>Chagua mwalimu mwenye jukumu la Mwalimu wa darasa na umpatie darasa analolisimamia. Unaweza kubadilisha darasa lake wakati wowote.</p>
+      <form onSubmit={assignClassTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
+        <label style={label}>Mwalimu wa darasa<select style={input} value={classTeacherStaffId} onChange={e => setClassTeacherStaffId(e.target.value)} required>
+          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'class_teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+        </select></label>
+        <label style={label}>Darasa<select style={input} value={classTeacherClassId} onChange={e => setClassTeacherClassId(e.target.value)} required>
+          <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
+        </select></label>
+        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={classTeacherSaving || !classTeacherStaffId || !classTeacherClassId} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{classTeacherSaving ? 'Inahifadhi...' : '＋ Panga darasa'}</button></div>
+      </form>
+      {accounts.filter(a => a.role === 'class_teacher' && a.is_active).length === 0
+        ? <p>Hakuna akaunti hai za walimu wa darasa. Tengeneza akaunti yenye jukumu la Mwalimu wa darasa kwanza.</p>
+        : <div style={{ overflowX: 'auto', marginTop: 14 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+            <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Mwalimu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa analosimamia</th></tr></thead>
+            <tbody>{accounts.filter(a => a.role === 'class_teacher' && a.is_active).map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+              <td style={{ padding: 10 }}>{a.display_name}</td>
+              <td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || 'Hajapangiwa'}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>}
     </section>
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Kupanga walimu kwenye madarasa na masomo</h3>
