@@ -57,6 +57,7 @@ const buttonStyle: React.CSSProperties = {
 
 export default function SubjectsModule() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [isStaffTeacher, setIsStaffTeacher] = useState(false);
   const [schoolId, setSchoolId] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -91,15 +92,28 @@ export default function SubjectsModule() {
       try {
         if (!supabase) throw new Error('Supabase haijaunganishwa.');
 
-        const { data, error } = await supabase
-          .from('schools')
-          .select('id,school_name')
-          .order('school_name');
+        const { data: roleData, error: roleError } = await supabase.rpc('get_my_staff_role');
+        if (roleError) throw roleError;
+        const staff = Array.isArray(roleData) ? roleData[0] : roleData;
+        const teacher = staff?.is_active && staff.role === 'teacher';
+        let rows: School[] = [];
 
-        if (error) throw error;
+        if (teacher) {
+          const { data: assignedSchool, error: schoolError } = await supabase.rpc('get_my_school_for_staff');
+          if (schoolError) throw schoolError;
+          rows = (Array.isArray(assignedSchool) ? assignedSchool : assignedSchool ? [assignedSchool] : [])
+            .map((school: any) => ({ id: school.id, school_name: school.school_name }));
+        } else {
+          const { data, error } = await supabase
+            .from('schools')
+            .select('id,school_name')
+            .order('school_name');
+          if (error) throw error;
+          rows = (data || []) as School[];
+        }
+
         if (!active) return;
-
-        const rows = (data || []) as School[];
+        setIsStaffTeacher(!!teacher);
         setSchools(rows);
 
         if (rows.length) {
@@ -427,7 +441,7 @@ export default function SubjectsModule() {
         {error && <p style={{ color: '#b42318' }}>{error}</p>}
         {notice && <p style={{ color: '#16845b' }}>{notice}</p>}
 
-        <label>
+        {!isStaffTeacher && <label>
           Chagua shule
           <select
             style={inputStyle}
@@ -440,7 +454,7 @@ export default function SubjectsModule() {
               <option key={s.id} value={s.id}>{s.school_name}</option>
             ))}
           </select>
-        </label>
+        </label>}
 
         <form
           onSubmit={saveSubject}
