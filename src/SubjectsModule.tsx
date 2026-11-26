@@ -456,7 +456,7 @@ export default function SubjectsModule() {
           </select>
         </label>}
 
-        <form
+        {!isStaffTeacher && <form
           onSubmit={saveSubject}
           style={{
             display: 'grid',
@@ -530,7 +530,7 @@ export default function SubjectsModule() {
               </button>
             )}
           </div>
-        </form>
+        </form>}
       </section>
 
       <section className="subjects-card">
@@ -570,7 +570,7 @@ export default function SubjectsModule() {
                 <th>Code</th>
                 <th>Jina la somo</th>
                 <th>Ngazi</th>
-                <th>Vitendo</th>
+                {!isStaffTeacher && <th>Vitendo</th>}
               </tr>
             </thead>
             <tbody>
@@ -582,7 +582,7 @@ export default function SubjectsModule() {
                     {item.subject_name}
                   </td>
                   <td data-label="Ngazi">{item.education_level}</td>
-                  <td data-label="Vitendo" className="subject-actions-cell">
+                  {!isStaffTeacher && <td data-label="Vitendo" className="subject-actions-cell">
                     <div className="subject-actions">
                       <button
                         onClick={() => editSubject(item)}
@@ -597,7 +597,7 @@ export default function SubjectsModule() {
                         Futa
                       </button>
                     </div>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
