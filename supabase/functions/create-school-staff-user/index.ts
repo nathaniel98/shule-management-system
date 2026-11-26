@@ -92,8 +92,8 @@ Deno.serve(async (req) => {
   if (
     !displayName ||
     (!email && !normalizedPhone) ||
-    (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) ||
-    (normalizedPhone && !/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) ||
+    (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
+    (normalizedPhone && !/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) ||
     password.length < 8 ||
     !allowedRoles.includes(role)
   ) {
