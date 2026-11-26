@@ -223,13 +223,13 @@ export default function StaffUsersModule() {
   const input: CSSProperties = { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: 9, boxSizing: 'border-box', fontSize: 15 };
   const label: CSSProperties = { display: 'grid', gap: 7, fontWeight: 600, color: '#334155', fontSize: 14 };
 
-  return <div style={{ display: 'grid', gap: 20, color: '#243447' }}>
-    <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
+  return <div className="staff-users-module" style={{ display: 'grid', gap: 20, color: '#243447', width: '100%', minWidth: 0, maxWidth: '100%' }}>
+    <section className="staff-users-card" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18, minWidth: 0, maxWidth: '100%' }}>
       <h2 style={{ marginTop: 0 }}>Usimamizi wa Watumiaji</h2>
       <p style={{ color: '#64748b' }}>School Admin anaweza kutengeneza akaunti za wafanyakazi wa shule yake na kuwapa majukumu.</p>
       {error && <div role="alert" style={{ background: '#fff1f0', color: '#b42318', padding: 12, borderRadius: 9, marginBottom: 12 }}>{error}</div>}
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
-      <form onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
+      <form className="staff-users-form" onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: 14, minWidth: 0 }}>
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe ya kuingia<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
         <label style={label}>Nenosiri la mwanzo (angalau herufi 8)<input style={input} type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required /></label>
@@ -260,7 +260,7 @@ export default function StaffUsersModule() {
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Kupanga mwalimu wa darasa</h3>
       <p style={{ color: '#64748b' }}>Chagua mwalimu mwenye jukumu la Mwalimu wa darasa na umpatie darasa analolisimamia. Unaweza kubadilisha darasa lake wakati wowote.</p>
-      <form onSubmit={assignClassTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
+      <form className="staff-users-form" onSubmit={assignClassTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu wa darasa<select style={input} value={classTeacherStaffId} onChange={e => setClassTeacherStaffId(e.target.value)} required>
           <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'class_teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
         </select></label>
@@ -284,7 +284,7 @@ export default function StaffUsersModule() {
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Kupanga walimu kwenye madarasa na masomo</h3>
       <p style={{ color: '#64748b' }}>Chagua mwalimu, darasa na somo. Mwalimu ataona taarifa za madarasa na masomo aliyopangiwa tu.</p>
-      <form onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+      <form className="staff-users-form" onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(180px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu<select style={input} value={assignmentStaffId} onChange={e => setAssignmentStaffId(e.target.value)} required>
           <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
         </select></label>
