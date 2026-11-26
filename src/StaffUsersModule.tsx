@@ -164,17 +164,30 @@ export default function StaffUsersModule() {
 
   async function saveTeachingAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length !== 1 && editingAssignmentId) return;
+    if (editingAssignmentId && assignmentSubjectIds.length !== 1) {
+      setError('Unapohariri upangaji mmoja, chagua somo moja tu.');
+      return;
+    }
     if (!schoolId || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0) return;
     setAssignmentSaving(true);
     setError('');
     setMessage('');
     try {
       if (editingAssignmentId) {
-        const { error } = await supabase!.from('school_staff_teaching_assignments')
-          .update({ staff_account_id: assignmentStaffId, class_id: assignmentClassId, subject_id: assignmentSubjectIds[0] })
-          .eq('id', editingAssignmentId).eq('school_id', schoolId);
+        const { data: updatedAssignment, error } = await supabase!.from('school_staff_teaching_assignments')
+          .update({
+            staff_account_id: assignmentStaffId,
+            class_id: assignmentClassId,
+            subject_id: assignmentSubjectIds[0],
+          })
+          .eq('id', editingAssignmentId)
+          .eq('school_id', schoolId)
+          .select('id, staff_account_id, class_id, subject_id')
+          .maybeSingle();
         if (error) throw error;
+        if (!updatedAssignment) {
+          throw new Error('Hakuna mabadiliko yaliyohifadhiwa. Hakikisha una ruhusa ya kuhariri upangaji huu, kisha jaribu tena.');
+        }
       } else {
         const alreadyAssigned = new Set(
           assignments
