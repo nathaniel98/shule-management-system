@@ -1278,23 +1278,25 @@ export default function ExamsModule() {
                   ))}
                 </div>
 
-                <div className="exam-actions">
-                  <button
-                    className="exam-btn exam-edit"
-                    type="button"
-                    onClick={() => editExam(exam)}
-                  >
-                    Hariri
-                  </button>
+                {!isStaffTeacher && (
+                  <div className="exam-actions">
+                    <button
+                      className="exam-btn exam-edit"
+                      type="button"
+                      onClick={() => editExam(exam)}
+                    >
+                      Hariri
+                    </button>
 
-                  <button
-                    className="exam-btn exam-danger"
-                    type="button"
-                    onClick={() => void deleteExam(exam)}
-                  >
-                    Futa
-                  </button>
-                </div>
+                    <button
+                      className="exam-btn exam-danger"
+                      type="button"
+                      onClick={() => void deleteExam(exam)}
+                    >
+                      Futa
+                    </button>
+                  </div>
+                )}
               </article>
             ))}
           </div>
