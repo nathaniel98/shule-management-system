@@ -1088,6 +1088,7 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
                   </td>
 
                   {!isStaffTeacher && (
+                    <>
                   <td style={{ padding: 10, borderBottom: '1px solid #e2e8f0' }}>
                     {student.status || '—'}
                   </td>
@@ -1122,6 +1123,7 @@ export default function StudentsModule({ isStaffTeacher = false }: { isStaffTeac
                       {deletingId === student.id ? 'Inafuta...' : 'Delete'}
                     </button>
                   </td>
+                    </>
                   )}
                 </tr>
               ))}
