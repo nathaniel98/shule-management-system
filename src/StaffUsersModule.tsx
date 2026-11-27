@@ -6,7 +6,7 @@ type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
 type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; staff_member_id: string | null; is_active: boolean; created_at: string };
-type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null };
+type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null; phone?: string | null; email?: string | null };
 type StaffDirectoryMember = { id: string; full_name: string; employee_no: string | null; staff_category: 'teaching' | 'support'; job_title: string; phone: string | null; email: string | null; status: 'Active' | 'Inactive'; teacher_id: string | null };
 
 const roleLabels: Record<StaffRole, string> = {
