@@ -83,23 +83,24 @@ export default function StaffUsersModule() {
         }
 
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
-        const [classResult, staffResult, subjectResult, assignmentResult, teacherResult] = await Promise.all([
+        const [classResult, staffResult, subjectResult, assignmentResult, teacherResponse] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
           supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
-          supabase!.from('teachers').select('id, first_name, middle_name, last_name, employee_no, status').eq('school_id', id).order('first_name'),
+          supabase!.functions.invoke('list-school-teachers', { body: { school_id: id } }),
         ]);
         if (classResult.error) throw classResult.error;
         if (staffResult.error) throw staffResult.error;
         if (subjectResult.error) throw subjectResult.error;
         if (assignmentResult.error) throw assignmentResult.error;
-        if (teacherResult.error) throw teacherResult.error;
+        if (teacherResponse.error) throw new Error(await getFunctionErrorMessage(teacherResponse.error));
+        if (teacherResponse.data?.error) throw new Error(String(teacherResponse.data.error));
         if (!active) return;
         setSchoolId(id);
         setClasses((classResult.data || []) as SchoolClass[]);
         setAccounts((staffResult.data || []) as StaffAccount[]);
-        setRegisteredTeachers((teacherResult.data || []) as RegisteredTeacher[]);
+        setRegisteredTeachers((teacherResponse.data?.teachers || []) as RegisteredTeacher[]);
         setSubjects((subjectResult.data || []) as Subject[]);
         setAssignments((assignmentResult.data || []) as TeachingAssignment[]);
       } catch (e) {
