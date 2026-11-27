@@ -438,6 +438,23 @@ function App() {
   }, [session]);
 
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
+  const userMetadata = session?.user?.user_metadata || {};
+  const accountDisplayName = (
+    staffDisplayName ||
+    userMetadata.display_name ||
+    userMetadata.full_name ||
+    userMetadata.name ||
+    (isSuperAdmin ? 'Msimamizi Mkuu' : 'Mtumiaji wa mfumo')
+  ).trim();
+  const accountRole = isSuperAdmin
+    ? 'Msimamizi Mkuu'
+    : ({
+        school_admin: 'Msimamizi wa shule',
+        accountant: 'Mhasibu',
+        class_teacher: 'Mwalimu wa darasa',
+        teacher: 'Mwalimu',
+        head_teacher: 'Mkuu wa shule'
+      } as Record<string, string>)[staffRole || userMetadata.role || ''] || 'Mtumiaji wa mfumo';
   const isRegularTeacher = staffRole === 'teacher';
   const isClassTeacher = staffRole === 'class_teacher';
   const visibleNav = isSuperAdmin
@@ -598,12 +615,12 @@ autoComplete="username"
 
           <div className="user-row">
             <div className="user-avatar">
-              {session.user.email?.[0]?.toUpperCase() || 'A'}
+              {accountDisplayName[0]?.toUpperCase() || 'A'}
             </div>
 
             <div className="user-info">
-              <b>{session.user.email}</b>
-              <span>Mtumiaji wa mfumo</span>
+              <b>{accountDisplayName}</b>
+              <span>{accountRole}</span>
             </div>
 
             <button
