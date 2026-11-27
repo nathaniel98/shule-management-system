@@ -139,12 +139,33 @@ Deno.serve(async (req) => {
   if (classId) {
     const { data: klass, error: classError } = await admin
       .from("classes")
-      .select("id")
+      .select("id, school_id")
       .eq("id", classId)
-      .eq("school_id", authorizedSchoolId)
       .maybeSingle();
 
-    if (classError || !klass) return json({ error: "Darasa ulilochagua si la shule yako." }, 403);
+    if (classError) {
+      console.error("Class validation query failed", {
+        classId,
+        requestedSchoolId,
+        authorizedSchoolId,
+        error: classError.message,
+      });
+      return json({ error: "Imeshindikana kuthibitisha darasa ulilochagua. Tafadhali jaribu tena." }, 500);
+    }
+
+    if (!klass) {
+      console.warn("Selected class was not found", { classId, authorizedSchoolId });
+      return json({ error: "Darasa ulilochagua halijapatikana. Onyesha upya ukurasa na uchague darasa tena." }, 404);
+    }
+
+    if (klass.school_id !== authorizedSchoolId) {
+      console.warn("Selected class belongs to a different school", {
+        classId,
+        classSchoolId: klass.school_id,
+        authorizedSchoolId,
+      });
+      return json({ error: "Darasa ulilochagua halihusiani na shule hii. Onyesha upya ukurasa, kisha chagua darasa lililo kwenye orodha ya shule yako." }, 403);
+    }
   }
 
   // Supabase Phone Auth is intentionally not required. For phone-only staff,
