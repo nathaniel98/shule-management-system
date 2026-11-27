@@ -71,3 +71,5 @@ Deno.serve(async (req) => {
 
   return json({ teachers: teachers ?? [] });
 });
+
+// Deploy this endpoint through the staff-authentication workflow.
