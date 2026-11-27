@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
   const { data: teachers, error: teachersError } = await admin
     .from("teachers")
-    .select("id, first_name, middle_name, last_name, employee_no, status")
+    .select("id, first_name, middle_name, last_name, employee_no, status, phone, email")
     .eq("school_id", requestedSchoolId)
     .order("first_name", { ascending: true });
 
