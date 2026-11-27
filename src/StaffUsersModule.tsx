@@ -120,7 +120,12 @@ export default function StaffUsersModule() {
       try {
         const payload = await context.clone().json() as Record<string, unknown>;
         const message = payload.error ?? payload.message ?? payload.msg;
-        if (typeof message === 'string' && message.trim()) return message;
+        const detail = payload.detail ?? payload.code;
+        if (typeof message === 'string' && message.trim()) {
+          return typeof detail === 'string' && detail.trim()
+            ? `${message} (${detail})`
+            : message;
+        }
       } catch {
         try {
           const raw = await context.clone().text();
