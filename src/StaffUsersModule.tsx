@@ -5,7 +5,8 @@ type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
 type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
-type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; is_active: boolean; created_at: string };
+type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; is_active: boolean; created_at: string };
+type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null };
 
 const roleLabels: Record<StaffRole, string> = {
   class_teacher: 'Mwalimu wa darasa',
@@ -18,6 +19,8 @@ export default function StaffUsersModule() {
   const [schoolId, setSchoolId] = useState('');
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [accounts, setAccounts] = useState<StaffAccount[]>([]);
+  const [registeredTeachers, setRegisteredTeachers] = useState<RegisteredTeacher[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [assignmentStaffId, setAssignmentStaffId] = useState('');
@@ -41,7 +44,7 @@ export default function StaffUsersModule() {
 
   async function loadAccounts(id: string) {
     const { data, error } = await supabase!.from('school_staff_accounts')
-      .select('id, display_name, email, phone, role, class_id, is_active, created_at')
+      .select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at')
       .eq('school_id', id).order('created_at', { ascending: false });
     if (error) throw error;
     setAccounts((data || []) as StaffAccount[]);
@@ -80,20 +83,23 @@ export default function StaffUsersModule() {
         }
 
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
-        const [classResult, staffResult, subjectResult, assignmentResult] = await Promise.all([
+        const [classResult, staffResult, subjectResult, assignmentResult, teacherResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
-          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
+          supabase!.from('teachers').select('id, first_name, middle_name, last_name, employee_no, status').eq('school_id', id).order('first_name'),
         ]);
         if (classResult.error) throw classResult.error;
         if (staffResult.error) throw staffResult.error;
         if (subjectResult.error) throw subjectResult.error;
         if (assignmentResult.error) throw assignmentResult.error;
+        if (teacherResult.error) throw teacherResult.error;
         if (!active) return;
         setSchoolId(id);
         setClasses((classResult.data || []) as SchoolClass[]);
         setAccounts((staffResult.data || []) as StaffAccount[]);
+        setRegisteredTeachers((teacherResult.data || []) as RegisteredTeacher[]);
         setSubjects((subjectResult.data || []) as Subject[]);
         setAssignments((assignmentResult.data || []) as TeachingAssignment[]);
       } catch (e) {
@@ -128,13 +134,17 @@ export default function StaffUsersModule() {
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!schoolId) return;
+    if ((role === 'teacher' || role === 'class_teacher') && !selectedTeacherId) {
+      setError('Chagua mwalimu aliyesajiliwa kwenye shule hii.');
+      return;
+    }
     setSaving(true);
     setError('');
     setMessage('');
 
     try {
       const { data, error } = await supabase!.functions.invoke('create-school-staff-user', {
-        body: { school_id: schoolId, display_name: displayName, email: email.trim(), phone: phone.trim(), password, role, class_id: role === 'class_teacher' ? classId : null },
+        body: { school_id: schoolId, display_name: displayName, email: email.trim(), phone: phone.trim(), password, role, class_id: role === 'class_teacher' ? classId : null, teacher_id: selectedTeacherId || null },
       });
 
       if (error) {
@@ -148,6 +158,7 @@ export default function StaffUsersModule() {
 
       setMessage('Akaunti imetengenezwa. Mpe mtumiaji namba ya simu au barua pepe na nenosiri uliloweka.');
       setDisplayName('');
+      setSelectedTeacherId('');
       setEmail('');
       setPhone('');
       setPassword('');
@@ -286,11 +297,14 @@ export default function StaffUsersModule() {
       {error && <div role="alert" style={{ background: '#fff1f0', color: '#b42318', padding: 12, borderRadius: 9, marginBottom: 12 }}>{error}</div>}
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: 14, minWidth: 0 }}>
+        {(role === 'teacher' || role === 'class_teacher') && <label style={label}>Chagua mwalimu aliyesajiliwa<select style={input} value={selectedTeacherId} onChange={e => { const id = e.target.value; setSelectedTeacherId(id); const teacher = registeredTeachers.find(t => t.id === id); if (teacher) setDisplayName([teacher.first_name, teacher.middle_name, teacher.last_name].filter(Boolean).join(' ')); }} required>
+          <option value="">Chagua mwalimu</option>{registeredTeachers.filter(t => !t.status || t.status.toLowerCase() === 'active').map(t => <option key={t.id} value={t.id}>{[t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ')} ({t.employee_no})</option>)}
+        </select></label>}
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jina@shule.co.tz" /></label>
         <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX au +2557XXXXXXXX" /></label>
         <label style={label}>Nenosiri la mwanzo (angalau herufi 8)<input style={input} type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required /></label>
-        <label style={label}>Jukumu<select style={input} value={role} onChange={e => { setRole(e.target.value as StaffRole); setClassId(''); }}>
+        <label style={label}>Jukumu<select style={input} value={role} onChange={e => { const nextRole = e.target.value as StaffRole; setRole(nextRole); setClassId(''); if (nextRole !== 'teacher' && nextRole !== 'class_teacher') setSelectedTeacherId(''); }}>
           <option value="class_teacher">Mwalimu wa darasa</option>
           <option value="head_teacher">Mwalimu Mkuu</option>
           <option value="accountant">Mhasibu</option>
@@ -299,7 +313,7 @@ export default function StaffUsersModule() {
         {role === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={classId} onChange={e => setClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
         </select></label>}
-        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={saving || loading || (role === 'class_teacher' && !classId)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{saving ? 'Inatengeneza...' : '＋ Tengeneza Akaunti'}</button></div>
+        <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={saving || loading || (role === 'class_teacher' && !classId) || ((role === 'teacher' || role === 'class_teacher') && !selectedTeacherId)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{saving ? 'Inatengeneza...' : '＋ Tengeneza Akaunti'}</button></div>
       </form>
       <p style={{ fontSize: 12, color: '#64748b', marginBottom: 0 }}>Unaweza kutumia barua pepe au namba ya simu kuingia, pamoja na nenosiri. Jaza angalau kimoja kati ya hivyo.</p>
     </section>
@@ -345,7 +359,7 @@ export default function StaffUsersModule() {
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(180px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu<select style={input} value={assignmentStaffId} onChange={e => setAssignmentStaffId(e.target.value)} required>
-          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active && a.teacher_id).map(a => { const t = registeredTeachers.find(item => item.id === a.teacher_id); const name = t ? [t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ') : a.display_name; return <option key={a.id} value={a.id}>{name}</option>; })}
         </select></label>
         <label style={label}>Darasa<select style={input} value={assignmentClassId} onChange={e => setAssignmentClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(item => <option key={item.id} value={item.id}>{item.class_name}</option>)}
@@ -363,6 +377,7 @@ export default function StaffUsersModule() {
         </fieldset>
         <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={assignmentSaving || !assignmentStaffId || !assignmentClassId || assignmentSubjectIds.length === 0 || (!!editingAssignmentId && assignmentSubjectIds.length !== 1)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{assignmentSaving ? 'Inahifadhi...' : editingAssignmentId ? 'Hifadhi mabadiliko' : '＋ Panga masomo yaliyochaguliwa'}</button></div>
       </form>
+      {accounts.filter(a => a.role === 'teacher' && a.is_active && a.teacher_id).length === 0 && <p style={{ color: '#64748b', fontSize: 13 }}>Hakuna walimu wenye akaunti zilizounganishwa na orodha ya walimu. Unganisha mwalimu wakati wa kutengeneza akaunti yake.</p>}
       {editingAssignmentId && <button type="button" onClick={cancelEditTeachingAssignment} style={{ marginTop: 8, border: 0, borderRadius: 8, padding: '10px 14px', background: '#eef3f7', color: '#173b5e', fontWeight: 700 }}>Ghairi kuhariri</button>}
       {assignments.length === 0 ? <p>Hakuna walimu waliopangiwa masomo bado.</p> : <div style={{ overflowX: 'auto', marginTop: 14 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
