@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
   const password = String(body.password ?? "");
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
+  const teacherId = body.teacher_id ? String(body.teacher_id) : null;
 
   const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher"];
 
@@ -96,6 +97,28 @@ Deno.serve(async (req) => {
     !allowedRoles.includes(role)
   ) {
     return json({ error: "Jaza taarifa zote zinazohitajika." }, 400);
+  }
+
+  if ((role === "teacher" || role === "class_teacher") && !teacherId) {
+    return json({ error: "Chagua mwalimu aliyesajiliwa kwenye shule hii." }, 400);
+  }
+
+  if (teacherId) {
+    const { data: teacher, error: teacherError } = await admin
+      .from("teachers")
+      .select("id")
+      .eq("id", teacherId)
+      .eq("school_id", authorizedSchoolId)
+      .maybeSingle();
+    if (teacherError || !teacher) return json({ error: "Mwalimu uliyemchagua hajasajiliwa kwenye shule hii." }, 403);
+
+    const { data: existingLink, error: linkError } = await admin
+      .from("school_staff_accounts")
+      .select("id")
+      .eq("teacher_id", teacherId)
+      .maybeSingle();
+    if (linkError) return json({ error: "Imeshindikana kuthibitisha uhusiano wa mwalimu." }, 500);
+    if (existingLink) return json({ error: "Mwalimu huyu tayari ameunganishwa na akaunti ya mfumo." }, 409);
   }
 
   if (role === "class_teacher" && !classId) {
@@ -143,6 +166,7 @@ Deno.serve(async (req) => {
       phone: normalizedPhone || null,
       role,
       class_id: classId,
+      teacher_id: teacherId,
     });
 
   if (insertError) {
