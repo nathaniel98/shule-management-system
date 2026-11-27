@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
   if (staffLinkError) return json({ error: "Imeshindikana kuthibitisha kama mtumishi tayari ana akaunti." }, 500);
   if (existingStaffAccount) return json({ error: "Mtumishi huyu tayari ana akaunti ya kuingia kwenye mfumo." }, 409);
 
-  if ((role === "teacher" || role === "class_teacher") && !teacherId) {
+  if ((role === "teacher" || role === "class_teacher") && (staffMember.staff_category !== "teaching" || !teacherId)) {
     return json({ error: "Jukumu hili linahitaji kuchagua mtumishi aliyesajiliwa kama mwalimu." }, 400);
   }
 
