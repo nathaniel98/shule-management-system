@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
   const classId = body.class_id ? String(body.class_id) : null;
   const teacherId = body.teacher_id ? String(body.teacher_id) : null;
 
-  const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher"];
+  const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher", "academic"];
 
   if (
     !displayName ||

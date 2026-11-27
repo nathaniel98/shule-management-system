@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type CSSProperties } from 'react';
 import { supabase } from './supabase';
 
-type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher';
+type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher' | 'academic';
 type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
@@ -13,6 +13,7 @@ const roleLabels: Record<StaffRole, string> = {
   head_teacher: 'Mwalimu Mkuu',
   accountant: 'Mhasibu',
   teacher: 'Mwalimu',
+  academic: 'Academic',
 };
 
 export default function StaffUsersModule() {
@@ -387,6 +388,7 @@ export default function StaffUsersModule() {
           <option value="head_teacher">Mwalimu Mkuu</option>
           <option value="accountant">Mhasibu</option>
           <option value="teacher">Mwalimu</option>
+          <option value="academic">Academic (Mratibu wa Taaluma)</option>
         </select></label>
         {role === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={classId} onChange={e => setClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
@@ -403,7 +405,7 @@ export default function StaffUsersModule() {
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} /></label>
         <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} /></label>
         <label style={label}>Jukumu<select style={input} value={editRole} onChange={e => setEditRole(e.target.value as StaffRole)}>
-          <option value="class_teacher">Mwalimu wa darasa</option><option value="head_teacher">Mwalimu Mkuu</option><option value="accountant">Mhasibu</option><option value="teacher">Mwalimu</option>
+          <option value="class_teacher">Mwalimu wa darasa</option><option value="head_teacher">Mwalimu Mkuu</option><option value="accountant">Mhasibu</option><option value="teacher">Mwalimu</option><option value="academic">Academic (Mratibu wa Taaluma)</option>
         </select></label>
         {editRole === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={editClassId} onChange={e => setEditClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
