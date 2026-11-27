@@ -383,14 +383,14 @@ export default function StaffUsersModule() {
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jina@shule.co.tz" /></label>
         <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX au +2557XXXXXXXX" /></label>
         <label style={label}>Nenosiri la mwanzo (angalau herufi 8)<input style={input} type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)} required /></label>
-        <label style={label}>Jukumu<select style={input} value={role} onChange={e => { const nextRole = e.target.value as StaffRole; setRole(nextRole); setClassId(''); if (nextRole !== 'teacher' && nextRole !== 'class_teacher') setSelectedTeacherId(''); }}>
+        <label style={label}>Jukumu<select style={input} value={role} onChange={e => { const nextRole = e.target.value as StaffRole; setRole(nextRole); setClassId(''); setError(''); if (nextRole !== 'teacher' && nextRole !== 'class_teacher') setSelectedTeacherId(''); }}>
           <option value="class_teacher">Mwalimu wa darasa</option>
           <option value="head_teacher">Mwalimu Mkuu</option>
           <option value="accountant">Mhasibu</option>
           <option value="teacher">Mwalimu</option>
           <option value="academic">Academic (Mratibu wa Taaluma)</option>
         </select></label>
-        {role === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={classId} onChange={e => setClassId(e.target.value)} required>
+        {role === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={classId} onChange={e => { setClassId(e.target.value); setError(''); }} required>
           <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
         </select></label>}
         <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={saving || loading || (role === 'class_teacher' && !classId) || ((role === 'teacher' || role === 'class_teacher') && !selectedTeacherId)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{saving ? 'Inatengeneza...' : '＋ Tengeneza Akaunti'}</button></div>
