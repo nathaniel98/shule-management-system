@@ -453,30 +453,37 @@ function App() {
         accountant: 'Mhasibu',
         class_teacher: 'Mwalimu wa darasa',
         teacher: 'Mwalimu',
-        head_teacher: 'Mkuu wa shule'
+        head_teacher: 'Mkuu wa shule',
+        academic: 'Academic (Mratibu wa Taaluma)'
       } as Record<string, string>)[staffRole || userMetadata.role || ''] || 'Mtumiaji wa mfumo';
   const isRegularTeacher = staffRole === 'teacher';
   const isClassTeacher = staffRole === 'class_teacher';
+  const isAcademic = staffRole === 'academic';
+  const academicSections = ['dashboard', 'students', 'enrollment', 'teachers', 'classes', 'streams', 'subjects', 'academic-years', 'exams', 'results', 'reports'];
   const visibleNav = isSuperAdmin
     ? nav.filter(item => item.id !== 'users')
-    : isClassTeacher
-      ? nav.filter(item => ['dashboard', 'students', 'exams', 'results'].includes(item.id))
-      : isRegularTeacher
-        ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
-        : nav.filter(item => item.id !== 'schools');
+    : isAcademic
+      ? nav.filter(item => academicSections.includes(item.id))
+      : isClassTeacher
+        ? nav.filter(item => ['dashboard', 'students', 'exams', 'results'].includes(item.id))
+        : isRegularTeacher
+          ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
+          : nav.filter(item => item.id !== 'schools');
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
   useEffect(() => {
     if (!session) return;
-    if (isClassTeacher && !['dashboard', 'students', 'exams', 'results'].includes(section)) {
+    if (isAcademic && !academicSections.includes(section)) {
+      setSection('dashboard');
+    } else if (isClassTeacher && !['dashboard', 'students', 'exams', 'results'].includes(section)) {
       setSection('dashboard');
     } else if (isRegularTeacher && !['dashboard', 'students', 'subjects', 'exams', 'results'].includes(section)) {
       setSection('dashboard');
     } else if (!isSuperAdmin && section === 'schools') {
       setSection('dashboard');
     }
-  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher]);
+  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher, isAcademic]);
 
   if (!session) {
     return (
