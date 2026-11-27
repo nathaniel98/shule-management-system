@@ -146,7 +146,7 @@ export default function StaffUsersModule() {
         return;
       }
 
-      setMessage('Akaunti imetengenezwa. Mpe mtumiaji barua pepe na nenosiri uliloweka.');
+      setMessage('Akaunti imetengenezwa. Mpe mtumiaji namba ya simu au barua pepe na nenosiri uliloweka.');
       setDisplayName('');
       setEmail('');
       setPhone('');

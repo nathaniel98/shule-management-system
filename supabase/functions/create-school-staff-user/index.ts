@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,45 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (!url || !anon || !service) {
-    return json({ error: "Server configuration is incomplete" }, 500);
-  }
+  if (!url || !anon || !service) return json({ error: "Server configuration is incomplete" }, 500);
 
   const authorization = req.headers.get("Authorization");
-  if (!authorization?.startsWith("Bearer ")) {
-    return json({ error: "Authentication required" }, 401);
-  }
+  if (!authorization?.startsWith("Bearer ")) return json({ error: "Authentication required" }, 401);
 
   const caller = createClient(url, anon, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-
-  const { data: callerData, error: callerError } =
-    await caller.auth.getUser();
-
-  if (callerError || !callerData.user) {
-    return json({ error: "Invalid session" }, 401);
-  }
+  const { data: callerData, error: callerError } = await caller.auth.getUser();
+  if (callerError || !callerData.user) return json({ error: "Invalid session" }, 401);
 
   const admin = createClient(url, service, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -59,35 +42,29 @@ Deno.serve(async (req) => {
     .eq("is_active", true)
     .maybeSingle();
 
-  if (membershipError || !membership) {
-    return json({ error: "Ruhusa ya School Admin inahitajika." }, 403);
-  }
+  if (membershipError || !membership) return json({ error: "Ruhusa ya School Admin inahitajika." }, 403);
 
   let body: any;
-
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "Taarifa ulizotuma si sahihi." }, 400);
-  }
+  try { body = await req.json(); } catch { return json({ error: "Taarifa ulizotuma si sahihi." }, 400); }
 
   const displayName = String(body.display_name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const rawPhone = String(body.phone ?? "").trim();
   const phoneDigits = rawPhone.replace(/[^0-9]/g, "");
   const normalizedPhone = rawPhone
-    ? (rawPhone.startsWith("+") ? `+${phoneDigits}` : phoneDigits.startsWith("0") && phoneDigits.length === 10 ? `+255${phoneDigits.slice(1)}` : phoneDigits.startsWith("255") ? `+${phoneDigits}` : `+${phoneDigits}`)
+    ? (rawPhone.startsWith("+")
+      ? `+${phoneDigits}`
+      : phoneDigits.startsWith("0") && phoneDigits.length === 10
+        ? `+255${phoneDigits.slice(1)}`
+        : phoneDigits.startsWith("255")
+          ? `+${phoneDigits}`
+          : `+${phoneDigits}`)
     : "";
   const password = String(body.password ?? "");
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
 
-  const allowedRoles = [
-    "class_teacher",
-    "head_teacher",
-    "accountant",
-    "teacher",
-  ];
+  const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher"];
 
   if (
     !displayName ||
@@ -112,27 +89,27 @@ Deno.serve(async (req) => {
       .eq("school_id", membership.school_id)
       .maybeSingle();
 
-    if (classError || !klass) {
-      return json({ error: "Darasa ulilochagua si la shule yako." }, 403);
-    }
+    if (classError || !klass) return json({ error: "Darasa ulilochagua si la shule yako." }, 403);
   }
 
-  const { data: created, error: createError } =
-    await admin.auth.admin.createUser({
-      ...(email ? { email, email_confirm: true } : { phone: normalizedPhone, phone_confirm: true }),
-      password,
-      user_metadata: {
-        account_type: "school_staff",
-        school_id: membership.school_id,
-        role,
-        display_name: displayName,
-      },
-    });
+  // Supabase Phone Auth is intentionally not required. For phone-only staff,
+  // create a confirmed internal email identity and keep the real phone in the
+  // school_staff_accounts table. Login resolves that phone server-side.
+  const authEmail = email || `staff-${crypto.randomUUID()}@staff-login.invalid`;
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email: authEmail,
+    email_confirm: true,
+    password,
+    user_metadata: {
+      account_type: "school_staff",
+      school_id: membership.school_id,
+      role,
+      display_name: displayName,
+    },
+  });
 
   if (createError || !created.user) {
-    return json({
-      error: createError?.message ?? "Imeshindikana kutengeneza akaunti.",
-    }, 400);
+    return json({ error: createError?.message ?? "Imeshindikana kutengeneza akaunti." }, 400);
   }
 
   const { error: insertError } = await admin
