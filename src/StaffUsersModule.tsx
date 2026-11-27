@@ -65,6 +65,7 @@ export default function StaffUsersModule() {
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<StaffRole>('accountant');
+  const [editStaffMemberId, setEditStaffMemberId] = useState('');
   const [editClassId, setEditClassId] = useState('');
   const [accountActionSaving, setAccountActionSaving] = useState(false);
 
@@ -315,6 +316,7 @@ export default function StaffUsersModule() {
     setEditEmail(account.email || '');
     setEditPhone(account.phone || '');
     setEditRole(account.role);
+    setEditStaffMemberId(account.staff_member_id || '');
     setEditClassId(account.class_id || '');
     setError('');
     setMessage('');
@@ -336,6 +338,7 @@ export default function StaffUsersModule() {
           email: editEmail.trim(),
           phone: editPhone.trim(),
           role: editRole,
+          staff_member_id: editStaffMemberId || null,
           class_id: editRole === 'class_teacher' ? editClassId : null,
         },
       });
@@ -572,6 +575,9 @@ export default function StaffUsersModule() {
         <label style={label}>Jina kamili<input style={input} value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} /></label>
         <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} /></label>
+        <label style={label}>Mtumishi aliyesajiliwa<select style={input} value={editStaffMemberId} onChange={e => setEditStaffMemberId(e.target.value)} required>
+          <option value="">Chagua mtumishi</option>{staffDirectory.filter(member => member.status === 'Active' && ((editRole !== 'teacher' && editRole !== 'class_teacher') || (member.staff_category === 'teaching' && !!member.teacher_id))).map(member => <option key={member.id} value={member.id}>{member.full_name} — {member.job_title}</option>)}
+        </select></label>
         <label style={label}>Jukumu<select style={input} value={editRole} onChange={e => setEditRole(e.target.value as StaffRole)}>
           <option value="class_teacher">Mwalimu wa darasa</option><option value="head_teacher">Mwalimu Mkuu</option><option value="accountant">Mhasibu</option><option value="teacher">Mwalimu</option><option value="academic">Academic (Mratibu wa Taaluma)</option>
         </select></label>
