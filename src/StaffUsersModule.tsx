@@ -41,6 +41,13 @@ export default function StaffUsersModule() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [editingAccount, setEditingAccount] = useState<StaffAccount | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState<StaffRole>('accountant');
+  const [editClassId, setEditClassId] = useState('');
+  const [accountActionSaving, setAccountActionSaving] = useState(false);
 
   async function loadAccounts(id: string) {
     const { data, error } = await supabase!.from('school_staff_accounts')
@@ -178,6 +185,71 @@ export default function StaffUsersModule() {
       setError(await getFunctionErrorMessage(e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startEditAccount(account: StaffAccount) {
+    setEditingAccount(account);
+    setEditDisplayName(account.display_name);
+    setEditEmail(account.email || '');
+    setEditPhone(account.phone || '');
+    setEditRole(account.role);
+    setEditClassId(account.class_id || '');
+    setError('');
+    setMessage('');
+  }
+
+  async function saveAccountChanges(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingAccount || !schoolId) return;
+    setAccountActionSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error } = await supabase!.functions.invoke('manage-school-staff-user', {
+        body: {
+          action: 'update',
+          school_id: schoolId,
+          staff_account_id: editingAccount.id,
+          display_name: editDisplayName.trim(),
+          email: editEmail.trim(),
+          phone: editPhone.trim(),
+          role: editRole,
+          class_id: editRole === 'class_teacher' ? editClassId : null,
+        },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error));
+      if (data?.error) throw new Error(String(data.error));
+      await loadAccounts(schoolId);
+      setEditingAccount(null);
+      setMessage('Taarifa za mtumiaji zimehaririwa kikamilifu.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kuhariri mtumiaji.');
+    } finally {
+      setAccountActionSaving(false);
+    }
+  }
+
+  async function deleteStaffAccount(account: StaffAccount) {
+    const confirmed = window.confirm(`Una uhakika unataka kufuta akaunti ya ${account.display_name}? Mtumiaji hataweza tena kuingia kwenye mfumo.`);
+    if (!confirmed) return;
+    setAccountActionSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error } = await supabase!.functions.invoke('manage-school-staff-user', {
+        body: { action: 'delete', school_id: schoolId, staff_account_id: account.id },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error));
+      if (data?.error) throw new Error(String(data.error));
+      setAccounts(current => current.filter(item => item.id !== account.id));
+      setAssignments(current => current.filter(item => item.staff_account_id !== account.id));
+      if (editingAccount?.id === account.id) setEditingAccount(null);
+      setMessage('Akaunti ya mtumiaji imefutwa kikamilifu.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kufuta akaunti ya mtumiaji.');
+    } finally {
+      setAccountActionSaving(false);
     }
   }
 
@@ -325,11 +397,32 @@ export default function StaffUsersModule() {
     </section>
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Watumiaji wa shule hii</h3>
+      {editingAccount && <form onSubmit={saveAccountChanges} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(210px,100%),1fr))', gap: 12, padding: 14, marginBottom: 16, border: '1px solid #bfdbfe', borderRadius: 12, background: '#f8fbff' }}>
+        <h4 style={{ gridColumn: '1 / -1', margin: 0 }}>Hariri taarifa za {editingAccount.display_name}</h4>
+        <label style={label}>Jina kamili<input style={input} value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} required /></label>
+        <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} /></label>
+        <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" inputMode="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} /></label>
+        <label style={label}>Jukumu<select style={input} value={editRole} onChange={e => setEditRole(e.target.value as StaffRole)}>
+          <option value="class_teacher">Mwalimu wa darasa</option><option value="head_teacher">Mwalimu Mkuu</option><option value="accountant">Mhasibu</option><option value="teacher">Mwalimu</option>
+        </select></label>
+        {editRole === 'class_teacher' && <label style={label}>Darasa analosimamia<select style={input} value={editClassId} onChange={e => setEditClassId(e.target.value)} required>
+          <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
+        </select></label>}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="submit" disabled={accountActionSaving || !editDisplayName.trim() || (editRole === 'class_teacher' && !editClassId)} style={{ border: 0, borderRadius: 8, padding: '11px 16px', background: '#173b5e', color: '#fff', fontWeight: 700 }}>{accountActionSaving ? 'Inahifadhi...' : 'Hifadhi mabadiliko'}</button>
+          <button type="button" onClick={() => setEditingAccount(null)} disabled={accountActionSaving} style={{ border: 0, borderRadius: 8, padding: '11px 16px', background: '#eef2f6', color: '#334155', fontWeight: 700 }}>Ghairi</button>
+        </div>
+        <p style={{ gridColumn: '1 / -1', margin: 0, color: '#64748b', fontSize: 12 }}>Kuhariri hapa hakubadilishi nenosiri la kuingia.</p>
+      </form>}
       {loading ? <p>Inapakia...</p> : accounts.length === 0 ? <p>Hakuna akaunti za wafanyakazi zilizotengenezwa bado.</p> : <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-          <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Jina</th><th style={{ textAlign: 'left', padding: 10 }}>Barua pepe / Simu</th><th style={{ textAlign: 'left', padding: 10 }}>Jukumu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th></tr></thead>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+          <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Jina</th><th style={{ textAlign: 'left', padding: 10 }}>Barua pepe / Simu</th><th style={{ textAlign: 'left', padding: 10 }}>Jukumu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa</th><th style={{ textAlign: 'left', padding: 10 }}>Vitendo</th></tr></thead>
           <tbody>{accounts.map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
             <td style={{ padding: 10 }}>{a.display_name}</td><td style={{ padding: 10 }}>{a.email || a.phone || '—'}</td><td style={{ padding: 10 }}>{roleLabels[a.role]}</td><td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || '—'}</td>
+            <td style={{ padding: 10, whiteSpace: 'nowrap' }}>
+              <button type="button" onClick={() => startEditAccount(a)} disabled={accountActionSaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#eaf2f8', color: '#173b5e', fontWeight: 700, marginRight: 6 }}>Hariri</button>
+              <button type="button" onClick={() => deleteStaffAccount(a)} disabled={accountActionSaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#fff1f0', color: '#b42318', fontWeight: 700 }}>Futa</button>
+            </td>
           </tr>)}</tbody>
         </table>
       </div>}
