@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   }
 
   const { data: account, error: accountError } = await admin.from("school_staff_accounts")
-    .select("id, user_id, school_id, role").eq("id", accountId).eq("school_id", schoolId).maybeSingle();
+    .select("id, user_id, school_id, role, teacher_id").eq("id", accountId).eq("school_id", schoolId).maybeSingle();
   if (accountError) return json({ error: "Imeshindikana kupata akaunti ya mtumiaji." }, 500);
   if (!account) return json({ error: "Akaunti haikupatikana kwenye shule hii." }, 404);
   if (account.user_id === callerData.user.id) return json({ error: "Huwezi kufuta au kubadilisha akaunti unayotumia sasa." }, 403);
@@ -72,9 +72,12 @@ Deno.serve(async (req) => {
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
   const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher"];
-  if (!displayName || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
+  if (!displayName || (!email && !phone) || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
       (phone && !/^\+[1-9]\d{7,14}$/.test(phone)) || !allowedRoles.includes(role)) {
     return json({ error: "Taarifa ulizoingiza si sahihi." }, 400);
+  }
+  if ((role === "class_teacher" || role === "teacher") && !account.teacher_id) {
+    return json({ error: "Jukumu hili linahitaji akaunti iunganishwe na mwalimu aliyesajiliwa. Badilisha jukumu au tengeneza akaunti ya mwalimu kupitia sehemu ya usajili wa watumiaji." }, 400);
   }
   if (role === "class_teacher" && !classId) return json({ error: "Chagua darasa la mwalimu wa darasa." }, 400);
   if (classId) {
