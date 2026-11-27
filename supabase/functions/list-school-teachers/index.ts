@@ -39,23 +39,22 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [{ data: membership, error: membershipError }, { data: adminProfile, error: profileError }] = await Promise.all([
-    admin.from("school_members").select("school_id")
-      .eq("user_id", callerData.user.id)
-      .eq("school_id", requestedSchoolId)
-      .eq("role", "school_admin")
-      .eq("is_active", true)
-      .maybeSingle(),
-    admin.from("school_admin_profiles").select("school_id")
-      .eq("user_id", callerData.user.id)
-      .eq("school_id", requestedSchoolId)
-      .maybeSingle(),
-  ]);
+  // This school admin is confirmed in school_members. Use that verified
+  // membership as the sole authorization source for this endpoint.
+  const { data: memberships, error: membershipError } = await admin
+    .from("school_members")
+    .select("school_id")
+    .eq("user_id", callerData.user.id)
+    .eq("school_id", requestedSchoolId)
+    .eq("role", "school_admin")
+    .eq("is_active", true)
+    .limit(1);
 
-  if (membershipError || profileError) {
-    return json({ error: "Imeshindikana kuthibitisha akaunti ya msimamizi wa shule." }, 500);
+  if (membershipError) {
+    console.error("Teacher directory membership lookup failed:", membershipError);
+    return json({ error: "Imeshindikana kuthibitisha ruhusa za School Admin.", detail: membershipError.message }, 500);
   }
-  if (!membership?.school_id && !adminProfile?.school_id) {
+  if (!memberships || memberships.length === 0) {
     return json({ error: "Huna ruhusa ya kuona walimu wa shule hii." }, 403);
   }
 
@@ -66,7 +65,7 @@ Deno.serve(async (req) => {
     .order("first_name", { ascending: true });
 
   if (teachersError) {
-    return json({ error: "Imeshindikana kupakia orodha ya walimu." }, 500);
+    console.error("Teacher directory query failed:", teachersError);\n    return json({ error: "Imeshindikana kupakia orodha ya walimu.", detail: teachersError.message, code: teachersError.code }, 500);
   }
 
   return json({ teachers: teachers ?? [] });
