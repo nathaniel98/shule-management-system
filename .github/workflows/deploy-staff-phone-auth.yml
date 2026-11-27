@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "supabase/functions/create-school-staff-user/**"
+      - "supabase/functions/list-school-teachers/**"
       - "supabase/functions/school-admin-login/**"
       - "supabase/config.toml"
   workflow_dispatch:
@@ -30,6 +31,12 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy create-school-staff-user --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --yes
+
+      - name: Deploy list-school-teachers
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy list-school-teachers --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --yes
 
       - name: Deploy school-admin-login
         env:
