@@ -68,7 +68,6 @@ Deno.serve(async (req) => {
     return json({ error: "Huna ruhusa ya kusajili watumiaji katika shule hii." }, 403);
   }
 
-  const displayName = String(body.display_name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const rawPhone = String(body.phone ?? "").trim();
   const phoneDigits = rawPhone.replace(/[^0-9]/g, "");
@@ -89,7 +88,6 @@ Deno.serve(async (req) => {
   const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher", "academic"];
 
   if (
-    !displayName ||
     (!email && !normalizedPhone) ||
     (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
     (normalizedPhone && !/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) ||
@@ -114,6 +112,14 @@ Deno.serve(async (req) => {
 
   const teacherId = staffMember.teacher_id as string | null;
   const finalDisplayName = staffMember.full_name as string;
+
+  const { data: existingStaffAccount, error: staffLinkError } = await admin
+    .from("school_staff_accounts")
+    .select("id")
+    .eq("staff_member_id", staffMemberId)
+    .maybeSingle();
+  if (staffLinkError) return json({ error: "Imeshindikana kuthibitisha kama mtumishi tayari ana akaunti." }, 500);
+  if (existingStaffAccount) return json({ error: "Mtumishi huyu tayari ana akaunti ya kuingia kwenye mfumo." }, 409);
 
   if ((role === "teacher" || role === "class_teacher") && !teacherId) {
     return json({ error: "Jukumu hili linahitaji kuchagua mtumishi aliyesajiliwa kama mwalimu." }, 400);
