@@ -12,8 +12,8 @@ WITH candidate_pairs AS (
   FROM public.school_staff_accounts AS ssa
   JOIN public.teachers AS t
     ON t.school_id = ssa.school_id
-   AND lower(regexp_replace(trim(concat_ws(' ', t.first_name, NULLIF(t.middle_name, ''), t.last_name)), '\\s+', ' ', 'g'))
-       = lower(regexp_replace(trim(ssa.display_name), '\\s+', ' ', 'g'))
+   AND lower(regexp_replace(trim(concat_ws(' ', t.first_name, NULLIF(t.middle_name, ''), t.last_name)), '[[:space:]]+', ' ', 'g'))
+       = lower(regexp_replace(trim(ssa.display_name), '[[:space:]]+', ' ', 'g'))
   WHERE ssa.teacher_id IS NULL
     AND ssa.role IN ('teacher', 'class_teacher')
 ), unambiguous_staff AS (
