@@ -104,13 +104,24 @@ Deno.serve(async (req) => {
   }
 
   if (teacherId) {
+    // First resolve the teacher by primary key, then compare school ownership.
+    // Keeping these checks separate makes a stale school context distinguishable
+    // from a missing teacher record without weakening cross-school protection.
     const { data: teacher, error: teacherError } = await admin
       .from("teachers")
-      .select("id")
+      .select("id, school_id")
       .eq("id", teacherId)
-      .eq("school_id", authorizedSchoolId)
       .maybeSingle();
-    if (teacherError || !teacher) return json({ error: "Mwalimu uliyemchagua hajasajiliwa kwenye shule hii." }, 403);
+
+    if (teacherError) {
+      return json({ error: `Imeshindikana kuthibitisha mwalimu kwenye jedwali la walimu: ${teacherError.message}` }, 500);
+    }
+    if (!teacher) {
+      return json({ error: "Rekodi ya mwalimu haikupatikana. Onyesha upya ukurasa na uchague mwalimu tena." }, 404);
+    }
+    if (teacher.school_id !== authorizedSchoolId) {
+      return json({ error: "Mwalimu amepatikana, lakini shule ya akaunti ya msimamizi haifanani na shule aliyosajiliwa mwalimu. Toka kisha ingia tena kwenye akaunti ya shule husika." }, 403);
+    }
 
     const { data: existingLink, error: linkError } = await admin
       .from("school_staff_accounts")
