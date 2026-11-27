@@ -6,7 +6,7 @@ type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
 type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; is_active: boolean; created_at: string };
-type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null };
+type RegisteredTeacher = { teacher_id: string; first_name: string; middle_name: string | null; last_name: string; teacher_status: string | null };
 
 const roleLabels: Record<StaffRole, string> = {
   class_teacher: 'Mwalimu wa darasa',
@@ -88,7 +88,7 @@ export default function StaffUsersModule() {
           supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
-          supabase!.from('teachers').select('id, first_name, middle_name, last_name, employee_no, status').eq('school_id', id).order('first_name'),
+          supabase!.from('teachers').select('teacher_id, first_name, middle_name, last_name, teacher_status').eq('school_id', id).order('first_name'),
         ]);
         if (classResult.error) throw classResult.error;
         if (staffResult.error) throw staffResult.error;
@@ -297,8 +297,8 @@ export default function StaffUsersModule() {
       {error && <div role="alert" style={{ background: '#fff1f0', color: '#b42318', padding: 12, borderRadius: 9, marginBottom: 12 }}>{error}</div>}
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: 14, minWidth: 0 }}>
-        {(role === 'teacher' || role === 'class_teacher') && <label style={label}>Chagua mwalimu aliyesajiliwa<select style={input} value={selectedTeacherId} onChange={e => { const id = e.target.value; setSelectedTeacherId(id); const teacher = registeredTeachers.find(t => t.id === id); if (teacher) setDisplayName([teacher.first_name, teacher.middle_name, teacher.last_name].filter(Boolean).join(' ')); }} required>
-          <option value="">Chagua mwalimu</option>{registeredTeachers.filter(t => !t.status || t.status.toLowerCase() === 'active').map(t => <option key={t.id} value={t.id}>{[t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ')} ({t.employee_no})</option>)}
+        {(role === 'teacher' || role === 'class_teacher') && <label style={label}>Chagua mwalimu aliyesajiliwa<select style={input} value={selectedTeacherId} onChange={e => { const id = e.target.value; setSelectedTeacherId(id); const teacher = registeredTeachers.find(t => t.teacher_id === id); if (teacher) setDisplayName([teacher.first_name, teacher.middle_name, teacher.last_name].filter(Boolean).join(' ')); }} required>
+          <option value="">Chagua mwalimu</option>{registeredTeachers.filter(t => !t.teacher_status || t.teacher_status.toLowerCase() === 'active').map(t => <option key={t.teacher_id} value={t.teacher_id}>{[t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ')}</option>)}
         </select></label>}
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jina@shule.co.tz" /></label>
@@ -359,7 +359,7 @@ export default function StaffUsersModule() {
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={saveTeachingAssignment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(180px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu<select style={input} value={assignmentStaffId} onChange={e => setAssignmentStaffId(e.target.value)} required>
-          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active && a.teacher_id).map(a => { const t = registeredTeachers.find(item => item.id === a.teacher_id); const name = t ? [t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ') : a.display_name; return <option key={a.id} value={a.id}>{name}</option>; })}
+          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'teacher' && a.is_active && a.teacher_id).map(a => { const t = registeredTeachers.find(item => item.teacher_id === a.teacher_id); const name = t ? [t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ') : a.display_name; return <option key={a.id} value={a.id}>{name}</option>; })}
         </select></label>
         <label style={label}>Darasa<select style={input} value={assignmentClassId} onChange={e => setAssignmentClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(item => <option key={item.id} value={item.id}>{item.class_name}</option>)}
