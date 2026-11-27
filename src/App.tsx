@@ -12,6 +12,7 @@ import ResultsModule from './ResultsModule';
 import ReportsModule from './ReportsModule';
 import SchoolSettingsModule from './SchoolSettingsModule';
 import StaffUsersModule from './StaffUsersModule';
+import ClassTeacherDashboard from './ClassTeacherDashboard';
 import AcademicYearsModule from './AcademicYearsModule';
 
 import {
@@ -93,6 +94,9 @@ function App() {
   const [activeSchoolName, setActiveSchoolName] = useState('Shule yangu');
   const [schoolAccessLoading, setSchoolAccessLoading] = useState(false);
   const [staffRole, setStaffRole] = useState<string | null>(null);
+  const [staffClassId, setStaffClassId] = useState<string | null>(null);
+  const [staffDisplayName, setStaffDisplayName] = useState('');
+  const [staffRoleLoading, setStaffRoleLoading] = useState(true);
 
   async function loadDashboardStats() {
     if (!supabase) {
@@ -263,8 +267,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (session) void loadDashboardStats();
-  }, [session]);
+    // Staff members use their own scoped dashboard; never load platform-wide cards for them.
+    if (session && !staffRoleLoading && !staffRole) void loadDashboardStats();
+  }, [session, staffRoleLoading, staffRole]);
 
   useEffect(() => {
     let cancelled = false;
@@ -399,21 +404,34 @@ function App() {
     async function loadStaffRole() {
       if (!session?.user?.id || !supabase) {
         setStaffRole(null);
+        setStaffClassId(null);
+        setStaffDisplayName('');
+        setStaffRoleLoading(false);
         return;
       }
       if ((session.user.email || '').toLowerCase() === 'goodlucknoel19@gmail.com') {
         setStaffRole(null);
+        setStaffClassId(null);
+        setStaffDisplayName('');
+        setStaffRoleLoading(false);
         return;
       }
+      setStaffRoleLoading(true);
       const { data, error } = await supabase.rpc('get_my_staff_role');
       if (cancelled) return;
       if (error) {
         console.error('Could not load staff role:', error.message);
         setStaffRole(null);
+        setStaffClassId(null);
+        setStaffDisplayName('');
+        setStaffRoleLoading(false);
         return;
       }
       const staff = Array.isArray(data) ? data[0] : data;
       setStaffRole(staff?.is_active ? staff.role : null);
+      setStaffClassId(staff?.is_active ? staff.class_id || null : null);
+      setStaffDisplayName(staff?.is_active ? staff.display_name || '' : '');
+      setStaffRoleLoading(false);
     }
     void loadStaffRole();
     return () => { cancelled = true; };
@@ -421,22 +439,27 @@ function App() {
 
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
   const isRegularTeacher = staffRole === 'teacher';
+  const isClassTeacher = staffRole === 'class_teacher';
   const visibleNav = isSuperAdmin
     ? nav.filter(item => item.id !== 'users')
-    : isRegularTeacher
-      ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
-      : nav.filter(item => item.id !== 'schools');
+    : isClassTeacher
+      ? nav.filter(item => ['dashboard', 'students', 'exams', 'results'].includes(item.id))
+      : isRegularTeacher
+        ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
+        : nav.filter(item => item.id !== 'schools');
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
   useEffect(() => {
     if (!session) return;
-    if (isRegularTeacher && !['dashboard', 'students', 'subjects', 'exams', 'results'].includes(section)) {
+    if (isClassTeacher && !['dashboard', 'students', 'exams', 'results'].includes(section)) {
+      setSection('dashboard');
+    } else if (isRegularTeacher && !['dashboard', 'students', 'subjects', 'exams', 'results'].includes(section)) {
       setSection('dashboard');
     } else if (!isSuperAdmin && section === 'schools') {
       setSection('dashboard');
     }
-  }, [session, section, isSuperAdmin, isRegularTeacher]);
+  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher]);
 
   if (!session) {
     return (
@@ -628,7 +651,9 @@ autoComplete="username"
               </h1>
 
               <p className="muted">
-                Karibu tena. Huu ni muhtasari wa usimamizi wa shule yako.
+                {isClassTeacher
+                  ? `Karibu ${staffDisplayName || 'Mwalimu'}. Huu ni muhtasari wa darasa ulilopangiwa.`
+                  : 'Karibu tena. Huu ni muhtasari wa usimamizi wa shule yako.'}
               </p>
             </div>
 
@@ -640,7 +665,9 @@ autoComplete="username"
           </div>
 
           {section === 'dashboard' ? (
-            <>
+            isClassTeacher ? (
+              <ClassTeacherDashboard classId={staffClassId} />
+            ) : <>
               {dashboardError && (
                 <div className="notice" role="alert" style={{ marginBottom: 16 }}>
                   {dashboardError}
@@ -678,7 +705,7 @@ autoComplete="username"
           ) : section === 'schools' && isSuperAdmin ? (
             <SchoolModule />
           ) : section === 'students' ? (
-            <StudentsModule isStaffTeacher={isRegularTeacher} />
+            <StudentsModule isStaffTeacher={isRegularTeacher || isClassTeacher} />
           ) : section === 'enrollment' ? (
             <EnrollmentModule />
           ) : section === 'teachers' ? (
