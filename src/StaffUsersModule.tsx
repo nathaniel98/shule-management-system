@@ -431,22 +431,22 @@ export default function StaffUsersModule() {
     </section>
     <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 18 }}>
       <h3 style={{ marginTop: 0 }}>Kupanga mwalimu wa darasa</h3>
-      <p style={{ color: '#64748b' }}>Chagua mwalimu mwenye jukumu la Mwalimu wa darasa na umpatie darasa analolisimamia. Unaweza kubadilisha darasa lake wakati wowote.</p>
+      <p style={{ color: '#64748b' }}>Chagua mwalimu mwenye jukumu la Mwalimu au Mwalimu wa darasa na umpatie darasa analolisimamia. Jukumu lake la msingi halitabadilika.</p>
       <form className="staff-users-form" onSubmit={assignClassTeacher} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px,100%),1fr))', gap: 12, minWidth: 0 }}>
         <label style={label}>Mwalimu wa darasa<select style={input} value={classTeacherStaffId} onChange={e => setClassTeacherStaffId(e.target.value)} required>
-          <option value="">Chagua mwalimu</option>{accounts.filter(a => a.role === 'class_teacher' && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
+          <option value="">Chagua mwalimu</option>{accounts.filter(a => (a.role === 'class_teacher' || a.role === 'teacher') && a.is_active).map(a => <option key={a.id} value={a.id}>{a.display_name}</option>)}
         </select></label>
         <label style={label}>Darasa<select style={input} value={classTeacherClassId} onChange={e => setClassTeacherClassId(e.target.value)} required>
           <option value="">Chagua darasa</option>{classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
         </select></label>
         <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={classTeacherSaving || !classTeacherStaffId || !classTeacherClassId} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{classTeacherSaving ? 'Inahifadhi...' : '＋ Panga darasa'}</button></div>
       </form>
-      {accounts.filter(a => a.role === 'class_teacher' && a.is_active).length === 0
-        ? <p>Hakuna akaunti hai za walimu wa darasa. Tengeneza akaunti yenye jukumu la Mwalimu wa darasa kwanza.</p>
+      {accounts.filter(a => (a.role === 'class_teacher' || a.role === 'teacher') && a.is_active).length === 0
+        ? <p>Hakuna akaunti hai za walimu. Tengeneza akaunti yenye jukumu la Mwalimu au Mwalimu wa darasa kwanza.</p>
         : <div style={{ overflowX: 'auto', marginTop: 14 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
             <thead><tr><th style={{ textAlign: 'left', padding: 10 }}>Mwalimu</th><th style={{ textAlign: 'left', padding: 10 }}>Darasa analosimamia</th></tr></thead>
-            <tbody>{accounts.filter(a => a.role === 'class_teacher' && a.is_active).map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+            <tbody>{accounts.filter(a => (a.role === 'class_teacher' || a.role === 'teacher') && a.is_active).map(a => <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
               <td style={{ padding: 10 }}>{a.display_name}</td>
               <td style={{ padding: 10 }}>{classes.find(c => c.id === a.class_id)?.class_name || 'Hajapangiwa'}</td>
             </tr>)}</tbody>
