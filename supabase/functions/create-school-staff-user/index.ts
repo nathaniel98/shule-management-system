@@ -34,18 +34,25 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  let body: any;
+  try { body = await req.json(); } catch { return json({ error: "Taarifa ulizotuma si sahihi." }, 400); }
+
+  const requestedSchoolId = String(body.school_id ?? "").trim();
+  if (!requestedSchoolId) return json({ error: "Shule haijachaguliwa. Tafadhali onyesha upya ukurasa." }, 400);
+
+  // Validate the exact school context selected by the authenticated admin.
+  // This keeps the class list shown in the UI and the server-side class check
+  // scoped to the same school, including accounts linked to multiple schools.
   const { data: membership, error: membershipError } = await admin
     .from("school_members")
     .select("school_id")
     .eq("user_id", callerData.user.id)
+    .eq("school_id", requestedSchoolId)
     .eq("role", "school_admin")
     .eq("is_active", true)
     .maybeSingle();
 
-  if (membershipError || !membership) return json({ error: "Ruhusa ya School Admin inahitajika." }, 403);
-
-  let body: any;
-  try { body = await req.json(); } catch { return json({ error: "Taarifa ulizotuma si sahihi." }, 400); }
+  if (membershipError || !membership) return json({ error: "Huna ruhusa ya kusajili watumiaji katika shule hii." }, 403);
 
   const displayName = String(body.display_name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();

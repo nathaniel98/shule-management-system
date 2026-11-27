@@ -134,7 +134,7 @@ export default function StaffUsersModule() {
 
     try {
       const { data, error } = await supabase!.functions.invoke('create-school-staff-user', {
-        body: { display_name: displayName, email: email.trim(), phone: phone.trim(), password, role, class_id: role === 'class_teacher' ? classId : null },
+        body: { school_id: schoolId, display_name: displayName, email: email.trim(), phone: phone.trim(), password, role, class_id: role === 'class_teacher' ? classId : null },
       });
 
       if (error) {
