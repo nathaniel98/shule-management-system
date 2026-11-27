@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
   const password = String(body.password ?? "");
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
-  const teacherId = body.teacher_id ? String(body.teacher_id) : null;
+  const staffMemberId = body.staff_member_id ? String(body.staff_member_id) : null;
 
   const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher", "academic"];
 
@@ -99,8 +99,24 @@ Deno.serve(async (req) => {
     return json({ error: "Jaza taarifa zote zinazohitajika." }, 400);
   }
 
+  if (!staffMemberId) return json({ error: "Chagua mtumishi aliyesajiliwa kwenye shule hii." }, 400);
+
+  const { data: staffMember, error: staffMemberError } = await admin
+    .from("school_staff_directory")
+    .select("id, school_id, full_name, staff_category, status, teacher_id")
+    .eq("id", staffMemberId)
+    .maybeSingle();
+
+  if (staffMemberError) return json({ error: "Imeshindikana kuthibitisha taarifa za mtumishi." }, 500);
+  if (!staffMember || staffMember.school_id !== authorizedSchoolId || staffMember.status !== "Active") {
+    return json({ error: "Mtumishi hayupo kwenye orodha hai ya shule hii." }, 404);
+  }
+
+  const teacherId = staffMember.teacher_id as string | null;
+  const finalDisplayName = staffMember.full_name as string;
+
   if ((role === "teacher" || role === "class_teacher") && !teacherId) {
-    return json({ error: "Chagua mwalimu aliyesajiliwa kwenye shule hii." }, 400);
+    return json({ error: "Jukumu hili linahitaji kuchagua mtumishi aliyesajiliwa kama mwalimu." }, 400);
   }
 
   if (teacherId) {
@@ -129,7 +145,7 @@ Deno.serve(async (req) => {
       .eq("teacher_id", teacherId)
       .maybeSingle();
     if (linkError) return json({ error: "Imeshindikana kuthibitisha uhusiano wa mwalimu." }, 500);
-    if (existingLink) return json({ error: "Mwalimu huyu tayari ameunganishwa na akaunti ya mfumo." }, 409);
+    if (existingLink) return json({ error: "Mtumishi huyu tayari ameunganishwa na akaunti ya mfumo." }, 409);
   }
 
   if (role === "class_teacher" && !classId) {
@@ -180,7 +196,7 @@ Deno.serve(async (req) => {
       account_type: "school_staff",
       school_id: authorizedSchoolId,
       role,
-      display_name: displayName,
+      display_name: finalDisplayName,
     },
   });
 
@@ -193,12 +209,13 @@ Deno.serve(async (req) => {
     .insert({
       school_id: authorizedSchoolId,
       user_id: created.user.id,
-      display_name: displayName,
+      display_name: finalDisplayName,
       email: email || null,
       phone: normalizedPhone || null,
       role,
       class_id: classId,
       teacher_id: teacherId,
+      staff_member_id: staffMemberId,
     });
 
   if (insertError) {
@@ -208,7 +225,7 @@ Deno.serve(async (req) => {
 
   return json({
     success: true,
-    display_name: displayName,
+    display_name: finalDisplayName,
     email: email || null,
     phone: normalizedPhone || null,
     role,
