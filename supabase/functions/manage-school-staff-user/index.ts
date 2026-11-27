@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     : null;
   const role = String(body.role ?? "");
   const classId = body.class_id ? String(body.class_id) : null;
-  const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher"];
+  const allowedRoles = ["class_teacher", "head_teacher", "accountant", "teacher", "academic"];
   if (!displayName || (!email && !phone) || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
       (phone && !/^\+[1-9]\d{7,14}$/.test(phone)) || !allowedRoles.includes(role)) {
     return json({ error: "Taarifa ulizoingiza si sahihi." }, 400);
