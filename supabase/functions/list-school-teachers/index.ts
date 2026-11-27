@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
     .order("first_name", { ascending: true });
 
   if (teachersError) {
-    console.error("Teacher directory query failed:", teachersError);\n    return json({ error: "Imeshindikana kupakia orodha ya walimu.", detail: teachersError.message, code: teachersError.code }, 500);
+    console.error("Teacher directory query failed:", teachersError);
+    return json({ error: "Imeshindikana kupakia orodha ya walimu.", detail: teachersError.message, code: teachersError.code }, 500);
   }
 
   return json({ teachers: teachers ?? [] });
