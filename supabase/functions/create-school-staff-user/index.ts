@@ -43,16 +43,30 @@ Deno.serve(async (req) => {
   // Validate the exact school context selected by the authenticated admin.
   // This keeps the class list shown in the UI and the server-side class check
   // scoped to the same school, including accounts linked to multiple schools.
-  const { data: membership, error: membershipError } = await admin
-    .from("school_members")
-    .select("school_id")
-    .eq("user_id", callerData.user.id)
-    .eq("school_id", requestedSchoolId)
-    .eq("role", "school_admin")
-    .eq("is_active", true)
-    .maybeSingle();
+  const [{ data: membership, error: membershipError }, { data: adminProfile, error: profileError }] = await Promise.all([
+    admin
+      .from("school_members")
+      .select("school_id")
+      .eq("user_id", callerData.user.id)
+      .eq("school_id", requestedSchoolId)
+      .eq("role", "school_admin")
+      .eq("is_active", true)
+      .maybeSingle(),
+    admin
+      .from("school_admin_profiles")
+      .select("school_id")
+      .eq("user_id", callerData.user.id)
+      .eq("school_id", requestedSchoolId)
+      .maybeSingle(),
+  ]);
 
-  if (membershipError || !membership) return json({ error: "Huna ruhusa ya kusajili watumiaji katika shule hii." }, 403);
+  if (membershipError || profileError) {
+    return json({ error: "Imeshindikana kuthibitisha akaunti ya msimamizi wa shule." }, 500);
+  }
+  const authorizedSchoolId = membership?.school_id || adminProfile?.school_id;
+  if (!authorizedSchoolId) {
+    return json({ error: "Huna ruhusa ya kusajili watumiaji katika shule hii." }, 403);
+  }
 
   const displayName = String(body.display_name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
@@ -93,7 +107,7 @@ Deno.serve(async (req) => {
       .from("classes")
       .select("id")
       .eq("id", classId)
-      .eq("school_id", membership.school_id)
+      .eq("school_id", authorizedSchoolId)
       .maybeSingle();
 
     if (classError || !klass) return json({ error: "Darasa ulilochagua si la shule yako." }, 403);
@@ -109,7 +123,7 @@ Deno.serve(async (req) => {
     password,
     user_metadata: {
       account_type: "school_staff",
-      school_id: membership.school_id,
+      school_id: authorizedSchoolId,
       role,
       display_name: displayName,
     },
@@ -122,7 +136,7 @@ Deno.serve(async (req) => {
   const { error: insertError } = await admin
     .from("school_staff_accounts")
     .insert({
-      school_id: membership.school_id,
+      school_id: authorizedSchoolId,
       user_id: created.user.id,
       display_name: displayName,
       email: email || null,
