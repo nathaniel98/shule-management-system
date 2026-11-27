@@ -32,6 +32,14 @@ export default function StaffUsersModule() {
   const [staffPhone, setStaffPhone] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
   const [directorySaving, setDirectorySaving] = useState(false);
+  const [editingDirectoryMember, setEditingDirectoryMember] = useState<StaffDirectoryMember | null>(null);
+  const [editDirectoryName, setEditDirectoryName] = useState('');
+  const [editDirectoryEmployeeNo, setEditDirectoryEmployeeNo] = useState('');
+  const [editDirectoryCategory, setEditDirectoryCategory] = useState<'teaching' | 'support'>('support');
+  const [editDirectoryJobTitle, setEditDirectoryJobTitle] = useState('');
+  const [editDirectoryPhone, setEditDirectoryPhone] = useState('');
+  const [editDirectoryEmail, setEditDirectoryEmail] = useState('');
+  const [editDirectoryStatus, setEditDirectoryStatus] = useState<'Active' | 'Inactive'>('Active');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [assignmentStaffId, setAssignmentStaffId] = useState('');
@@ -199,6 +207,49 @@ export default function StaffUsersModule() {
       setMessage('Mtumishi amesajiliwa kwenye orodha ya watumishi wa shule.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Imeshindikana kusajili mtumishi.');
+    } finally {
+      setDirectorySaving(false);
+    }
+  }
+
+  function startEditDirectoryMember(member: StaffDirectoryMember) {
+    setEditingDirectoryMember(member);
+    setEditDirectoryName(member.full_name);
+    setEditDirectoryEmployeeNo(member.employee_no || '');
+    setEditDirectoryCategory(member.staff_category);
+    setEditDirectoryJobTitle(member.job_title);
+    setEditDirectoryPhone(member.phone || '');
+    setEditDirectoryEmail(member.email || '');
+    setEditDirectoryStatus(member.status);
+    setError('');
+    setMessage('');
+  }
+
+  async function saveDirectoryMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingDirectoryMember || !schoolId) return;
+    setDirectorySaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error } = await supabase!.from('school_staff_directory').update({
+        full_name: editDirectoryName.trim(),
+        employee_no: editDirectoryEmployeeNo.trim() || null,
+        staff_category: editDirectoryCategory,
+        job_title: editDirectoryJobTitle.trim(),
+        phone: editDirectoryPhone.trim() || null,
+        email: editDirectoryEmail.trim().toLowerCase() || null,
+        status: editDirectoryStatus,
+        updated_at: new Date().toISOString(),
+      }).eq('id', editingDirectoryMember.id).eq('school_id', schoolId)
+        .select('id, full_name, employee_no, staff_category, job_title, phone, email, status, teacher_id').maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('Mtumishi hakupatikana au huna ruhusa ya kuhariri taarifa zake.');
+      setStaffDirectory(current => current.map(item => item.id === data.id ? data as StaffDirectoryMember : item).sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setEditingDirectoryMember(null);
+      setMessage('Taarifa za mtumishi zimehaririwa kikamilifu.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kuhariri taarifa za mtumishi.');
     } finally {
       setDirectorySaving(false);
     }
@@ -453,11 +504,30 @@ export default function StaffUsersModule() {
         {staffCategory === 'teaching' && <label style={label}>Nafasi ya kazi<input style={input} value={staffJobTitle} onChange={e => setStaffJobTitle(e.target.value)} required /></label>}
         <div style={{ display: 'flex', alignItems: 'end' }}><button type="submit" disabled={directorySaving || (staffCategory === 'teaching' && !staffTeacherId)} style={{ width: '100%', padding: 13, border: 0, borderRadius: 9, background: '#173b5e', color: '#fff', fontWeight: 700 }}>{directorySaving ? 'Inasajili...' : '＋ Sajili Mtumishi'}</button></div>
       </form>
+      {editingDirectoryMember && <form onSubmit={saveDirectoryMember} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(200px,100%),1fr))', gap: 12, padding: 14, marginTop: 14, border: '1px solid #bfdbfe', borderRadius: 12, background: '#f8fbff' }}>
+        <h4 style={{ gridColumn: '1 / -1', margin: 0 }}>Hariri mtumishi: {editingDirectoryMember.full_name}</h4>
+        <label style={label}>Jina kamili<input style={input} value={editDirectoryName} onChange={e => setEditDirectoryName(e.target.value)} required /></label>
+        <label style={label}>Namba ya utumishi<input style={input} value={editDirectoryEmployeeNo} onChange={e => setEditDirectoryEmployeeNo(e.target.value)} /></label>
+        <label style={label}>Aina ya mtumishi<select style={input} value={editDirectoryCategory} onChange={e => setEditDirectoryCategory(e.target.value as 'teaching' | 'support')}>
+          <option value="teaching">Mwalimu</option><option value="support">Mtumishi mwingine</option>
+        </select></label>
+        <label style={label}>Nafasi ya kazi<input style={input} value={editDirectoryJobTitle} onChange={e => setEditDirectoryJobTitle(e.target.value)} required /></label>
+        <label style={label}>Namba ya simu<input style={input} type="tel" value={editDirectoryPhone} onChange={e => setEditDirectoryPhone(e.target.value)} /></label>
+        <label style={label}>Barua pepe<input style={input} type="email" value={editDirectoryEmail} onChange={e => setEditDirectoryEmail(e.target.value)} /></label>
+        <label style={label}>Hali<select style={input} value={editDirectoryStatus} onChange={e => setEditDirectoryStatus(e.target.value as 'Active' | 'Inactive')}>
+          <option value="Active">Anafanya kazi</option><option value="Inactive">Hafanyi kazi</option>
+        </select></label>
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8 }}>
+          <button type="submit" disabled={directorySaving || !editDirectoryName.trim() || !editDirectoryJobTitle.trim()} style={{ border: 0, borderRadius: 8, padding: '11px 16px', background: '#173b5e', color: '#fff', fontWeight: 700 }}>{directorySaving ? 'Inahifadhi...' : 'Hifadhi mabadiliko'}</button>
+          <button type="button" onClick={() => setEditingDirectoryMember(null)} disabled={directorySaving} style={{ border: 0, borderRadius: 8, padding: '11px 16px', background: '#eef2f6', color: '#334155', fontWeight: 700 }}>Ghairi</button>
+        </div>
+        {editingDirectoryMember.teacher_id && <p style={{ gridColumn: '1 / -1', margin: 0, color: '#64748b', fontSize: 12 }}>Kubadilisha aina kwenda “Mtumishi mwingine” hakufuti rekodi yake ya awali kwenye orodha ya walimu; kunabadilisha tu nafasi yake kwenye orodha ya watumishi.</p>}
+      </form>}
       <div style={{ overflowX: 'auto', marginTop: 16 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-          <thead><tr><th style={{ textAlign: 'left', padding: 9 }}>Jina</th><th style={{ textAlign: 'left', padding: 9 }}>Namba ya utumishi</th><th style={{ textAlign: 'left', padding: 9 }}>Nafasi</th><th style={{ textAlign: 'left', padding: 9 }}>Aina</th></tr></thead>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+          <thead><tr><th style={{ textAlign: 'left', padding: 9 }}>Jina</th><th style={{ textAlign: 'left', padding: 9 }}>Namba ya utumishi</th><th style={{ textAlign: 'left', padding: 9 }}>Nafasi</th><th style={{ textAlign: 'left', padding: 9 }}>Aina</th><th style={{ textAlign: 'left', padding: 9 }}>Vitendo</th></tr></thead>
           <tbody>{staffDirectory.map(member => <tr key={member.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-            <td style={{ padding: 9 }}>{member.full_name}</td><td style={{ padding: 9 }}>{member.employee_no || '—'}</td><td style={{ padding: 9 }}>{member.job_title}</td><td style={{ padding: 9 }}>{member.staff_category === 'teaching' ? 'Mwalimu' : 'Mtumishi'}</td>
+            <td style={{ padding: 9 }}>{member.full_name}</td><td style={{ padding: 9 }}>{member.employee_no || '—'}</td><td style={{ padding: 9 }}>{member.job_title}</td><td style={{ padding: 9 }}>{member.staff_category === 'teaching' ? 'Mwalimu' : 'Mtumishi'}{member.status === 'Inactive' ? ' (Hafanyi kazi)' : ''}</td><td style={{ padding: 9 }}><button type="button" onClick={() => startEditDirectoryMember(member)} disabled={directorySaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#eaf2f8', color: '#173b5e', fontWeight: 700 }}>Hariri</button></td>
           </tr>)}</tbody>
         </table>
         {staffDirectory.length === 0 && <p>Hakuna watumishi waliosajiliwa bado.</p>}
