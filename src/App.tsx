@@ -459,7 +459,7 @@ function App() {
     } else if (!isSuperAdmin && section === 'schools') {
       setSection('dashboard');
     }
-  }, [session, section, isSuperAdmin, isRegularTeacher]);
+  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher]);
 
   if (!session) {
     return (
