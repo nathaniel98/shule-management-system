@@ -5,7 +5,7 @@ type StaffRole = 'class_teacher' | 'head_teacher' | 'accountant' | 'teacher' | '
 type SchoolClass = { id: string; class_name: string };
 type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
-type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; is_active: boolean; created_at: string };
+type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; staff_member_id: string | null; is_active: boolean; created_at: string };
 type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null };
 type StaffDirectoryMember = { id: string; full_name: string; employee_no: string | null; staff_category: 'teaching' | 'support'; job_title: string; phone: string | null; email: string | null; status: 'Active' | 'Inactive'; teacher_id: string | null };
 
@@ -70,7 +70,7 @@ export default function StaffUsersModule() {
 
   async function loadAccounts(id: string) {
     const { data, error } = await supabase!.from('school_staff_accounts')
-      .select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at')
+      .select('id, display_name, email, phone, role, class_id, teacher_id, staff_member_id, is_active, created_at')
       .eq('school_id', id).order('created_at', { ascending: false });
     if (error) throw error;
     setAccounts((data || []) as StaffAccount[]);
@@ -111,7 +111,7 @@ export default function StaffUsersModule() {
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
         const [classResult, staffResult, subjectResult, assignmentResult, teacherResponse, directoryResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
-          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, staff_member_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
           supabase!.functions.invoke('list-school-teachers', { body: { school_id: id } }),
@@ -228,6 +228,11 @@ export default function StaffUsersModule() {
   async function saveDirectoryMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingDirectoryMember || !schoolId) return;
+    const linkedTeachingAccount = accounts.find(account => account.staff_member_id === editingDirectoryMember.id && account.is_active && (account.role === 'teacher' || account.role === 'class_teacher'));
+    if (editDirectoryCategory === 'support' && linkedTeachingAccount) {
+      setError('Badili kwanza jukumu la akaunti hii kutoka Mwalimu/Mwalimu wa darasa kabla ya kumhamisha mtumishi kwenda kundi la watumishi wengine.');
+      return;
+    }
     setDirectorySaving(true);
     setError('');
     setMessage('');
@@ -263,7 +268,7 @@ export default function StaffUsersModule() {
       setError('Chagua mtumishi aliyesajiliwa kwenye orodha ya watumishi wa shule hii.');
       return;
     }
-    if ((role === 'teacher' || role === 'class_teacher') && !selectedMember.teacher_id) {
+    if ((role === 'teacher' || role === 'class_teacher') && (selectedMember.staff_category !== 'teaching' || !selectedMember.teacher_id)) {
       setError('Jukumu hili linahitaji kuchagua mwalimu aliyesajiliwa kwenye orodha ya walimu.');
       return;
     }
@@ -540,7 +545,7 @@ export default function StaffUsersModule() {
       {message && <div role="status" style={{ background: '#ecfdf3', color: '#16845b', padding: 12, borderRadius: 9, marginBottom: 12 }}>{message}</div>}
       <form className="staff-users-form" onSubmit={createUser} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(220px,100%),1fr))', gap: 14, minWidth: 0 }}>
         <label style={label}>Mtumishi aliyesajiliwa<select style={input} value={selectedStaffMemberId} onChange={e => { const id = e.target.value; setSelectedStaffMemberId(id); const member = staffDirectory.find(item => item.id === id); if (member) { setDisplayName(member.full_name); setEmail(member.email || ''); setPhone(member.phone || ''); } }} required>
-          <option value="">Chagua mtumishi</option>{staffDirectory.filter(member => member.status === 'Active' && ((role !== 'teacher' && role !== 'class_teacher') || !!member.teacher_id)).map(member => <option key={member.id} value={member.id}>{member.full_name} — {member.job_title}{member.employee_no ? ` (${member.employee_no})` : ''}</option>)}
+          <option value="">Chagua mtumishi</option>{staffDirectory.filter(member => member.status === 'Active' && ((role !== 'teacher' && role !== 'class_teacher') || (member.staff_category === 'teaching' && !!member.teacher_id))).map(member => <option key={member.id} value={member.id}>{member.full_name} — {member.job_title}{member.employee_no ? ` (${member.employee_no})` : ''}</option>)}
         </select></label>
         <label style={label}>Jina kamili<input style={input} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>
         <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jina@shule.co.tz" /></label>
