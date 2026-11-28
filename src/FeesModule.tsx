@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
-type School = { id: string; school_name: string };
+type School = { id: string; school_name: string; phone?: string | null; email?: string | null; address?: string | null };
 type Year = { id: string; year_name: string; is_current: boolean };
 type SchoolClass = { id: string; class_name: string };
 type Structure = {
@@ -424,9 +424,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
             throw new Error('Akaunti hii haijaunganishwa na shule. Wasiliana na msimamizi.');
           }
 
+          const { data: schoolDetails } = await supabase.from('schools').select('id,school_name,phone,email,address').eq('id', assignedSchoolId).maybeSingle();
           const assignedSchool = {
             id: assignedSchoolId,
-            school_name: assigned?.school_name || 'Shule yangu'
+            school_name: schoolDetails?.school_name || assigned?.school_name || 'Shule yangu',
+            phone: schoolDetails?.phone || null, email: schoolDetails?.email || null, address: schoolDetails?.address || null
           };
           setSchools([assignedSchool]);
           setSchoolId(assignedSchool.id);
@@ -1080,7 +1082,8 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
     const enrollment = enrollmentMap.get(account.enrollment_id);
     const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
-    const school = schools.find(x => x.id === schoolId);
+    const { data: schoolDetails } = await supabase.from('schools').select('school_name,phone,email,address').eq('id', schoolId).maybeSingle();
+    const school = { ...schools.find(x => x.id === schoolId), ...schoolDetails };
     const accountPayments = payments.filter(x => x.student_fee_account_id === account.id);
     const totalPaid = accountPayments.reduce((sum, item) => sum + Number(item.amount), 0);
     const balance = Math.max(0, Number(account.total_amount) - totalPaid);
@@ -1103,7 +1106,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
     const isThermal = format === '80mm';
     const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
-    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong></div>`;
+    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong>${school?.address ? `<div>${school.address}</div>` : ''}${school?.phone ? `<div>Simu: ${school.phone}</div>` : ''}${school?.email ? `<div>${school.email}</div>` : ''}</div>`;
     const letterheadBackground = !isThermal && letterheadUrl
       ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
       : '';
@@ -1887,7 +1890,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
             ...card, maxWidth: 520, width: '100%',
             maxHeight: '90vh', overflowY: 'auto'
           }}>
-            <h3 style={{ marginTop: 0, color: '#173b5e' }}>Pokea Malipo</h3>
+            <h3 style={{ marginTop: 0, color: '#173b5e' }}>{editingPayment ? 'Hariri Malipo' : 'Pokea Malipo'}</h3>
             <form onSubmit={savePayment}>
               <div style={fieldGrid}>
                 <label style={label}>
@@ -1952,7 +1955,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button type="submit" style={button} disabled={saving}>
-                  {saving ? 'Inahifadhi...' : 'Hifadhi Malipo'}
+                  {saving ? 'Inahifadhi...' : editingPayment ? 'Hifadhi Mabadiliko' : 'Hifadhi Malipo'}
                 </button>
                 <button
                   type="button"
