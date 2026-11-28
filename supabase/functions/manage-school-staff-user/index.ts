@@ -55,9 +55,21 @@ Deno.serve(async (req) => {
   if (account.user_id === callerData.user.id) return json({ error: "Huwezi kufuta au kubadilisha akaunti unayotumia sasa." }, 403);
 
   if (action === "delete") {
-    const { error: deleteError } = await admin.auth.admin.deleteUser(account.user_id);
-    if (deleteError) return json({ error: `Imeshindikana kufuta akaunti: ${deleteError.message}` }, 500);
-    return json({ success: true });
+    // Deactivate the school account instead of hard-deleting the Auth user.
+    // A staff login may be referenced by historical school records; retaining
+    // the identity preserves those records while revoking this school's access.
+    const { data: deactivated, error: deactivateError } = await admin
+      .from("school_staff_accounts")
+      .update({ is_active: false })
+      .eq("id", accountId)
+      .eq("school_id", schoolId)
+      .eq("user_id", account.user_id)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+    if (deactivateError) return json({ error: `Imeshindikana kuzima akaunti: ${deactivateError.message}` }, 500);
+    if (!deactivated) return json({ error: "Akaunti tayari imezimwa au haikupatikana." }, 404);
+    return json({ success: true, deactivated: true });
   }
 
   const displayName = String(body.display_name ?? "").trim();

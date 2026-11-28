@@ -77,7 +77,7 @@ export default function StaffUsersModule() {
   async function loadAccounts(id: string) {
     const { data, error } = await supabase!.from('school_staff_accounts')
       .select('id, display_name, email, phone, role, class_id, teacher_id, staff_member_id, is_active, created_at')
-      .eq('school_id', id).order('created_at', { ascending: false });
+      .eq('school_id', id).eq('is_active', true).order('created_at', { ascending: false });
     if (error) throw error;
     setAccounts((data || []) as StaffAccount[]);
   }
@@ -117,7 +117,7 @@ export default function StaffUsersModule() {
         if (!id) throw new Error('Akaunti hii haijaunganishwa na shule kama School Admin au mtumishi.');
         const [classResult, staffResult, subjectResult, assignmentResult, teacherResponse, directoryResult] = await Promise.all([
           supabase!.from('classes').select('id, class_name').eq('school_id', id).order('class_name'),
-          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, staff_member_id, is_active, created_at').eq('school_id', id).order('created_at', { ascending: false }),
+          supabase!.from('school_staff_accounts').select('id, display_name, email, phone, role, class_id, teacher_id, staff_member_id, is_active, created_at').eq('school_id', id).eq('is_active', true).order('created_at', { ascending: false }),
           supabase!.from('subjects').select('id, subject_name').eq('school_id', id).order('subject_name'),
           supabase!.from('school_staff_teaching_assignments').select('id, staff_account_id, class_id, subject_id').eq('school_id', id),
           supabase!.functions.invoke('list-school-teachers', { body: { school_id: id } }),
