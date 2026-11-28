@@ -481,7 +481,7 @@ function App() {
         ? nav.filter(item => ['dashboard', 'students', 'exams', 'results'].includes(item.id))
         : isRegularTeacher
           ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
-          : nav.filter(item => item.id !== 'schools');
+          : nav.filter(item => !['schools', 'staff-directory', 'staff-payments'].includes(item.id));
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
