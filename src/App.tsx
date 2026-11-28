@@ -706,6 +706,48 @@ autoComplete="username"
           {section === 'dashboard' ? (
             isClassTeacher ? (
               <ClassTeacherDashboard classId={staffClassId} />
+            ) : isAccountant ? (
+              <section className="accountant-dashboard">
+                <div className="accountant-dashboard-intro">
+                  <div className="dashboard-role-icon"><Wallet size={25}/></div>
+                  <div>
+                    <h2>Majukumu ya Mhasibu</h2>
+                    <p className="muted">Karibu {staffDisplayName || 'Mhasibu'}. Chagua jukumu unalotaka kutekeleza katika shule yako.</p>
+                  </div>
+                </div>
+                <div className="accountant-duty-grid">
+                  <button className="accountant-duty-card" onClick={()=>setSection('fees')}>
+                    <span className="duty-icon"><Wallet size={22}/></span>
+                    <strong>Ada na Malipo</strong>
+                    <small>Angalia ada za wanafunzi, pokea na rekodi malipo, na fuatilia madeni.</small>
+                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                  </button>
+                  <button className="accountant-duty-card" onClick={()=>setSection('students')}>
+                    <span className="duty-icon"><GraduationCap size={22}/></span>
+                    <strong>Wanafunzi</strong>
+                    <small>Angalia taarifa za wanafunzi na taarifa zinazohitajika kwa shughuli za malipo.</small>
+                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                  </button>
+                  <button className="accountant-duty-card" onClick={()=>setSection('academic-years')}>
+                    <span className="duty-icon"><CalendarDays size={22}/></span>
+                    <strong>Miaka ya Masomo</strong>
+                    <small>Angalia mwaka wa masomo unaotumika na taarifa zake.</small>
+                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                  </button>
+                  <button className="accountant-duty-card" onClick={()=>setSection('staff-directory')}>
+                    <span className="duty-icon"><Users size={22}/></span>
+                    <strong>Watumishi</strong>
+                    <small>Angalia orodha ya watumishi wa shule na taarifa zao.</small>
+                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                  </button>
+                  <button className="accountant-duty-card" onClick={()=>setSection('staff-payments')}>
+                    <span className="duty-icon"><Wallet size={22}/></span>
+                    <strong>Malipo ya Watumishi</strong>
+                    <small>Sajili salary advance, tengeneza payroll na rekodi malipo ya mishahara.</small>
+                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                  </button>
+                </div>
+              </section>
             ) : <>
               {dashboardError && (
                 <div className="notice" role="alert" style={{ marginBottom: 16 }}>
