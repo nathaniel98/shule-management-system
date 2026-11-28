@@ -821,7 +821,7 @@ autoComplete="username"
                 </section>
                 <section className="accountant-salary-list">
                   <div className="payroll-overview-heading"><div><h3>Mishahara ya watumishi</h3><p className="muted">Mshahara wa msingi kwa mwezi kwa kila mtumishi</p></div><button className="secondary" onClick={()=>setSection('staff-payments')}>Malipo ya watumishi</button></div>
-                  {accountantSummaryLoading ? <p className="muted">Inapakia mishahara...</p> : accountantSummary.salaryStaff.length ? <div className="accountant-salary-rows">{accountantSummary.salaryStaff.map(person=><div className="accountant-salary-row" key={person.id}><span>{person.name || 'Mtumishi'}</span><strong>{money(person.salary)}</strong></div>)}</div> : <p className="muted">Hakuna mishahara iliyosanidiwa bado.</p>}
+                  {accountantSummaryLoading ? <p className="muted">Inapakia mishahara...</p> : accountantSummary.salaryStaff.length ? <div className="accountant-salary-rows">{accountantSummary.salaryStaff.map(person=><div className="accountant-salary-row" key={person.id}><span>{person.name || 'Mtumishi'}</span><strong>{formatTsh(person.salary)}</strong></div>)}</div> : <p className="muted">Hakuna mishahara iliyosanidiwa bado.</p>}
                 </section>
               </section>
             ) : <>
