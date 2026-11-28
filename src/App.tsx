@@ -353,7 +353,23 @@ function App() {
       });
 
       if (invokeError) {
-        signInError = invokeError.message;
+        // Supabase FunctionsHttpError carries the server Response in context.
+        // Read its JSON body so staff see the actual login failure reason,
+        // rather than only the generic "Edge Function returned a non-2xx status code".
+        const context = (invokeError as any).context;
+        if (context instanceof Response) {
+          try {
+            const payload = await context.clone().json() as Record<string, unknown>;
+            const detail = payload.error ?? payload.message ?? payload.msg;
+            signInError = typeof detail === 'string' && detail.trim()
+              ? detail
+              : invokeError.message;
+          } catch {
+            signInError = invokeError.message;
+          }
+        } else {
+          signInError = invokeError.message;
+        }
       } else if (loginData?.access_token && loginData?.refresh_token) {
         const { error } = await supabase.auth.setSession({
           access_token: loginData.access_token,
