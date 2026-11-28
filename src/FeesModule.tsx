@@ -26,7 +26,7 @@ type Account = {
   school_fee: number; accommodation_fee: number; transport_fee: number;
   other_charges_total: number; total_amount: number;
 };
-type FeeAudit = { id: string; entity_type: string; action: string; old_data: any; new_data: any; changed_at: string; reason: string | null };
+type FeeAudit = { id: string; entity_type: string; action: string; old_data: any; new_data: any; changed_at: string; changed_by: string | null; reason: string | null };
 type Payment = {
   id: string; student_fee_account_id: string; receipt_number: string;
   amount: number; payment_date: string; payment_method: string;
@@ -965,10 +965,10 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
     const paidSoFar = payments
       .filter(x => x.student_fee_account_id === paymentAccount.id)
-      .reduce((sum, x) => sum + Number(x.amount), 0);
+       .reduce((sum, x) => sum + Number(x.amount), 0);
 
     const remaining =
-      Number(paymentAccount.total_amount) - paidSoFar;
+      Number(paymentAccount.total_amount) - paidSoFar + Number(editingPayment?.amount || 0);
 
     if (amount > remaining) {
       setError(
@@ -1989,9 +1989,9 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
         <div style={{ position:'fixed', inset:0, zIndex:1200, background:'rgba(15,23,42,.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:12, overflowY:'auto' }}>
           <div style={{...card,maxWidth:850,width:'100%',maxHeight:'90vh',overflowY:'auto'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><h3>Historia ya Mabadiliko ya Ada na Malipo</h3><button style={smallButton} onClick={()=>setShowAudit(false)}>Funga</button></div>
-            <div style={{overflowX:'auto'}}><table style={{...tableStyle,minWidth:700}}><thead><tr>{['Tarehe','Aina','Kitendo','Taarifa za Awali','Taarifa Mpya','Sababu'].map(x=><th style={cell} key={x}>{x}</th>)}</tr></thead>
-              <tbody>{auditRows.map(a=><tr key={a.id}><td style={cell}>{new Date(a.changed_at).toLocaleString('sw-TZ')}</td><td style={cell}>{a.entity_type==='payment'?'Malipo':'Ada'}</td><td style={cell}>{a.action==='DELETE'?'Imefutwa':'Imehaririwa'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.old_data?.amount ? 'TSh '+money(a.old_data.amount) : a.old_data?.total_amount ? 'TSh '+money(a.old_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.new_data?.amount ? 'TSh '+money(a.new_data.amount) : a.new_data?.total_amount ? 'TSh '+money(a.new_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.reason || 'Mabadiliko kupitia mfumo'}</td></tr>)}
-              {!auditRows.length && <tr><td style={cell} colSpan={6}>Hakuna mabadiliko yaliyorekodiwa.</td></tr>}</tbody></table></div>
+            <div style={{overflowX:'auto'}}><table style={{...tableStyle,minWidth:700}}><thead><tr>{['Tarehe','Aliyebadilisha (ID)','Aina','Kitendo','Taarifa za Awali','Taarifa Mpya','Sababu'].map(x=><th style={cell} key={x}>{x}</th>)}</tr></thead>
+              <tbody>{auditRows.map(a=><tr key={a.id}><td style={cell}>{new Date(a.changed_at).toLocaleString('sw-TZ')}</td><td style={cell}>{a.changed_by || '—'}</td><td style={cell}>{a.entity_type==='payment'?'Malipo':'Ada'}</td><td style={cell}>{a.action==='DELETE'?'Imefutwa':'Imehaririwa'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.old_data?.amount ? 'TSh '+money(a.old_data.amount) : a.old_data?.total_amount ? 'TSh '+money(a.old_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.new_data?.amount ? 'TSh '+money(a.new_data.amount) : a.new_data?.total_amount ? 'TSh '+money(a.new_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.reason || 'Mabadiliko kupitia mfumo'}</td></tr>)}
+              {!auditRows.length && <tr><td style={cell} colSpan={7}>Hakuna mabadiliko yaliyorekodiwa.</td></tr>}</tbody></table></div>
           </div>
         </div>
       )}
