@@ -8,6 +8,8 @@ AS $$
 DECLARE
   v_run_id uuid;
   v_staff record;
+  v_adv record;
+  v_take numeric(14,2);
   v_allowances numeric(14,2);
   v_regular_deductions numeric(14,2);
   v_advance_due numeric(14,2);
@@ -54,38 +56,26 @@ BEGIN
     v_gross := v_staff.base_salary + v_allowances;
     v_deductions := LEAST(v_regular_deductions,v_gross);
 
-    -- Lock outstanding advances and apply each agreed monthly deduction, capped
-    -- at the remaining balance and the salary remaining after other deductions.
+    -- Lock each outstanding advance and apply at most one agreed deduction per advance.
     v_advance_deduct := 0;
-    FOR v_advance_due IN
-      SELECT LEAST(a.monthly_deduction,a.amount-a.repaid_amount)
-      FROM public.staff_salary_advances a
-      WHERE a.school_id=p_school_id AND a.staff_member_id=v_staff.staff_member_id
-        AND a.status='active' AND a.repaid_amount<a.amount
-      ORDER BY a.advance_date,a.created_at
+    FOR v_adv IN
+      SELECT id,monthly_deduction,amount,repaid_amount
+      FROM public.staff_salary_advances
+      WHERE school_id=p_school_id AND staff_member_id=v_staff.staff_member_id
+        AND status='active' AND repaid_amount<amount
+      ORDER BY advance_date,created_at
       FOR UPDATE
     LOOP
       EXIT WHEN v_advance_deduct >= GREATEST(0,v_gross-v_deductions);
-      DECLARE
-        v_take numeric(14,2);
-        v_advance_id uuid;
-      BEGIN
-        SELECT id INTO v_advance_id
-        FROM public.staff_salary_advances
-        WHERE school_id=p_school_id AND staff_member_id=v_staff.staff_member_id
-          AND status='active' AND repaid_amount<amount
-        ORDER BY advance_date,created_at
-        LIMIT 1 FOR UPDATE;
-        EXIT WHEN v_advance_id IS NULL;
-        SELECT LEAST(monthly_deduction,amount-repaid_amount,
-          GREATEST(0,v_gross-v_deductions-v_advance_deduct))
-        INTO v_take FROM public.staff_salary_advances WHERE id=v_advance_id;
+      v_take := LEAST(v_adv.monthly_deduction,v_adv.amount-v_adv.repaid_amount,
+        GREATEST(0,v_gross-v_deductions-v_advance_deduct));
+      IF v_take > 0 THEN
         UPDATE public.staff_salary_advances
         SET repaid_amount=repaid_amount+v_take,
             status=CASE WHEN repaid_amount+v_take>=amount THEN 'settled' ELSE 'active' END
-        WHERE id=v_advance_id;
+        WHERE id=v_adv.id;
         v_advance_deduct := v_advance_deduct + v_take;
-      END;
+      END IF;
     END LOOP;
 
     v_net := GREATEST(0,v_gross-v_deductions-v_advance_deduct);
