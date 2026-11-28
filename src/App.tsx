@@ -862,7 +862,7 @@ autoComplete="username"
           ) : section === 'schools' && isSuperAdmin ? (
             <SchoolModule />
           ) : section === 'students' ? (
-            <StudentsModule isStaffTeacher={isRegularTeacher || isClassTeacher} />
+            <StudentsModule isStaffTeacher={isRegularTeacher || isClassTeacher || isAccountant} />
           ) : section === 'enrollment' ? (
             <EnrollmentModule />
           ) : section === 'teachers' ? (
