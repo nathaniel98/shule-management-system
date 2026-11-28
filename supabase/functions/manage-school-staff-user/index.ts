@@ -105,13 +105,54 @@ Deno.serve(async (req) => {
     if (classError || !klass) return json({ error: "Darasa ulilochagua si la shule hii." }, 403);
   }
 
+  // Keep the Auth email in sync with the staff account. Phone-only accounts
+  // use the same internal email convention as create-school-staff-user.
+  const { data: authUserData, error: authUserError } = await admin.auth.admin.getUserById(account.user_id);
+  if (authUserError || !authUserData.user) return json({ error: "Imeshindikana kupata utambulisho wa login wa mtumiaji." }, 500);
+  const previousAuthEmail = authUserData.user.email || "";
+  const nextAuthEmail = email || `staff-${account.user_id}@staff-login.invalid`;
+  const authEmailChanged = previousAuthEmail.toLowerCase() !== nextAuthEmail.toLowerCase();
+  if (authEmailChanged) {
+    const { error: authUpdateError } = await admin.auth.admin.updateUserById(account.user_id, {
+      email: nextAuthEmail,
+      email_confirm: true,
+      user_metadata: {
+        ...(authUserData.user.user_metadata || {}),
+        account_type: "school_staff",
+        school_id: schoolId,
+        role,
+        display_name: displayName,
+      },
+    });
+    if (authUpdateError) {
+      return json({ error: `Imeshindikana kusasisha taarifa za login: ${authUpdateError.message}` }, 400);
+    }
+  } else {
+    const { error: metadataError } = await admin.auth.admin.updateUserById(account.user_id, {
+      user_metadata: {
+        ...(authUserData.user.user_metadata || {}),
+        account_type: "school_staff",
+        school_id: schoolId,
+        role,
+        display_name: displayName,
+      },
+    });
+    if (metadataError) return json({ error: "Imeshindikana kusasisha taarifa za akaunti." }, 500);
+  }
+
   const { data: updated, error: updateError } = await admin.from("school_staff_accounts")
     .update({ display_name: displayName, email: email || null, phone, role, staff_member_id: staffMemberId, teacher_id: linkedTeacherId, class_id: role === "class_teacher" ? classId : null })
     .eq("id", accountId).eq("school_id", schoolId).select("id").maybeSingle();
-  if (updateError) {
-    if (updateError.code === "23505") return json({ error: "Namba hii ya simu tayari inatumiwa na akaunti nyingine." }, 409);
-    return json({ error: `Imeshindikana kuhifadhi mabadiliko: ${updateError.message}` }, 500);
+  if (updateError || !updated) {
+    // Best-effort rollback to keep Auth and the staff-account row consistent.
+    if (authEmailChanged) {
+      await admin.auth.admin.updateUserById(account.user_id, {
+        email: previousAuthEmail,
+        email_confirm: true,
+      });
+    }
+    if (updateError?.code === "23505") return json({ error: "Namba hii ya simu tayari inatumiwa na akaunti nyingine." }, 409);
+    return json({ error: updateError ? `Imeshindikana kuhifadhi mabadiliko: ${updateError.message}` : "Akaunti haikupatikana au haikuhaririwa." }, 500);
   }
-  if (!updated) return json({ error: "Akaunti haikupatikana au haikuhaririwa." }, 404);
   return json({ success: true });
 });
