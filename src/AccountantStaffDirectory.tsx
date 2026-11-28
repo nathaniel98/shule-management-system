@@ -55,7 +55,7 @@ export default function AccountantStaffDirectory() {
             <div className="stat-card"><span>Watumishi wote</span><strong>{members.length}</strong></div>
             <div className="stat-card"><span>Walio kazini</span><strong>{members.filter(m => m.status === 'Active').length}</strong></div>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="accountant-desktop-table" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
               <thead><tr>{['Jina','Namba ya utumishi','Nafasi','Aina','Simu','Hali'].map(h => <th key={h} style={{ textAlign: 'left', padding: 12, borderBottom: '1px solid #e5e7eb' }}>{h}</th>)}</tr></thead>
               <tbody>
@@ -70,6 +70,17 @@ export default function AccountantStaffDirectory() {
                 {!members.length && <tr><td colSpan={6} style={{ padding: 18, textAlign: 'center' }}>Hakuna watumishi waliosajiliwa.</td></tr>}
               </tbody>
             </table>
+          </div>
+          <div className="accountant-mobile-cards directory-mobile-cards">
+            {members.map(member => <article className="accountant-mobile-card" key={member.id}>
+              <strong>{member.full_name}</strong>
+              <div><span>Namba ya utumishi</span><b>{member.employee_no || '—'}</b></div>
+              <div><span>Nafasi</span><b>{member.job_title || '—'}</b></div>
+              <div><span>Aina</span><b>{member.staff_category === 'teaching' ? 'Mwalimu' : 'Mtumishi mwingine'}</b></div>
+              <div><span>Simu</span><b>{member.phone || '—'}</b></div>
+              <div><span>Hali</span><b>{member.status === 'Active' ? 'Yupo kazini' : 'Hayupo kazini'}</b></div>
+            </article>)}
+            {!members.length && <p className="muted">Hakuna watumishi waliosajiliwa.</p>}
           </div>
         </>
       )}

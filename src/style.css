@@ -198,3 +198,64 @@
   .content table { max-width: none; }
   .content input, .content select, .content textarea, .content button { max-width: 100%; }
 }
+
+
+/* Mobile-first readable cards replace wide accountant tables on small screens. */
+.accountant-mobile-cards { display: none; }
+.accountant-desktop-table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
+@media (max-width: 760px) {
+  .accountant-desktop-table { display: none !important; }
+  .accountant-mobile-cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin-top: 14px;
+  }
+  .accountant-mobile-card {
+    display: grid;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e7edf2;
+    border-radius: 12px;
+    background: #fbfcfd;
+    overflow-wrap: anywhere;
+  }
+  .accountant-mobile-card > strong {
+    display: block;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e7edf2;
+    color: #173b5e;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .accountant-mobile-card > div {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .accountant-mobile-card > div span { color: #7d8c99; flex: 1 1 45%; }
+  .accountant-mobile-card > div b {
+    color: #263f54;
+    flex: 1 1 55%;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .accountant-mobile-card .mobile-payment { align-items: center; }
+  .accountant-mobile-card .mobile-payment select {
+    width: min(100%, 190px);
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid #dfe7ed;
+    border-radius: 8px;
+    background: #fff;
+  }
+}
