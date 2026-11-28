@@ -1319,6 +1319,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
         <button style={tabButton(tab === 'reports')} onClick={() => setTab('reports')}>
           Ripoti za Ada
         </button>
+        {isAccountant && (
+          <button style={tabButton(false)} onClick={openAuditHistory}>
+            Historia ya Mabadiliko
+          </button>
+        )}
       </div>
 
       {loading ? (
