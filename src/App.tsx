@@ -882,7 +882,7 @@ autoComplete="username"
           ) : section === 'reports' ? (
             <ReportsModule onEditResults={() => setSection('results')} />
           ) : section === 'fees' ? (
-            <FeesModule />
+            <FeesModule isAccountant={isAccountant} />
           ) : section === 'staff-directory' && isAccountant ? (
             <AccountantStaffDirectory />
           ) : section === 'staff-payments' && isAccountant ? (
