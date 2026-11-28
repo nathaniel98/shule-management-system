@@ -16,7 +16,7 @@ export default function AccountantPayrollModule() {
   if(!schoolId)return; setLoading(true);setError('');
   try {
    const [p,r,a]=await Promise.all([
-    supabase!.from('staff_salary_profiles').select('staff_member_id,base_salary').eq('school_id',schoolId).eq('is_active',true),
+    supabase!.from('staff_salary_profiles').select('staff_member_id,base_salary,school_staff_directory(full_name)').eq('school_id',schoolId).eq('is_active',true),
     supabase!.from('monthly_payroll_runs').select('id,payroll_month,total_gross,total_deductions,total_net').eq('school_id',schoolId).order('payroll_month',{ascending:false}),
     supabase!.from('staff_salary_advances').select('id,staff_member_id,amount,repaid_amount,monthly_deduction,status,advance_date,school_staff_directory(full_name)').eq('school_id',schoolId).order('advance_date',{ascending:false})
    ]);
@@ -57,7 +57,7 @@ export default function AccountantPayrollModule() {
   <h3 style={{marginTop:24}}>Salary Advance / Mikopo ya Watumishi</h3>
   <p className="muted">Sajili kiasi cha mkopo na makato ya kila mwezi. Mfumo utakata kiasi kilichokubaliwa, bila kuzidi salio la deni au mshahara unaobaki baada ya makato mengine.</p>
   <form onSubmit={createAdvance} className="form-grid" style={{marginTop:12}}>
-   <label>Mtumishi<select required value={advanceMember} onChange={e=>setAdvanceMember(e.target.value)}><option value="">Chagua mtumishi</option>{profiles.map(p=><option key={p.staff_member_id} value={p.staff_member_id}>{p.staff_member_id}</option>)}</select></label>
+   <label>Mtumishi<select required value={advanceMember} onChange={e=>setAdvanceMember(e.target.value)}><option value="">Chagua mtumishi</option>{profiles.map(p=><option key={p.staff_member_id} value={p.staff_member_id}>{(p.school_staff_directory as any)?.full_name||'Mtumishi'}</option>)}</select></label>
    <label>Kiasi cha mkopo (TSh)<input type="number" min="1" step="1000" required value={advanceAmount} onChange={e=>setAdvanceAmount(e.target.value)} /></label>
    <label>Makato ya kila mwezi (TSh)<input type="number" min="1" step="1000" required value={advanceMonthly} onChange={e=>setAdvanceMonthly(e.target.value)} /></label>
    <label>Tarehe ya mkopo<input type="date" required value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)} /></label>
