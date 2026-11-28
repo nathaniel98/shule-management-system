@@ -63,3 +63,138 @@
   .salary-setup-module h2 { font-size: 20px; line-height: 1.3; }
   .salary-setup-module > h3 { font-size: 17px; }
 }
+
+
+/* Consistent responsive layout for accountant and shared module screens. */
+.accountant-payroll-module,
+.accountant-directory-module {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  overflow: hidden;
+}
+.accountant-payroll-module > .module-icon,
+.accountant-payroll-module > h2,
+.accountant-payroll-module > p:first-of-type,
+.accountant-directory-module > .module-icon,
+.accountant-directory-module > h2,
+.accountant-directory-module > p:first-of-type {
+  align-self: center;
+  text-align: center;
+}
+.accountant-payroll-module > .form-grid,
+.accountant-payroll-module > form,
+.accountant-payroll-module > .stats-grid,
+.accountant-directory-module > .stats-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.accountant-payroll-module .form-grid,
+.accountant-payroll-module form.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.accountant-payroll-module label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: #53677a;
+}
+.accountant-payroll-module input,
+.accountant-payroll-module select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid #dfe7ed;
+  border-radius: 8px;
+  font: 14px 'DM Sans';
+}
+.accountant-payroll-module form button { width: 100%; min-height: 44px; }
+.accountant-payroll-module > div[style*="overflow"],
+.accountant-directory-module > div[style*="overflow"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.accountant-payroll-module table,
+.accountant-directory-module table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+}
+.accountant-payroll-module th,
+.accountant-payroll-module td,
+.accountant-directory-module th,
+.accountant-directory-module td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.accountant-payroll-module .stats-grid,
+.accountant-directory-module .stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.accountant-payroll-module h3,
+.accountant-directory-module h3 { overflow-wrap: anywhere; }
+.accountant-payroll-module > div[style*="display:flex"] {
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .accountant-payroll-module,
+  .accountant-directory-module { padding: 14px !important; }
+  .accountant-payroll-module .form-grid,
+  .accountant-payroll-module form.form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .accountant-payroll-module .stats-grid,
+  .accountant-directory-module .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .accountant-payroll-module .stat-card,
+  .accountant-directory-module .stat-card {
+    min-width: 0;
+    padding: 12px;
+    overflow-wrap: anywhere;
+  }
+  .accountant-payroll-module .stat-card strong,
+  .accountant-directory-module .stat-card strong {
+    font-size: clamp(15px, 4vw, 21px);
+    overflow-wrap: anywhere;
+  }
+  .accountant-payroll-module h2,
+  .accountant-directory-module h2 { font-size: 20px; line-height: 1.35; }
+  .accountant-payroll-module h3,
+  .accountant-directory-module h3 { font-size: 17px; line-height: 1.4; }
+  .accountant-payroll-module > div[style*="display:flex"] {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+  }
+}
+@media (max-width: 380px) {
+  .accountant-payroll-module .stats-grid,
+  .accountant-directory-module .stats-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* Prevent any module content from expanding the viewport on phones. */
+@media (max-width: 760px) {
+  .content, .main, .app-shell { min-width: 0; max-width: 100%; }
+  .content { padding-left: 12px !important; padding-right: 12px !important; }
+  .content > section.panel { min-width: 0; max-width: 100%; }
+  .content table { max-width: none; }
+  .content input, .content select, .content textarea, .content button { max-width: 100%; }
+}

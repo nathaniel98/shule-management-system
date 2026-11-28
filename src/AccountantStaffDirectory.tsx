@@ -44,7 +44,7 @@ export default function AccountantStaffDirectory() {
   }, []);
 
   return (
-    <section className="panel module-panel">
+    <section className="panel module-panel accountant-directory-module">
       <div className="module-icon">👥</div>
       <h2>Orodha ya Watumishi</h2>
       <p className="muted">Taarifa za watumishi kwa ajili ya kuhakiki malipo. Mhasibu anaweza kuona taarifa hizi bila kuzihariri au kufuta watumishi.</p>
