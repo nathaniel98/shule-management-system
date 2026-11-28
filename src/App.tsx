@@ -16,6 +16,7 @@ import ClassTeacherDashboard from './ClassTeacherDashboard';
 import AcademicYearsModule from './AcademicYearsModule';
 import AccountantStaffDirectory from './AccountantStaffDirectory';
 import AccountantPayrollModule from './AccountantPayrollModule';
+import StaffSalarySetupModule from './StaffSalarySetupModule';
 
 import {
   Activity,
@@ -55,6 +56,7 @@ type Section =
   | 'fees'
   | 'staff-directory'
   | 'staff-payments'
+  | 'salary-setup'
   | 'settings'
   | 'users';
 
@@ -74,6 +76,7 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
   { id: 'staff-directory', label: 'Watumishi', icon: Users },
   { id: 'staff-payments', label: 'Malipo ya Watumishi', icon: Wallet },
+  { id: 'salary-setup', label: 'Usanidi wa Mishahara', icon: Wallet },
   { id: 'settings', label: 'Mipangilio', icon: Settings },
   { id: 'users', label: 'Watumiaji', icon: ShieldCheck }
 ];
@@ -469,7 +472,7 @@ function App() {
   const academicSections = ['dashboard', 'students', 'enrollment', 'teachers', 'classes', 'streams', 'subjects', 'academic-years', 'exams', 'results', 'reports'];
   const accountantSections = ['dashboard', 'students', 'academic-years', 'fees', 'staff-directory', 'staff-payments'];
   const visibleNav = isSuperAdmin
-    ? nav.filter(item => !['users', 'staff-directory', 'staff-payments'].includes(item.id))
+    ? nav.filter(item => !['users', 'staff-directory', 'staff-payments', 'salary-setup'].includes(item.id))
     : isAccountant
       ? nav.filter(item => accountantSections.includes(item.id))
     : isAcademic
@@ -478,7 +481,7 @@ function App() {
         ? nav.filter(item => ['dashboard', 'students', 'exams', 'results'].includes(item.id))
         : isRegularTeacher
           ? nav.filter(item => ['dashboard', 'students', 'subjects', 'exams', 'results'].includes(item.id))
-          : nav.filter(item => item.id !== 'schools');
+          : nav.filter(item => !['schools', 'staff-directory', 'staff-payments'].includes(item.id));
   const current = nav.find(n => n.id === section)!;
 
   // School registration is a platform-owner function, never a school-admin function.
@@ -766,6 +769,8 @@ autoComplete="username"
             <AccountantStaffDirectory />
           ) : section === 'staff-payments' && isAccountant ? (
             <AccountantPayrollModule />
+          ) : section === 'salary-setup' && !isAccountant ? (
+            <StaffSalarySetupModule />
           ) : section === 'settings' ? (
             <SchoolSettingsModule isSuperAdmin={isSuperAdmin} />
           ) : section === 'users' && !isSuperAdmin ? (
