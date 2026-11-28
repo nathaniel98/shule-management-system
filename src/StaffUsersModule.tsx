@@ -243,6 +243,35 @@ export default function StaffUsersModule() {
     setMessage('');
   }
 
+  async function deleteDirectoryMember(member: StaffDirectoryMember) {
+    const linkedAccount = accounts.find(account => account.staff_member_id === member.id);
+    if (linkedAccount) {
+      setError(`Mtumishi huyu ameunganishwa na akaunti ya ${linkedAccount.display_name}. Ondoa kwanza muunganisho wa akaunti hiyo kabla ya kufuta rekodi ya mtumishi.`);
+      setMessage('');
+      return;
+    }
+    const confirmed = window.confirm(`Una uhakika unataka kufuta rekodi ya ${member.full_name}? Hatua hii haiwezi kutenguliwa.`);
+    if (!confirmed) return;
+    setDirectorySaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error } = await supabase!.from('school_staff_directory')
+        .delete().eq('id', member.id).eq('school_id', schoolId)
+        .select('id').maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('Rekodi haikufutwa. Hakikisha una ruhusa ya kusimamia watumishi.');
+      setStaffDirectory(current => current.filter(item => item.id !== member.id));
+      if (editingDirectoryMember?.id === member.id) setEditingDirectoryMember(null);
+      if (selectedStaffMemberId === member.id) setSelectedStaffMemberId('');
+      setMessage('Rekodi ya mtumishi imefutwa kikamilifu.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Imeshindikana kufuta rekodi ya mtumishi.');
+    } finally {
+      setDirectorySaving(false);
+    }
+  }
+
   async function saveDirectoryMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingDirectoryMember || !schoolId) return;
@@ -552,7 +581,7 @@ export default function StaffUsersModule() {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
           <thead><tr><th style={{ textAlign: 'left', padding: 9 }}>Jina</th><th style={{ textAlign: 'left', padding: 9 }}>Namba ya utumishi</th><th style={{ textAlign: 'left', padding: 9 }}>Nafasi</th><th style={{ textAlign: 'left', padding: 9 }}>Aina</th><th style={{ textAlign: 'left', padding: 9 }}>Vitendo</th></tr></thead>
           <tbody>{staffDirectory.map(member => <tr key={member.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-            <td style={{ padding: 9 }}>{member.full_name}</td><td style={{ padding: 9 }}>{member.employee_no || '—'}</td><td style={{ padding: 9 }}>{member.job_title}</td><td style={{ padding: 9 }}>{member.staff_category === 'teaching' ? 'Mwalimu' : 'Mtumishi'}{member.status === 'Inactive' ? ' (Hafanyi kazi)' : ''}</td><td style={{ padding: 9 }}><button type="button" onClick={() => startEditDirectoryMember(member)} disabled={directorySaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#eaf2f8', color: '#173b5e', fontWeight: 700 }}>Hariri</button></td>
+            <td style={{ padding: 9 }}>{member.full_name}</td><td style={{ padding: 9 }}>{member.employee_no || '—'}</td><td style={{ padding: 9 }}>{member.job_title}</td><td style={{ padding: 9 }}>{member.staff_category === 'teaching' ? 'Mwalimu' : 'Mtumishi'}{member.status === 'Inactive' ? ' (Hafanyi kazi)' : ''}</td><td style={{ padding: 9, whiteSpace: 'nowrap' }}><button type="button" onClick={() => startEditDirectoryMember(member)} disabled={directorySaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#eaf2f8', color: '#173b5e', fontWeight: 700, marginRight: 6 }}>Hariri</button><button type="button" onClick={() => deleteDirectoryMember(member)} disabled={directorySaving} style={{ border: 0, borderRadius: 8, padding: '8px 10px', background: '#fff1f0', color: '#b42318', fontWeight: 700 }}>Futa</button></td>
           </tr>)}</tbody>
         </table>
         {staffDirectory.length === 0 && <p>Hakuna watumishi waliosajiliwa bado.</p>}
