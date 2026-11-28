@@ -14,6 +14,8 @@ import SchoolSettingsModule from './SchoolSettingsModule';
 import StaffUsersModule from './StaffUsersModule';
 import ClassTeacherDashboard from './ClassTeacherDashboard';
 import AcademicYearsModule from './AcademicYearsModule';
+import AccountantStaffDirectory from './AccountantStaffDirectory';
+import AccountantPayrollModule from './AccountantPayrollModule';
 
 import {
   Activity,
@@ -51,6 +53,8 @@ type Section =
   | 'results'
   | 'reports'
   | 'fees'
+  | 'staff-directory'
+  | 'staff-payments'
   | 'settings'
   | 'users';
 
@@ -68,6 +72,8 @@ const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'results', label: 'Matokeo', icon: ClipboardList },
   { id: 'reports', label: 'Ripoti', icon: Activity },
   { id: 'fees', label: 'Ada na Malipo', icon: Wallet },
+  { id: 'staff-directory', label: 'Watumishi', icon: Users },
+  { id: 'staff-payments', label: 'Malipo ya Watumishi', icon: Wallet },
   { id: 'settings', label: 'Mipangilio', icon: Settings },
   { id: 'users', label: 'Watumiaji', icon: ShieldCheck }
 ];
@@ -459,9 +465,13 @@ function App() {
   const isRegularTeacher = staffRole === 'teacher';
   const isClassTeacher = staffRole === 'class_teacher';
   const isAcademic = staffRole === 'academic';
+  const isAccountant = staffRole === 'accountant';
   const academicSections = ['dashboard', 'students', 'enrollment', 'teachers', 'classes', 'streams', 'subjects', 'academic-years', 'exams', 'results', 'reports'];
+  const accountantSections = ['dashboard', 'students', 'academic-years', 'fees', 'staff-directory', 'staff-payments'];
   const visibleNav = isSuperAdmin
-    ? nav.filter(item => item.id !== 'users')
+    ? nav.filter(item => !['users', 'staff-directory', 'staff-payments'].includes(item.id))
+    : isAccountant
+      ? nav.filter(item => accountantSections.includes(item.id))
     : isAcademic
       ? nav.filter(item => academicSections.includes(item.id))
       : isClassTeacher
@@ -478,12 +488,14 @@ function App() {
       setSection('dashboard');
     } else if (isClassTeacher && !['dashboard', 'students', 'exams', 'results'].includes(section)) {
       setSection('dashboard');
+    } else if (isAccountant && !accountantSections.includes(section)) {
+      setSection('dashboard');
     } else if (isRegularTeacher && !['dashboard', 'students', 'subjects', 'exams', 'results'].includes(section)) {
       setSection('dashboard');
     } else if (!isSuperAdmin && section === 'schools') {
       setSection('dashboard');
     }
-  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher, isAcademic]);
+  }, [session, section, isSuperAdmin, isRegularTeacher, isClassTeacher, isAcademic, isAccountant]);
 
   if (!session) {
     return (
@@ -750,6 +762,10 @@ autoComplete="username"
             <ReportsModule onEditResults={() => setSection('results')} />
           ) : section === 'fees' ? (
             <FeesModule />
+          ) : section === 'staff-directory' && isAccountant ? (
+            <AccountantStaffDirectory />
+          ) : section === 'staff-payments' && isAccountant ? (
+            <AccountantPayrollModule />
           ) : section === 'settings' ? (
             <SchoolSettingsModule isSuperAdmin={isSuperAdmin} />
           ) : section === 'users' && !isSuperAdmin ? (
