@@ -48,7 +48,7 @@ export default function AccountantPayrollModule() {
   setBusy(true);setError('');try{const q=await supabase!.from('monthly_payroll_items').update({payment_status:'paid',paid_at:new Date().toISOString(),payment_method:method,updated_at:new Date().toISOString()}).eq('id',item.id).eq('payment_status','unpaid');if(q.error)throw q.error;setMessage('Malipo yamerekodiwa.');await load(runId)}catch(e){setError(e instanceof Error?e.message:'Imeshindikana kurekodi malipo.')}finally{setBusy(false)}
  }
  const paidCount=items.filter(x=>x.payment_status==='paid').length;
- return <section className="panel module-panel">
+ return <section className="panel module-panel accountant-payroll-module">
   <div className="module-icon"><Wallet size={25}/></div><h2>Malipo ya Watumishi</h2>
   <p className="muted">Mishahara hulipwa kila mwezi. Mhasibu anaweza kutengeneza payroll na kurekodi malipo kwa watumishi wenye mshahara uliowekwa.</p>
   {error&&<div className="notice" role="alert">{error}</div>}{message&&<div className="notice">{message}</div>}
