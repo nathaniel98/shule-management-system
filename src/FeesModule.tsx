@@ -109,6 +109,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
   const [showFeeImport, setShowFeeImport] = useState(false);
   const [feeImportText, setFeeImportText] = useState('');
   const [feeImporting, setFeeImporting] = useState(false);
+  const [showIndividualFeeForm, setShowIndividualFeeForm] = useState(false);
+  const [individualEnrollments, setIndividualEnrollments] = useState<Enrollment[]>([]);
+  const [individualStudents, setIndividualStudents] = useState<Student[]>([]);
+  const [individualEnrollmentId, setIndividualEnrollmentId] = useState('');
+  const [individualFee, setIndividualFee] = useState({ school_fee: '', accommodation_fee: '0', transport_fee: '0', other_charges_total: '0' });
 
   const [payment, setPayment] = useState({
     amount: '', payment_date: today(), payment_method: 'Cash',
@@ -1027,6 +1032,56 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
     } catch (e) { reportError(e); }
   }
 
+  async function openIndividualFeeForm() {
+    setError(''); setMessage('');
+    if (!yearId || !classId || !structure) {
+      setError('Msimamizi anapaswa kuweka angalau mpangilio wa ada wa darasa hili kwanza. Baada ya hapo mhasibu ataweza kuweka kiasi tofauti kwa kila mwanafunzi.');
+      return;
+    }
+    try {
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('student_enrollments').select('*')
+        .eq('academic_year_id', yearId).eq('class_id', classId).eq('status', 'Active');
+      if (enrollmentError) throw enrollmentError;
+      const enrollmentRows = (enrollmentData || []) as Enrollment[];
+      const studentIds = [...new Set(enrollmentRows.map(x => x.student_id))];
+      const { data: studentData, error: studentError } = studentIds.length
+        ? await supabase.from('students').select('id,admission_no,first_name,middle_name,last_name').in('id', studentIds)
+        : { data: [], error: null };
+      if (studentError) throw studentError;
+      setIndividualEnrollments(enrollmentRows);
+      setIndividualStudents((studentData || []) as Student[]);
+      setIndividualEnrollmentId('');
+      setIndividualFee({ school_fee: '', accommodation_fee: '0', transport_fee: '0', other_charges_total: '0' });
+      setShowIndividualFeeForm(true);
+    } catch (e) { reportError(e); }
+  }
+
+  async function saveIndividualStudentFee(e: FormEvent) {
+    e.preventDefault();
+    if (!structure || !individualEnrollmentId) { setError('Chagua mwanafunzi kwanza.'); return; }
+    const values = {
+      school_fee: Number(individualFee.school_fee || 0),
+      accommodation_fee: Number(individualFee.accommodation_fee || 0),
+      transport_fee: Number(individualFee.transport_fee || 0),
+      other_charges_total: Number(individualFee.other_charges_total || 0)
+    };
+    if (Object.values(values).some(v => !Number.isFinite(v) || v < 0)) { setError('Weka kiasi sahihi kisicho hasi.'); return; }
+    const total_amount = Object.values(values).reduce((sum, v) => sum + v, 0);
+    setSaving(true); setError(''); setMessage('');
+    try {
+      const existing = accounts.find(a => a.enrollment_id === individualEnrollmentId);
+      const result = existing
+        ? await supabase.from('student_fee_accounts').update({ ...values, total_amount }).eq('id', existing.id)
+        : await supabase.from('student_fee_accounts').insert({ enrollment_id: individualEnrollmentId, fee_structure_id: structure.id, ...values, total_amount });
+      if (result.error) throw result.error;
+      setShowIndividualFeeForm(false);
+      setMessage(existing ? 'Ada ya mwanafunzi imebadilishwa na historia imehifadhiwa.' : 'Ada ya mwanafunzi imeingizwa kikamilifu.');
+      await refresh();
+    } catch (e) { reportError(e); }
+    finally { setSaving(false); }
+  }
+
   async function saveFeeAccount(e: FormEvent) {
     e.preventDefault();
     if (!editingFeeAccount) return;
@@ -1541,6 +1596,44 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
                 ))}
               </div>
 
+              {showIndividualFeeForm && (
+                <div style={card}>
+                  <h3 style={{ marginTop: 0, color: '#173b5e' }}>Ingiza Ada ya Mwanafunzi Binafsi</h3>
+                  <p style={{ color: '#64748b', fontSize: 13 }}>Weka kiasi kinachomhusu mwanafunzi huyu pekee. Kiasi hiki hakitabadilisha ada za wanafunzi wengine wa darasa.</p>
+                  <form onSubmit={saveIndividualStudentFee} style={{ display: 'grid', gap: 12 }}>
+                    <label style={label}>Mwanafunzi
+                      <select required style={input} value={individualEnrollmentId} onChange={e => {
+                        const id = e.target.value; setIndividualEnrollmentId(id);
+                        const existing = accounts.find(a => a.enrollment_id === id);
+                        if (existing) setIndividualFee({ school_fee: String(existing.school_fee), accommodation_fee: String(existing.accommodation_fee), transport_fee: String(existing.transport_fee), other_charges_total: String(existing.other_charges_total) });
+                        else setIndividualFee({ school_fee: '', accommodation_fee: '0', transport_fee: '0', other_charges_total: '0' });
+                      }}>
+                        <option value="">Chagua mwanafunzi</option>
+                        {individualEnrollments.map(en => {
+                          const st = individualStudents.find(s => s.id === en.student_id);
+                          return <option key={en.id} value={en.id}>{st ? `${st.first_name} ${st.middle_name || ''} ${st.last_name} — ${st.admission_no}` : 'Mwanafunzi'}</option>;
+                        })}
+                      </select>
+                    </label>
+                    {([
+                      ['school_fee', 'Ada ya Shule (TSh)'],
+                      ['accommodation_fee', 'Ada ya Malazi (TSh)'],
+                      ['transport_fee', 'Ada ya Usafiri (TSh)'],
+                      ['other_charges_total', 'Ada / Gharama Nyingine (TSh)']
+                    ] as const).map(([key, title]) => (
+                      <label key={key} style={label}>{title}
+                        <input required style={input} type="number" min="0" step="1" value={individualFee[key]}
+                          onChange={e => setIndividualFee(old => ({ ...old, [key]: e.target.value }))} />
+                      </label>
+                    ))}
+                    <div style={{ color: '#173b5e', fontWeight: 800 }}>Jumla: TSh {money(Object.values(individualFee).reduce((sum, v) => sum + Number(v || 0), 0))}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button type="submit" style={button} disabled={saving}>{saving ? 'Inahifadhi...' : 'Hifadhi Ada ya Mwanafunzi'}</button>
+                      <button type="button" style={{ ...button, background: '#64748b' }} onClick={() => setShowIndividualFeeForm(false)}>Funga</button>
+                    </div>
+                  </form>
+                </div>
+              )}
               <div style={card}>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between',
@@ -1550,6 +1643,9 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
                     Orodha ya Akaunti za Wanafunzi
                   </h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <button type="button" style={{ ...button, background: '#0f766e' }} onClick={() => void openIndividualFeeForm()}>
+                      + Ingiza Ada ya Mwanafunzi
+                    </button>
                     <button type="button" style={{ ...button, background: '#eaf1f7', color: '#173b5e' }}
                       onClick={() => {
                         setError('');
