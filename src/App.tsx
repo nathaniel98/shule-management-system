@@ -874,7 +874,7 @@ autoComplete="username"
           ) : section === 'subjects' ? (
             <SubjectsModule />
           ) : section === 'academic-years' ? (
-            <AcademicYearsModule />
+            <AcademicYearsModule isReadOnly={isAccountant} />
           ) : section === 'exams' ? (
             <ExamsModule />
           ) : section === 'results' ? (

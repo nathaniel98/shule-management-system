@@ -14,7 +14,7 @@ type School = {
   school_name: string;
 };
 
-export default function AcademicYearsModule() {
+export default function AcademicYearsModule({ isReadOnly = false }: { isReadOnly?: boolean }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [schoolId, setSchoolId] = useState('');
@@ -37,16 +37,23 @@ export default function AcademicYearsModule() {
   async function loadSchools() {
     if (!supabase) return;
 
+    if (isReadOnly) {
+      const { data, error } = await supabase.rpc('get_my_school_for_staff');
+      if (error) { setError(error.message); return; }
+      const assigned = Array.isArray(data) ? data[0] : data;
+      if (!assigned?.id) { setError('Akaunti hii haijaunganishwa na shule.'); return; }
+      const school = { id: assigned.id, school_name: assigned.school_name || 'Shule yangu' };
+      setSchools([school]);
+      setSchoolId(school.id);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('schools')
       .select('id, school_name')
       .order('school_name');
 
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
+    if (error) { setError(error.message); return; }
     setSchools(data || []);
     if (data?.length) setSchoolId(data[0].id);
   }
@@ -234,7 +241,7 @@ export default function AcademicYearsModule() {
       color: '#26384b',
     }}>
       <h1 style={{ color: '#173b5e' }}>Miaka ya Masomo</h1>
-      <p>Sajili na simamia miaka ya masomo ya shule.</p>
+      <p>{isReadOnly ? 'Angalia mwaka wa masomo unaotumika na historia ya miaka ya shule yako.' : 'Sajili na simamia miaka ya masomo ya shule.'}</p>
 
       {error && (
         <div style={{
@@ -260,7 +267,7 @@ export default function AcademicYearsModule() {
         </div>
       )}
 
-      <section style={{
+      {!isReadOnly && <section style={{
         background: '#fff',
         border: '1px solid #e2e8f0',
         borderRadius: 14,
@@ -329,7 +336,7 @@ export default function AcademicYearsModule() {
             )}
           </div>
         </form>
-      </section>
+      </section>}
 
       <section style={{
         background: '#fff',
@@ -371,7 +378,7 @@ export default function AcademicYearsModule() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {!isReadOnly && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {!year.is_current && (
                   <button
                     onClick={() => makeCurrent(year)}
@@ -396,7 +403,7 @@ export default function AcademicYearsModule() {
                 >
                   Futa
                 </button>
-              </div>
+              </div>}
             </article>
           ))}
         </div>
