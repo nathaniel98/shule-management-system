@@ -66,7 +66,7 @@ const cell: React.CSSProperties = {
   whiteSpace: 'nowrap', fontSize: 14
 };
 
-export default function FeesModule() {
+export default function FeesModule({ isAccountant = false }: { isAccountant?: boolean }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [years, setYears] = useState<Year[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -81,7 +81,7 @@ export default function FeesModule() {
   const [schoolId, setSchoolId] = useState('');
   const [yearId, setYearId] = useState('');
   const [classId, setClassId] = useState('');
-  const [tab, setTab] = useState<'setup' | 'accounts' | 'reports'>('setup');
+  const [tab, setTab] = useState<'setup' | 'accounts' | 'reports'>(isAccountant ? 'accounts' : 'setup');
   const [reportPeriod, setReportPeriod] = useState<'month' | 'year'>('month');
   const [reportMonth, setReportMonth] = useState(() => today().slice(5, 7));
   const [reportCalendarYear, setReportCalendarYear] = useState(() => today().slice(0, 4));
@@ -406,21 +406,22 @@ export default function FeesModule() {
             await loadSchoolData(list[0].id);
           }
         } else {
+          // Staff roles, including accountants, use the same school assignment
+          // RPC as the staff payroll and dashboard modules.
           const { data: assignedData, error: assignedError } =
-            await supabase.rpc('get_my_school_for_branding');
+            await supabase.rpc('get_my_school_for_staff');
           if (assignedError) throw assignedError;
 
           const assigned = Array.isArray(assignedData) ? assignedData[0] : assignedData;
           const assignedSchoolId = assigned?.id || assigned?.school_id;
           if (!assignedSchoolId) {
-            throw new Error('Akaunti hii haijaunganishwa na shule.');
+            throw new Error('Akaunti hii haijaunganishwa na shule. Wasiliana na msimamizi.');
           }
 
-          const assignedSchool = list.find(x => x.id === assignedSchoolId);
-          if (!assignedSchool) {
-            throw new Error('Shule ya akaunti hii haipatikani kwenye orodha ya shule.');
-          }
-
+          const assignedSchool = {
+            id: assignedSchoolId,
+            school_name: assigned?.school_name || 'Shule yangu'
+          };
           setSchools([assignedSchool]);
           setSchoolId(assignedSchool.id);
           await loadSchoolData(assignedSchool.id);
@@ -1251,9 +1252,9 @@ export default function FeesModule() {
         display: 'flex', gap: 8, borderBottom: '1px solid #e2e8f0',
         marginBottom: 16, overflowX: 'auto'
       }}>
-        <button style={tabButton(tab === 'setup')} onClick={() => setTab('setup')}>
+        {!isAccountant && <button style={tabButton(tab === 'setup')} onClick={() => setTab('setup')}>
           Mpangilio wa Ada
-        </button>
+        </button>}
         <button style={tabButton(tab === 'accounts')} onClick={() => setTab('accounts')}>
           Akaunti za Wanafunzi
         </button>
@@ -1266,7 +1267,7 @@ export default function FeesModule() {
         <div style={card}>Inapakia taarifa...</div>
       ) : (
         <>
-          {tab === 'setup' && (
+          {tab === 'setup' && !isAccountant && (
             <div style={{ display: 'grid', gap: 16 }}>
               <div style={card}>
                 <h3 style={{ marginTop: 0, color: '#173b5e' }}>
