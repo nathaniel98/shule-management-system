@@ -39,10 +39,23 @@ export default function AccountantPayrollModule() {
   }catch(e){setError(e instanceof Error?e.message:'Imeshindikana kutengeneza payroll.')}finally{setBusy(false)}
  }
  async function createAdvance(e:React.FormEvent){
-  e.preventDefault();if(!schoolId||!advanceMember||Number(advanceAmount)<=0||Number(advanceMonthly)<=0)return;
+  e.preventDefault();
+  const amountText=advanceAmount.trim();
+  const monthlyText=advanceMonthly.trim();
+  const amount=Number(amountText);
+  const monthly=Number(monthlyText);
+  if(!schoolId||!advanceMember){setError('Chagua mtumishi kwanza.');return}
+  if(!amountText||!Number.isSafeInteger(amount)||amount<=0){setError('Weka kiasi sahihi cha mkopo kwa TSh, bila koma au alama nyingine.');return}
+  if(!monthlyText||!Number.isSafeInteger(monthly)||monthly<=0){setError('Weka kiasi sahihi cha makato ya kila mwezi.');return}
+  if(monthly>amount){setError('Makato ya kila mwezi hayawezi kuzidi kiasi cha mkopo.');return}
   setBusy(true);setError('');setMessage('');
-  try{const q=await supabase!.from('staff_salary_advances').insert({school_id:schoolId,staff_member_id:advanceMember,amount:Number(advanceAmount),monthly_deduction:Number(advanceMonthly),advance_date:advanceDate,notes:'Salary advance'});if(q.error)throw q.error;setAdvanceAmount('');setAdvanceMonthly('');setMessage('Salary advance imesajiliwa. Itakatwa kwenye payroll inayofuata.');await load(runId||undefined)}
-  catch(e){setError(e instanceof Error?e.message:'Imeshindikana kusajili salary advance.')}finally{setBusy(false)}
+  try{
+   const q=await supabase!.from('staff_salary_advances').insert({school_id:schoolId,staff_member_id:advanceMember,amount,monthly_deduction:monthly,advance_date:advanceDate,notes:'Salary advance'});
+   if(q.error)throw q.error;
+   setAdvanceAmount('');setAdvanceMonthly('');
+   setMessage('Salary advance imesajiliwa kwa kiasi halisi ulichoingiza.');
+   await load(runId||undefined)
+  }catch(e){setError(e instanceof Error?e.message:'Imeshindikana kusajili salary advance.')}finally{setBusy(false)}
  }
  async function paid(item:Item,method:string){
   setBusy(true);setError('');try{const q=await supabase!.from('monthly_payroll_items').update({payment_status:'paid',paid_at:new Date().toISOString(),payment_method:method,updated_at:new Date().toISOString()}).eq('id',item.id).eq('payment_status','unpaid');if(q.error)throw q.error;setMessage('Malipo yamerekodiwa.');await load(runId)}catch(e){setError(e instanceof Error?e.message:'Imeshindikana kurekodi malipo.')}finally{setBusy(false)}
@@ -58,8 +71,8 @@ export default function AccountantPayrollModule() {
   <p className="muted">Sajili kiasi cha mkopo na makato ya kila mwezi. Mfumo utakata kiasi kilichokubaliwa, bila kuzidi salio la deni au mshahara unaobaki baada ya makato mengine.</p>
   <form onSubmit={createAdvance} className="form-grid" style={{marginTop:12}}>
    <label>Mtumishi<select required value={advanceMember} onChange={e=>setAdvanceMember(e.target.value)}><option value="">Chagua mtumishi</option>{profiles.map(p=><option key={p.staff_member_id} value={p.staff_member_id}>{(p.school_staff_directory as any)?.full_name||'Mtumishi'}</option>)}</select></label>
-   <label>Kiasi cha mkopo (TSh)<input type="number" min="1" step="1000" required value={advanceAmount} onChange={e=>setAdvanceAmount(e.target.value)} /></label>
-   <label>Makato ya kila mwezi (TSh)<input type="number" min="1" step="1000" required value={advanceMonthly} onChange={e=>setAdvanceMonthly(e.target.value)} /></label>
+   <label>Kiasi cha mkopo (TSh)<input type="number" inputMode="numeric" min="1" step="1" required value={advanceAmount} onChange={e=>setAdvanceAmount(e.target.value)} /></label>
+   <label>Makato ya kila mwezi (TSh)<input type="number" inputMode="numeric" min="1" step="1" required value={advanceMonthly} onChange={e=>setAdvanceMonthly(e.target.value)} /></label>
    <label>Tarehe ya mkopo<input type="date" required value={advanceDate} onChange={e=>setAdvanceDate(e.target.value)} /></label>
    <button className="primary" disabled={busy||!advanceMember||!advanceAmount||!advanceMonthly}>Sajili Salary Advance</button>
   </form>
