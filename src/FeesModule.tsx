@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { supabase } from './supabase';
 
-type School = { id: string; school_name: string };
+type School = { id: string; school_name: string; phone?: string | null; email?: string | null; address?: string | null };
 type Year = { id: string; year_name: string; is_current: boolean };
 type SchoolClass = { id: string; class_name: string };
 type Structure = {
@@ -26,6 +26,7 @@ type Account = {
   school_fee: number; accommodation_fee: number; transport_fee: number;
   other_charges_total: number; total_amount: number;
 };
+type FeeAudit = { id: string; entity_type: string; action: string; old_data: any; new_data: any; changed_at: string; changed_by: string | null; reason: string | null };
 type Payment = {
   id: string; student_fee_account_id: string; receipt_number: string;
   amount: number; payment_date: string; payment_method: string;
@@ -100,6 +101,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
   const [search, setSearch] = useState('');
   const [paymentAccount, setPaymentAccount] = useState<Account | null>(null);
   const [historyAccount, setHistoryAccount] = useState<Account | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [editingFeeAccount, setEditingFeeAccount] = useState<Account | null>(null);
+  const [auditRows, setAuditRows] = useState<FeeAudit[]>([]);
+  const [showAudit, setShowAudit] = useState(false);
+  const [feeEdit, setFeeEdit] = useState({ school_fee: '', accommodation_fee: '', transport_fee: '', other_charges_total: '' });
   const [showFeeImport, setShowFeeImport] = useState(false);
   const [feeImportText, setFeeImportText] = useState('');
   const [feeImporting, setFeeImporting] = useState(false);
@@ -418,9 +424,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
             throw new Error('Akaunti hii haijaunganishwa na shule. Wasiliana na msimamizi.');
           }
 
+          const { data: schoolDetails } = await supabase.from('schools').select('id,school_name,phone,email,address').eq('id', assignedSchoolId).maybeSingle();
           const assignedSchool = {
             id: assignedSchoolId,
-            school_name: assigned?.school_name || 'Shule yangu'
+            school_name: schoolDetails?.school_name || assigned?.school_name || 'Shule yangu',
+            phone: schoolDetails?.phone || null, email: schoolDetails?.email || null, address: schoolDetails?.address || null
           };
           setSchools([assignedSchool]);
           setSchoolId(assignedSchool.id);
@@ -765,6 +773,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
   }
 
   function openPayment(account: Account) {
+    setEditingPayment(null);
     setPaymentAccount(account);
     setPayment({
       amount: '',
@@ -956,10 +965,10 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
     const paidSoFar = payments
       .filter(x => x.student_fee_account_id === paymentAccount.id)
-      .reduce((sum, x) => sum + Number(x.amount), 0);
+       .reduce((sum, x) => sum + Number(x.amount), 0);
 
     const remaining =
-      Number(paymentAccount.total_amount) - paidSoFar;
+      Number(paymentAccount.total_amount) - paidSoFar + Number(editingPayment?.amount || 0);
 
     if (amount > remaining) {
       setError(
@@ -975,22 +984,25 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
       const receiptNumber =
         `ADA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-      const { error: insertError } = await supabase
-        .from('fee_payments')
-        .insert({
-          student_fee_account_id: paymentAccount.id,
-          receipt_number: receiptNumber,
-          amount,
-          payment_date: payment.payment_date,
-          payment_method: payment.payment_method,
-          reference_number: payment.reference_number.trim() || null,
-          notes: payment.notes.trim() || null
-        });
-
-      if (insertError) throw insertError;
-
+      const paymentPayload = {
+        amount,
+        payment_date: payment.payment_date,
+        payment_method: payment.payment_method,
+        reference_number: payment.reference_number.trim() || null,
+        notes: payment.notes.trim() || null
+      };
+      if (editingPayment) {
+        const { error: updateError } = await supabase.from('fee_payments')
+          .update(paymentPayload).eq('id', editingPayment.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase.from('fee_payments')
+          .insert({ student_fee_account_id: paymentAccount.id, receipt_number: receiptNumber, ...paymentPayload });
+        if (insertError) throw insertError;
+      }
       setPaymentAccount(null);
-      setMessage(`Malipo yamehifadhiwa. Risiti: ${receiptNumber}`);
+      setEditingPayment(null);
+      setMessage(editingPayment ? 'Malipo yamehaririwa na mabadiliko yamehifadhiwa kwenye historia.' : `Malipo yamehifadhiwa. Risiti: ${receiptNumber}`);
       await refresh();
     } catch (e: any) {
       reportError(e);
@@ -998,7 +1010,52 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
       setSaving(false);
     }
   }
-    const historyEnrollment = historyAccount
+    async function editPayment(p: Payment, account: Account) {
+    setEditingPayment(p);
+    setPaymentAccount(account);
+    setPayment({ amount: String(p.amount), payment_date: p.payment_date, payment_method: p.payment_method, reference_number: p.reference_number || '', notes: p.notes || '' });
+    setError('');
+  }
+
+  async function deletePayment(p: Payment) {
+    if (!window.confirm(`Una uhakika unataka kufuta malipo ya TSh ${money(p.amount)}? Historia ya mabadiliko itabaki.`)) return;
+    try {
+      const { error } = await supabase.from('fee_payments').delete().eq('id', p.id);
+      if (error) throw error;
+      setMessage('Malipo yamefutwa. Rekodi ya ufutaji imehifadhiwa kwenye historia ya mabadiliko.');
+      await refresh();
+    } catch (e) { reportError(e); }
+  }
+
+  async function saveFeeAccount(e: FormEvent) {
+    e.preventDefault();
+    if (!editingFeeAccount) return;
+    const values = {
+      school_fee: Number(feeEdit.school_fee || 0),
+      accommodation_fee: Number(feeEdit.accommodation_fee || 0),
+      transport_fee: Number(feeEdit.transport_fee || 0),
+      other_charges_total: Number(feeEdit.other_charges_total || 0)
+    };
+    const total_amount = Object.values(values).reduce((sum, value) => sum + value, 0);
+    try {
+      const { error } = await supabase.from('student_fee_accounts').update({ ...values, total_amount }).eq('id', editingFeeAccount.id);
+      if (error) throw error;
+      setEditingFeeAccount(null);
+      setMessage('Ada ya mwanafunzi imehaririwa; mabadiliko yamehifadhiwa kwenye historia.');
+      await refresh();
+    } catch (e) { reportError(e); }
+  }
+
+  async function openAuditHistory() {
+    try {
+      const { data, error } = await supabase.from('fee_change_audit').select('*').eq('school_id', schoolId).order('changed_at', { ascending: false }).limit(200);
+      if (error) throw error;
+      setAuditRows((data || []) as FeeAudit[]);
+      setShowAudit(true);
+    } catch (e) { reportError(e); }
+  }
+
+  const historyEnrollment = historyAccount
     ? enrollmentMap.get(historyAccount.enrollment_id)
     : undefined;
 
@@ -1025,7 +1082,8 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
     const enrollment = enrollmentMap.get(account.enrollment_id);
     const student = enrollment ? studentMap.get(enrollment.student_id) : undefined;
-    const school = schools.find(x => x.id === schoolId);
+    const { data: schoolDetails } = await supabase.from('schools').select('school_name,phone,email,address').eq('id', schoolId).maybeSingle();
+    const school = { ...schools.find(x => x.id === schoolId), ...schoolDetails };
     const accountPayments = payments.filter(x => x.student_fee_account_id === account.id);
     const totalPaid = accountPayments.reduce((sum, item) => sum + Number(item.amount), 0);
     const balance = Math.max(0, Number(account.total_amount) - totalPaid);
@@ -1048,7 +1106,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
     const isThermal = format === '80mm';
     const verifyUrl = `${window.location.origin}/verify-receipt?receipt=${encodeURIComponent(p.receipt_number)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${isThermal ? '180x180' : '220x220'}&margin=2&data=${encodeURIComponent(verifyUrl)}`;
-    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong></div>`;
+    const header = `<div class="school-header">${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo ya shule">` : ''}<strong>${school?.school_name || 'SHULE'}</strong>${school?.address ? `<div>${school.address}</div>` : ''}${school?.phone ? `<div>Simu: ${school.phone}</div>` : ''}${school?.email ? `<div>${school.email}</div>` : ''}</div>`;
     const letterheadBackground = !isThermal && letterheadUrl
       ? `<img class="letterhead-background" src="${letterheadUrl}" alt="">`
       : '';
@@ -1557,12 +1615,11 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
                               <button style={smallButton} onClick={() => openPayment(account)}>
                                 Lipa
                               </button>
-                              <button
-                                style={{ ...smallButton, background: '#475569' }}
-                                onClick={() => setHistoryAccount(account)}
-                              >
-                                Historia
+                              <button style={{ ...smallButton, background: '#0f766e' }}
+                                onClick={() => { setEditingFeeAccount(account); setFeeEdit({ school_fee: String(account.school_fee), accommodation_fee: String(account.accommodation_fee), transport_fee: String(account.transport_fee), other_charges_total: String(account.other_charges_total) }); }}>
+                                Hariri Ada
                               </button>
+                              <button style={{ ...smallButton, background: '#475569' }} onClick={() => setHistoryAccount(account)}>Historia</button>
                             </div>
                           </td>
                         </tr>
@@ -1833,7 +1890,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
             ...card, maxWidth: 520, width: '100%',
             maxHeight: '90vh', overflowY: 'auto'
           }}>
-            <h3 style={{ marginTop: 0, color: '#173b5e' }}>Pokea Malipo</h3>
+            <h3 style={{ marginTop: 0, color: '#173b5e' }}>{editingPayment ? 'Hariri Malipo' : 'Pokea Malipo'}</h3>
             <form onSubmit={savePayment}>
               <div style={fieldGrid}>
                 <label style={label}>
@@ -1898,7 +1955,7 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
 
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button type="submit" style={button} disabled={saving}>
-                  {saving ? 'Inahifadhi...' : 'Hifadhi Malipo'}
+                  {saving ? 'Inahifadhi...' : editingPayment ? 'Hifadhi Mabadiliko' : 'Hifadhi Malipo'}
                 </button>
                 <button
                   type="button"
@@ -1909,6 +1966,32 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {editingFeeAccount && (
+        <div style={{ position:'fixed', inset:0, zIndex:1100, background:'rgba(15,23,42,.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:12, overflowY:'auto' }}>
+          <form onSubmit={saveFeeAccount} style={{ ...card, maxWidth:520, width:'100%' }}>
+            <h3>Hariri Ada ya Mwanafunzi</h3>
+            {(['school_fee','accommodation_fee','transport_fee','other_charges_total'] as const).map((key) => (
+              <label key={key} style={{ ...label, marginBottom:12 }}>{({school_fee:'Ada ya Shule',accommodation_fee:'Malazi',transport_fee:'Usafiri',other_charges_total:'Ada/Nyinginezo'} as any)[key]} (TSh)
+                <input style={input} type="number" min="0" value={feeEdit[key]} onChange={e=>setFeeEdit({...feeEdit,[key]:e.target.value})}/>
+              </label>
+            ))}
+            <p>Jumla mpya: <b>TSh {money(Object.values(feeEdit).reduce((s,v)=>s+Number(v||0),0))}</b></p>
+            <div style={{display:'flex',gap:8}}><button style={button} type="submit">Hifadhi Mabadiliko</button><button type="button" style={{...button,background:'#64748b'}} onClick={()=>setEditingFeeAccount(null)}>Funga</button></div>
+          </form>
+        </div>
+      )}
+
+      {showAudit && (
+        <div style={{ position:'fixed', inset:0, zIndex:1200, background:'rgba(15,23,42,.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:12, overflowY:'auto' }}>
+          <div style={{...card,maxWidth:850,width:'100%',maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><h3>Historia ya Mabadiliko ya Ada na Malipo</h3><button style={smallButton} onClick={()=>setShowAudit(false)}>Funga</button></div>
+            <div style={{overflowX:'auto'}}><table style={{...tableStyle,minWidth:700}}><thead><tr>{['Tarehe','Aliyebadilisha (ID)','Aina','Kitendo','Taarifa za Awali','Taarifa Mpya','Sababu'].map(x=><th style={cell} key={x}>{x}</th>)}</tr></thead>
+              <tbody>{auditRows.map(a=><tr key={a.id}><td style={cell}>{new Date(a.changed_at).toLocaleString('sw-TZ')}</td><td style={cell}>{a.changed_by || '—'}</td><td style={cell}>{a.entity_type==='payment'?'Malipo':'Ada'}</td><td style={cell}>{a.action==='DELETE'?'Imefutwa':'Imehaririwa'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.old_data?.amount ? 'TSh '+money(a.old_data.amount) : a.old_data?.total_amount ? 'TSh '+money(a.old_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.new_data?.amount ? 'TSh '+money(a.new_data.amount) : a.new_data?.total_amount ? 'TSh '+money(a.new_data.total_amount) : '—'}</td><td style={{...cell,whiteSpace:'normal'}}>{a.reason || 'Mabadiliko kupitia mfumo'}</td></tr>)}
+              {!auditRows.length && <tr><td style={cell} colSpan={7}>Hakuna mabadiliko yaliyorekodiwa.</td></tr>}</tbody></table></div>
           </div>
         </div>
       )}
@@ -1969,18 +2052,10 @@ export default function FeesModule({ isAccountant = false }: { isAccountant?: bo
                       <td style={cell}>{p.reference_number || '—'}</td>
                       <td style={cell}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          <button
-                            style={{ ...smallButton, padding: '7px 9px' }}
-                            onClick={() => printReceipt(p, historyAccount, '80mm')}
-                          >
-                            80mm
-                          </button>
-                          <button
-                            style={{ ...smallButton, padding: '7px 9px', background: '#2563eb' }}
-                            onClick={() => printReceipt(p, historyAccount, 'A4')}
-                          >
-                            A4
-                          </button>
+                          <button style={{ ...smallButton, padding: '7px 9px' }} onClick={() => printReceipt(p, historyAccount, '80mm')}>80mm</button>
+                          <button style={{ ...smallButton, padding: '7px 9px', background: '#2563eb' }} onClick={() => printReceipt(p, historyAccount, 'A4')}>A4</button>
+                          {isAccountant && <button style={{ ...smallButton, padding: '7px 9px', background: '#0f766e' }} onClick={() => editPayment(p, historyAccount)}>Hariri</button>}
+                          {isAccountant && <button style={{ ...smallButton, padding: '7px 9px', background: '#b91c1c' }} onClick={() => deletePayment(p)}>Futa</button>}
                         </div>
                       </td>
                     </tr>
