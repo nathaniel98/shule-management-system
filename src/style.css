@@ -259,3 +259,74 @@
     background: #fff;
   }
 }
+
+
+/* Accountant dashboard: task-focused shortcuts instead of platform-wide counters. */
+.accountant-dashboard { width:100%; min-width:0; }
+.accountant-dashboard-intro {
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:22px;
+  padding:20px;
+  border:1px solid #e6edf2;
+  border-radius:16px;
+  background:#fff;
+}
+.accountant-dashboard-intro h2 { margin:0 0 6px; color:#203e59; font-size:21px; }
+.accountant-dashboard-intro p { margin:0; line-height:1.6; }
+.dashboard-role-icon,.accountant-duty-card .duty-icon {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 48px;
+  width:48px;
+  height:48px;
+  border-radius:13px;
+  background:#eef4f8;
+  color:#315b79;
+}
+.accountant-duty-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.accountant-duty-card {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:11px;
+  min-width:0;
+  padding:20px;
+  border:1px solid #e4ebf0;
+  border-radius:16px;
+  background:#fff;
+  color:#253e53;
+  text-align:left;
+  cursor:pointer;
+  transition:border-color .15s,transform .15s,box-shadow .15s;
+}
+.accountant-duty-card:hover {
+  border-color:#9bb1c2;
+  transform:translateY(-2px);
+  box-shadow:0 8px 22px rgba(25,55,78,.07);
+}
+.accountant-duty-card strong { font-size:17px; line-height:1.35; }
+.accountant-duty-card small { color:#84919c; font-size:13px; line-height:1.55; }
+.accountant-duty-card .duty-link {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:auto;
+  color:#315b79;
+  font-size:13px;
+  font-weight:700;
+}
+.accountant-duty-card .duty-link svg { transform:rotate(-90deg); }
+@media(max-width:760px) {
+  .accountant-dashboard-intro { align-items:flex-start; padding:15px; gap:12px; }
+  .accountant-dashboard-intro h2 { font-size:18px; }
+  .accountant-duty-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .accountant-duty-card { padding:16px; gap:9px; }
+  .accountant-duty-card strong { font-size:16px; }
+}
