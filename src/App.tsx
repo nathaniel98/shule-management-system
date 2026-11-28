@@ -106,6 +106,14 @@ function App() {
   const [staffClassId, setStaffClassId] = useState<string | null>(null);
   const [staffDisplayName, setStaffDisplayName] = useState('');
   const [staffRoleLoading, setStaffRoleLoading] = useState(true);
+  const [accountantSummary, setAccountantSummary] = useState({
+    students: 0, staff: 0, monthlyBaseSalary: 0, payrollMonth: '',
+    payrollNet: 0, paid: 0, unpaid: 0,
+    salaryStaff: [] as { id: string; name: string; salary: number }[]
+  });
+  const [accountantSummaryLoading, setAccountantSummaryLoading] = useState(false);
+  const [accountantSummaryError, setAccountantSummaryError] = useState('');
+
 
   async function loadDashboardStats() {
     if (!supabase) {
@@ -446,6 +454,60 @@ function App() {
     return () => { cancelled = true; };
   }, [session]);
 
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAccountantSummary() {
+      if (!session?.user?.id || staffRole !== 'accountant' || !supabase) return;
+      setAccountantSummaryLoading(true);
+      setAccountantSummaryError('');
+      try {
+        const schoolResult = await supabase.rpc('get_my_school_for_staff');
+        if (schoolResult.error) throw schoolResult.error;
+        const school = Array.isArray(schoolResult.data) ? schoolResult.data[0] : schoolResult.data;
+        if (!school?.id) throw new Error('Akaunti haijaunganishwa na shule.');
+        const [studentsResult, staffResult, salariesResult, runResult] = await Promise.all([
+          supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', school.id),
+          supabase.from('school_staff_directory').select('id', { count: 'exact', head: true }).eq('school_id', school.id),
+          supabase.from('staff_salary_profiles').select('staff_member_id,base_salary,school_staff_directory(full_name)').eq('school_id', school.id).eq('is_active', true),
+          supabase.from('monthly_payroll_runs').select('id,payroll_month,total_net').eq('school_id', school.id).order('payroll_month', { ascending: false }).limit(1).maybeSingle()
+        ]);
+        if (studentsResult.error) throw studentsResult.error;
+        if (staffResult.error) throw staffResult.error;
+        if (salariesResult.error) throw salariesResult.error;
+        if (runResult.error) throw runResult.error;
+        const salaryRows = (salariesResult.data || []).map((row: any) => ({
+          id: row.staff_member_id,
+          name: Array.isArray(row.school_staff_directory) ? row.school_staff_directory[0]?.full_name : row.school_staff_directory?.full_name,
+          salary: Number(row.base_salary || 0)
+        }));
+        let paid = 0, unpaid = 0;
+        if (runResult.data?.id) {
+          const itemsResult = await supabase.from('monthly_payroll_items').select('net_pay,payment_status').eq('school_id', school.id).eq('payroll_run_id', runResult.data.id);
+          if (itemsResult.error) throw itemsResult.error;
+          for (const item of itemsResult.data || []) {
+            if (item.payment_status === 'paid') paid += Number(item.net_pay || 0);
+            else unpaid += Number(item.net_pay || 0);
+          }
+        }
+        if (!cancelled) setAccountantSummary({
+          students: studentsResult.count || 0,
+          staff: staffResult.count || 0,
+          monthlyBaseSalary: salaryRows.reduce((sum, row) => sum + row.salary, 0),
+          payrollMonth: runResult.data?.payroll_month || '',
+          payrollNet: Number(runResult.data?.total_net || 0),
+          paid, unpaid, salaryStaff: salaryRows
+        });
+      } catch (error) {
+        if (!cancelled) setAccountantSummaryError(error instanceof Error ? error.message : 'Imeshindikana kupakia muhtasari wa mhasibu.');
+      } finally {
+        if (!cancelled) setAccountantSummaryLoading(false);
+      }
+    }
+    void loadAccountantSummary();
+    return () => { cancelled = true; };
+  }, [session, staffRole]);
+
   const isSuperAdmin = (session?.user?.email || '').toLowerCase() === 'goodlucknoel19@gmail.com';
   const userMetadata = session?.user?.user_metadata || {};
   const accountDisplayName = (
@@ -711,42 +773,54 @@ autoComplete="username"
                 <div className="accountant-dashboard-intro">
                   <div className="dashboard-role-icon"><Wallet size={25}/></div>
                   <div>
-                    <h2>Majukumu ya Mhasibu</h2>
-                    <p className="muted">Karibu {staffDisplayName || 'Mhasibu'}. Chagua jukumu unalotaka kutekeleza katika shule yako.</p>
+                    <h2>Muhtasari wa Mhasibu</h2>
+                    <p className="muted">Karibu {staffDisplayName || 'Mhasibu'}. Hapa unaona wanafunzi, watumishi na muhtasari wa mishahara ya shule.</p>
                   </div>
                 </div>
-                <div className="accountant-duty-grid">
-                  <button className="accountant-duty-card" onClick={()=>setSection('fees')}>
-                    <span className="duty-icon"><Wallet size={22}/></span>
-                    <strong>Ada na Malipo</strong>
-                    <small>Angalia ada za wanafunzi, pokea na rekodi malipo, na fuatilia madeni.</small>
-                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
-                  </button>
-                  <button className="accountant-duty-card" onClick={()=>setSection('students')}>
+                {accountantSummaryError && <div className="notice" role="alert">{accountantSummaryError}</div>}
+                <div className="accountant-summary-grid">
+                  <button className="accountant-summary-card" onClick={()=>setSection('students')}>
                     <span className="duty-icon"><GraduationCap size={22}/></span>
-                    <strong>Wanafunzi</strong>
-                    <small>Angalia taarifa za wanafunzi na taarifa zinazohitajika kwa shughuli za malipo.</small>
-                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                    <span className="summary-label">Wanafunzi</span>
+                    <strong>{accountantSummaryLoading?'…':accountantSummary.students.toLocaleString()}</strong>
+                    <small>Jumla ya wanafunzi wa shule</small>
+                    <span className="duty-link">Ona wanafunzi <ChevronDown size={15}/></span>
                   </button>
-                  <button className="accountant-duty-card" onClick={()=>setSection('academic-years')}>
-                    <span className="duty-icon"><CalendarDays size={22}/></span>
-                    <strong>Miaka ya Masomo</strong>
-                    <small>Angalia mwaka wa masomo unaotumika na taarifa zake.</small>
-                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
-                  </button>
-                  <button className="accountant-duty-card" onClick={()=>setSection('staff-directory')}>
+                  <button className="accountant-summary-card" onClick={()=>setSection('staff-directory')}>
                     <span className="duty-icon"><Users size={22}/></span>
-                    <strong>Watumishi</strong>
-                    <small>Angalia orodha ya watumishi wa shule na taarifa zao.</small>
-                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                    <span className="summary-label">Watumishi</span>
+                    <strong>{accountantSummaryLoading?'…':accountantSummary.staff.toLocaleString()}</strong>
+                    <small>Watumishi waliosajiliwa</small>
+                    <span className="duty-link">Ona watumishi <ChevronDown size={15}/></span>
                   </button>
-                  <button className="accountant-duty-card" onClick={()=>setSection('staff-payments')}>
+                  <button className="accountant-summary-card" onClick={()=>setSection('salary-setup')}>
                     <span className="duty-icon"><Wallet size={22}/></span>
-                    <strong>Malipo ya Watumishi</strong>
-                    <small>Sajili salary advance, tengeneza payroll na rekodi malipo ya mishahara.</small>
-                    <span className="duty-link">Fungua sehemu <ChevronDown size={15}/></span>
+                    <span className="summary-label">Mishahara ya msingi kwa mwezi</span>
+                    <strong>{accountantSummaryLoading?'…':money(accountantSummary.monthlyBaseSalary)}</strong>
+                    <small>Jumla ya mishahara ya msingi iliyosanidiwa</small>
+                  </button>
+                  <button className="accountant-summary-card" onClick={()=>setSection('staff-payments')}>
+                    <span className="duty-icon"><ClipboardList size={22}/></span>
+                    <span className="summary-label">Payroll ya mwezi</span>
+                    <strong>{accountantSummaryLoading?'…':money(accountantSummary.payrollNet)}</strong>
+                    <small>{accountantSummary.payrollMonth ? new Date(accountantSummary.payrollMonth+'T00:00:00').toLocaleDateString('sw-TZ',{month:'long',year:'numeric'}) : 'Bado haijatengenezwa'}</small>
+                    <span className="duty-link">Fungua payroll <ChevronDown size={15}/></span>
                   </button>
                 </div>
+                <section className="accountant-payroll-overview">
+                  <div className="payroll-overview-heading">
+                    <div><h3>Hali ya malipo ya mwezi</h3><p className="muted">Kwa payroll ya mwisho iliyotengenezwa</p></div>
+                    <button className="secondary" onClick={()=>setSection('staff-payments')}>Angalia payroll</button>
+                  </div>
+                  <div className="payroll-overview-values">
+                    <div><span>Yamelipwa</span><strong>{accountantSummaryLoading?'…':money(accountantSummary.paid)}</strong></div>
+                    <div><span>Bado kulipwa</span><strong>{accountantSummaryLoading?'…':money(accountantSummary.unpaid)}</strong></div>
+                  </div>
+                </section>
+                <section className="accountant-salary-list">
+                  <div className="payroll-overview-heading"><div><h3>Mishahara ya watumishi</h3><p className="muted">Mshahara wa msingi kwa mwezi kwa kila mtumishi</p></div><button className="secondary" onClick={()=>setSection('staff-payments')}>Malipo ya watumishi</button></div>
+                  {accountantSummaryLoading ? <p className="muted">Inapakia mishahara...</p> : accountantSummary.salaryStaff.length ? <div className="accountant-salary-rows">{accountantSummary.salaryStaff.map(person=><div className="accountant-salary-row" key={person.id}><span>{person.name || 'Mtumishi'}</span><strong>{money(person.salary)}</strong></div>)}</div> : <p className="muted">Hakuna mishahara iliyosanidiwa bado.</p>}
+                </section>
               </section>
             ) : <>
               {dashboardError && (
