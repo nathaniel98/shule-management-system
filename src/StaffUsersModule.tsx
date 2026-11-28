@@ -7,6 +7,11 @@ type Subject = { id: string; subject_name: string };
 type TeachingAssignment = { id: string; staff_account_id: string; class_id: string; subject_id: string };
 type StaffAccount = { id: string; display_name: string; email: string | null; phone: string | null; role: StaffRole; class_id: string | null; teacher_id: string | null; staff_member_id: string | null; is_active: boolean; created_at: string };
 type RegisteredTeacher = { id: string; first_name: string; middle_name: string | null; last_name: string; employee_no: string; status: string | null; phone?: string | null; email?: string | null };
+function generateStaffEmployeeNo() {
+  const suffix = Math.floor(100000 + Math.random() * 900000);
+  return `AJR-${new Date().getFullYear()}-${suffix}`;
+}
+
 type StaffDirectoryMember = { id: string; full_name: string; employee_no: string | null; staff_category: 'teaching' | 'support'; job_title: string; phone: string | null; email: string | null; status: 'Active' | 'Inactive'; teacher_id: string | null };
 
 const roleLabels: Record<StaffRole, string> = {
@@ -27,7 +32,7 @@ export default function StaffUsersModule() {
   const [staffCategory, setStaffCategory] = useState<'teaching' | 'support'>('support');
   const [staffTeacherId, setStaffTeacherId] = useState('');
   const [staffFullName, setStaffFullName] = useState('');
-  const [staffEmployeeNo, setStaffEmployeeNo] = useState('');
+  const [staffEmployeeNo, setStaffEmployeeNo] = useState(generateStaffEmployeeNo);
   const [staffJobTitle, setStaffJobTitle] = useState('Mhasibu');
   const [staffPhone, setStaffPhone] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
@@ -186,10 +191,22 @@ export default function StaffUsersModule() {
     setError('');
     setMessage('');
     try {
+      let generatedEmployeeNo = staffEmployeeNo.trim() || generateStaffEmployeeNo();
+      if (!teacher) {
+        // Check within this school before saving; regenerate if a rare collision occurs.
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const { data: existing, error: checkError } = await supabase!.from('school_staff_directory')
+            .select('id').eq('school_id', schoolId).eq('employee_no', generatedEmployeeNo).maybeSingle();
+          if (checkError) throw checkError;
+          if (!existing) break;
+          generatedEmployeeNo = generateStaffEmployeeNo();
+          if (attempt === 4) throw new Error('Imeshindikana kupata namba ya kipekee. Jaribu tena.');
+        }
+      }
       const { data, error } = await supabase!.from('school_staff_directory').insert({
         school_id: schoolId,
         full_name: fullName,
-        employee_no: teacher?.employee_no || staffEmployeeNo.trim() || null,
+        employee_no: teacher?.employee_no || generatedEmployeeNo,
         staff_category: staffCategory,
         job_title: staffJobTitle.trim(),
         phone: teacher?.phone || staffPhone.trim() || null,
@@ -201,7 +218,7 @@ export default function StaffUsersModule() {
       setStaffDirectory(current => [...current, data as StaffDirectoryMember].sort((a, b) => a.full_name.localeCompare(b.full_name)));
       setStaffTeacherId('');
       setStaffFullName('');
-      setStaffEmployeeNo('');
+      setStaffEmployeeNo(generateStaffEmployeeNo());
       setStaffPhone('');
       setStaffEmail('');
       setStaffJobTitle('Mhasibu');
@@ -504,7 +521,7 @@ export default function StaffUsersModule() {
           <option value="">Chagua mwalimu</option>{registeredTeachers.filter(t => (!t.status || t.status.toLowerCase() === 'active') && !staffDirectory.some(d => d.teacher_id === t.id)).map(t => <option key={t.id} value={t.id}>{[t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' ')} ({t.employee_no})</option>)}
         </select></label> : <>
           <label style={label}>Jina kamili<input style={input} value={staffFullName} onChange={e => setStaffFullName(e.target.value)} required /></label>
-          <label style={label}>Namba ya utumishi (si lazima)<input style={input} value={staffEmployeeNo} onChange={e => setStaffEmployeeNo(e.target.value)} /></label>
+          <label style={label}>Namba ya utumishi (hutengenezwa automatic)<input style={{ ...input, background: "#f1f5f9", color: "#334155" }} value={staffEmployeeNo} readOnly /><span style={{ color: "#64748b", fontSize: 12, fontWeight: 400 }}>Mfano: AJR-2026-123456. Mfumo utajaza namba mpya kila unapofungua usajili.</span></label>
           <label style={label}>Nafasi ya kazi<input style={input} value={staffJobTitle} onChange={e => setStaffJobTitle(e.target.value)} placeholder="Mf. Mhasibu, Karani, Mlinzi" required /></label>
           <label style={label}>Namba ya simu (si lazima)<input style={input} type="tel" value={staffPhone} onChange={e => setStaffPhone(e.target.value)} /></label>
           <label style={label}>Barua pepe (si lazima)<input style={input} type="email" value={staffEmail} onChange={e => setStaffEmail(e.target.value)} /></label>
