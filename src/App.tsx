@@ -60,6 +60,8 @@ type Section =
   | 'settings'
   | 'users';
 
+const formatTsh = (value: number) => new Intl.NumberFormat('sw-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 }).format(Number(value || 0));
+
 const nav: { id: Section; label: string; icon: any }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'schools', label: 'Shule', icon: School },
@@ -793,16 +795,16 @@ autoComplete="username"
                     <small>Watumishi waliosajiliwa</small>
                     <span className="duty-link">Ona watumishi <ChevronDown size={15}/></span>
                   </button>
-                  <button className="accountant-summary-card" onClick={()=>setSection('salary-setup')}>
+                  <div className="accountant-summary-card">
                     <span className="duty-icon"><Wallet size={22}/></span>
                     <span className="summary-label">Mishahara ya msingi kwa mwezi</span>
-                    <strong>{accountantSummaryLoading?'…':money(accountantSummary.monthlyBaseSalary)}</strong>
+                    <strong>{accountantSummaryLoading?'…':formatTsh(accountantSummary.monthlyBaseSalary)}</strong>
                     <small>Jumla ya mishahara ya msingi iliyosanidiwa</small>
-                  </button>
+                  </div>
                   <button className="accountant-summary-card" onClick={()=>setSection('staff-payments')}>
                     <span className="duty-icon"><ClipboardList size={22}/></span>
                     <span className="summary-label">Payroll ya mwezi</span>
-                    <strong>{accountantSummaryLoading?'…':money(accountantSummary.payrollNet)}</strong>
+                    <strong>{accountantSummaryLoading?'…':formatTsh(accountantSummary.payrollNet)}</strong>
                     <small>{accountantSummary.payrollMonth ? new Date(accountantSummary.payrollMonth+'T00:00:00').toLocaleDateString('sw-TZ',{month:'long',year:'numeric'}) : 'Bado haijatengenezwa'}</small>
                     <span className="duty-link">Fungua payroll <ChevronDown size={15}/></span>
                   </button>
@@ -813,8 +815,8 @@ autoComplete="username"
                     <button className="secondary" onClick={()=>setSection('staff-payments')}>Angalia payroll</button>
                   </div>
                   <div className="payroll-overview-values">
-                    <div><span>Yamelipwa</span><strong>{accountantSummaryLoading?'…':money(accountantSummary.paid)}</strong></div>
-                    <div><span>Bado kulipwa</span><strong>{accountantSummaryLoading?'…':money(accountantSummary.unpaid)}</strong></div>
+                    <div><span>Yamelipwa</span><strong>{accountantSummaryLoading?'…':formatTsh(accountantSummary.paid)}</strong></div>
+                    <div><span>Bado kulipwa</span><strong>{accountantSummaryLoading?'…':formatTsh(accountantSummary.unpaid)}</strong></div>
                   </div>
                 </section>
                 <section className="accountant-salary-list">
